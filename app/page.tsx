@@ -10,9 +10,8 @@ import AdminPanel from './components/AdminPanel';
 type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin';
 
 export default function Home() {
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { session, sessions } = useWorkshopStore();
+  const { session, sessions, currentPage, setCurrentPage } = useWorkshopStore();
 
   const navItems = [
     { key: 'dashboard' as Page, icon: '🏠', label: 'Accueil' },

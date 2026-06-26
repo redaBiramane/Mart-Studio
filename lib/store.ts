@@ -60,6 +60,9 @@ export const useWorkshopStore = create<WorkshopStore>()(
       llmSettings: defaultLLMSettings,
       isLoading: false,
       isSending: false,
+      currentPage: 'dashboard',
+
+      setCurrentPage: (page) => set({ currentPage: page }),
 
       createSession: () => {
         const newSession = createEmptySession();

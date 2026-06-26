@@ -224,8 +224,10 @@ export interface WorkshopStore {
   llmSettings: LLMSettings;
   isLoading: boolean;
   isSending: boolean;
+  currentPage: 'dashboard' | 'workshop' | 'deliverables' | 'admin';
   
   // Actions
+  setCurrentPage: (page: 'dashboard' | 'workshop' | 'deliverables' | 'admin') => void;
   createSession: () => void;
   loadSession: (id: string) => void;
   setCurrentStep: (step: number) => void;

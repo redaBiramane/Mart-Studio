@@ -9,7 +9,7 @@ import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 
 export default function Workshop() {
-  const { session, setCurrentStep, addMessage, updateSessionData } = useWorkshopStore();
+  const { session, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage } = useWorkshopStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
@@ -199,6 +199,25 @@ export default function Workshop() {
     }
   }
 
+  function hasStepData(stepId: number): boolean {
+    if (!session) return false;
+    switch (stepId) {
+      case 1: return !!session.productName;
+      case 2: return session.entities.length > 0;
+      case 3: return session.granularity !== null;
+      case 4: return session.relations.length > 0;
+      case 5: return session.attributes.length > 0;
+      case 6: return session.kpis.length > 0;
+      case 7: return session.businessRules.length > 0;
+      case 8: return session.dataSources.length > 0;
+      case 9: return session.qualityRules.length > 0;
+      case 10: return session.governance !== null;
+      case 11: return session.architecture !== null;
+      case 12: return session.maturityScores !== null;
+      default: return false;
+    }
+  }
+
   function handleStepChange(step: number) {
     if (step <= currentStep + 1) {
       hasInitialized.current = false;
@@ -297,6 +316,57 @@ export default function Workshop() {
         </div>
 
         <div className="chat-input-area">
+          {hasStepData(currentStep) && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'var(--primary-glow)',
+              border: '1px solid var(--border-active)',
+              padding: '16px 20px',
+              borderRadius: 'var(--radius)',
+              marginBottom: '16px',
+              animation: 'fadeSlideUp 0.3s ease',
+              gap: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '20px' }}>✓</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>
+                    Données collectées pour l&apos;étape {currentStep} !
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {currentStep < 12 
+                      ? 'Les informations requises ont été extraites. Vous pouvez passer à l\'étape suivante.' 
+                      : 'Toutes les informations ont été validées. Vous pouvez maintenant clore l\'atelier.'}
+                  </div>
+                </div>
+              </div>
+              {currentStep < 12 ? (
+                <button
+                  type="button"
+                  className="cta-btn"
+                  style={{ padding: '10px 20px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                  onClick={() => handleStepChange(currentStep + 1)}
+                >
+                  Étape suivante ➔
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="cta-btn"
+                  style={{ padding: '10px 20px', fontSize: '13px', whiteSpace: 'nowrap', background: 'linear-gradient(135deg, var(--primary), #10B981)' }}
+                  onClick={() => {
+                    completeSession();
+                    setCurrentPage('deliverables');
+                  }}
+                >
+                  Terminer l&apos;atelier ✓
+                </button>
+              )}
+            </div>
+          )}
+
           {suggestions.length > 0 && displayMessages.length < 3 && (
             <div className="suggested-chips">
               {suggestions.map((q, i) => (
