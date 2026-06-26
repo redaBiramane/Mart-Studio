@@ -54,7 +54,7 @@ export default function StepSidebar({ currentStep, onStepChange, session }: Step
               key={step.id}
               className={`step-item ${status}`}
               onClick={() => onStepChange(step.id)}
-              style={{ opacity: step.id > currentStep + 1 ? 0.4 : 1, cursor: step.id > currentStep + 1 ? 'not-allowed' : 'pointer' }}
+              style={{ cursor: 'pointer' }}
             >
               <div className="step-number">
                 {status === 'completed' ? '✓' : step.id}
@@ -63,7 +63,7 @@ export default function StepSidebar({ currentStep, onStepChange, session }: Step
                 <div className="step-title">
                   <span className="step-icon">{step.icon}</span> {step.titleShort}
                 </div>
-                {hasData && status === 'completed' && (
+                {hasData && (
                   <div style={{ fontSize: 11, color: 'var(--accent-emerald)', marginTop: 2 }}>
                     ✓ Données collectées
                   </div>

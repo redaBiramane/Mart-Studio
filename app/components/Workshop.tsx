@@ -102,7 +102,7 @@ export default function Workshop() {
 
   // Extract structured data from AI responses
   function extractData(content: string) {
-    const jsonRegex = /```json:extract\n([\s\S]*?)\n```/g;
+    const jsonRegex = /```json(?::extract)?\n([\s\S]*?)\n```/g;
     let match;
     while ((match = jsonRegex.exec(content)) !== null) {
       try {
@@ -134,7 +134,7 @@ export default function Workshop() {
           if (!existing) {
             updateSessionData({
               entities: [...session.entities, {
-                id: `entity_${Date.now()}`,
+                id: `entity_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
                 name: data.name as string,
                 definition: (data.definition as string) || '',
                 description: (data.description as string) || '',
@@ -147,11 +147,24 @@ export default function Workshop() {
           }
         }
         break;
+      case 'granularity':
+        updateSessionData({
+          granularity: {
+            observationUnit: (data.observationUnit as string) || '',
+            lineRepresents: (data.lineRepresents as string) || '',
+            detailLevel: (data.detailLevel as string) || '',
+            multipleLinesPerObject: (data.multipleLinesPerObject as boolean) ?? false,
+            temporality: (data.temporality as 'daily' | 'monthly' | 'transactional' | 'snapshot' | 'other') || 'transactional',
+            isHistorized: (data.isHistorized as boolean) ?? false,
+            description: (data.description as string) || '',
+          }
+        });
+        break;
       case 'relation':
         if (data.source && data.target) {
           updateSessionData({
             relations: [...session.relations, {
-              id: `rel_${Date.now()}`,
+              id: `rel_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
               sourceEntityId: (data.sourceId as string) || '',
               targetEntityId: (data.targetId as string) || '',
               sourceEntityName: data.source as string,
@@ -165,11 +178,17 @@ export default function Workshop() {
         }
         break;
       case 'attribute':
-        if (data.name && data.entityId) {
+        if (data.name && (data.entityId || data.entityName)) {
+          // If entityName is given, try to find matching entity ID
+          let targetEntityId = (data.entityId as string) || '';
+          if (!targetEntityId && data.entityName) {
+            const found = session.entities.find(e => e.name.toLowerCase() === (data.entityName as string).toLowerCase());
+            if (found) targetEntityId = found.id;
+          }
           updateSessionData({
             attributes: [...session.attributes, {
-              id: `attr_${Date.now()}`,
-              entityId: data.entityId as string,
+              id: `attr_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+              entityId: targetEntityId,
               name: data.name as string,
               type: (data.type as string) || 'VARCHAR',
               description: (data.description as string) || '',
@@ -182,6 +201,106 @@ export default function Workshop() {
             }],
           });
         }
+        break;
+      case 'kpi':
+        if (data.name) {
+          const existing = session.kpis.find(k => k.name === data.name);
+          if (!existing) {
+            updateSessionData({
+              kpis: [...session.kpis, {
+                id: `kpi_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                name: data.name as string,
+                formula: (data.formula as string) || '',
+                frequency: (data.frequency as string) || '',
+                aggregationLevels: (data.aggregationLevels as string[]) || [],
+                filters: (data.filters as string[]) || [],
+                analysisAxes: (data.analysisAxes as string[]) || [],
+                description: (data.description as string) || '',
+              }]
+            });
+          }
+        }
+        break;
+      case 'rule':
+        if (data.name) {
+          const existing = session.businessRules.find(r => r.name === data.name);
+          if (!existing) {
+            updateSessionData({
+              businessRules: [...session.businessRules, {
+                id: `rule_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                name: data.name as string,
+                description: (data.description as string) || '',
+                type: (data.type as any) || 'validation',
+                entities: (data.entities as string[]) || [],
+                expression: (data.expression as string) || '',
+              }]
+            });
+          }
+        }
+        break;
+      case 'source':
+        if (data.name) {
+          const existing = session.dataSources.find(s => s.name === data.name);
+          if (!existing) {
+            updateSessionData({
+              dataSources: [...session.dataSources, {
+                id: `src_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                name: data.name as string,
+                system: (data.system as string) || '',
+                type: (data.type as any) || 'database',
+                isReliable: (data.isReliable as boolean) ?? true,
+                isReference: (data.isReference as boolean) ?? false,
+                isHistorized: (data.isHistorized as boolean) ?? false,
+                loadFrequency: (data.loadFrequency as string) || '',
+                entities: (data.entities as string[]) || [],
+                description: (data.description as string) || '',
+              }]
+            });
+          }
+        }
+        break;
+      case 'quality':
+        if (data.name) {
+          const existing = session.qualityRules.find(q => q.name === data.name);
+          if (!existing) {
+            updateSessionData({
+              qualityRules: [...session.qualityRules, {
+                id: `qual_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                name: data.name as string,
+                type: (data.type as any) || 'validity',
+                columns: (data.columns as string[]) || [],
+                threshold: (data.threshold as number) || 100,
+                description: (data.description as string) || '',
+                anomalyDetection: (data.anomalyDetection as string) || '',
+              }]
+            });
+          }
+        }
+        break;
+      case 'governance':
+        updateSessionData({
+          governance: {
+            dataOwner: (data.dataOwner as string) || '',
+            definitionValidator: (data.definitionValidator as string) || '',
+            confidentialityLevel: (data.confidentialityLevel as any) || 'internal',
+            gdprConstraints: (data.gdprConstraints as string) || '',
+            isSensitive: (data.isSensitive as boolean) ?? false,
+            retentionPeriod: (data.retentionPeriod as string) || '',
+            description: (data.description as string) || '',
+          }
+        });
+        break;
+      case 'architecture':
+        updateSessionData({
+          architecture: {
+            datamartObjects: (data.datamartObjects as string[]) || [],
+            semanticModelObjects: (data.semanticModelObjects as string[]) || [],
+            reportObjects: (data.reportObjects as string[]) || [],
+            technicalObjects: (data.technicalObjects as string[]) || [],
+            collibraObjects: (data.collibraObjects as string[]) || [],
+            description: (data.description as string) || '',
+          }
+        });
         break;
       case 'maturity':
         updateSessionData({
@@ -219,11 +338,9 @@ export default function Workshop() {
   }
 
   function handleStepChange(step: number) {
-    if (step <= currentStep + 1) {
-      hasInitialized.current = false;
-      setMessages([]);
-      setCurrentStep(step);
-    }
+    hasInitialized.current = false;
+    setMessages([]);
+    setCurrentStep(step);
   }
 
   function onSubmit(e: React.FormEvent) {
