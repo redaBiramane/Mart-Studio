@@ -15,7 +15,7 @@ export default function Home() {
 
   const navItems = [
     { key: 'dashboard' as Page, icon: '🏠', label: 'Accueil' },
-    { key: 'workshop' as Page, icon: '🧠', label: 'Atelier IA', badge: session?.status === 'active' ? `${session.currentStep}/12` : undefined },
+    { key: 'workshop' as Page, icon: '🧠', label: 'Atelier IA', badge: session?.status === 'active' ? `${session.currentStep}/5` : undefined },
     { key: 'deliverables' as Page, icon: '📦', label: 'Livrables' },
   ];
 

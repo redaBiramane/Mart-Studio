@@ -10,7 +10,7 @@ interface StepSidebarProps {
 }
 
 export default function StepSidebar({ currentStep, onStepChange, session }: StepSidebarProps) {
-  const progress = Math.round(((currentStep - 1) / 12) * 100);
+  const progress = Math.round(((currentStep - 1) / 5) * 100);
 
   function getStepStatus(stepId: number): 'completed' | 'active' | 'pending' {
     if (stepId < currentStep) return 'completed';
@@ -22,16 +22,9 @@ export default function StepSidebar({ currentStep, onStepChange, session }: Step
     switch (stepId) {
       case 1: return !!session.productName;
       case 2: return session.entities.length > 0;
-      case 3: return session.granularity !== null;
-      case 4: return session.relations.length > 0;
-      case 5: return session.attributes.length > 0;
-      case 6: return session.kpis.length > 0;
-      case 7: return session.businessRules.length > 0;
-      case 8: return session.dataSources.length > 0;
-      case 9: return session.qualityRules.length > 0;
-      case 10: return session.governance !== null;
-      case 11: return session.architecture !== null;
-      case 12: return session.maturityScores !== null;
+      case 3: return session.relations.length > 0;
+      case 4: return session.attributes.length > 0;
+      case 5: return session.maturityScores !== null;
       default: return false;
     }
   }
