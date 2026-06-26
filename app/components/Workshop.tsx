@@ -32,8 +32,10 @@ export default function Workshop() {
     api: '/api/chat',
     body: () => {
       const currentSession = useWorkshopStore.getState().session;
+      const llmSettings = useWorkshopStore.getState().llmSettings;
       return {
         currentStep: currentSession?.currentStep || 1,
+        llmSettings,
         sessionData: currentSession ? {
           productName: currentSession.productName,
           contextSummary: currentSession.contextSummary,

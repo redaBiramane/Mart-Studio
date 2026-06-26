@@ -5,8 +5,9 @@ import { useWorkshopStore } from '@/lib/store';
 import Dashboard from './components/Dashboard';
 import Workshop from './components/Workshop';
 import Deliverables from './components/Deliverables';
+import AdminPanel from './components/AdminPanel';
 
-type Page = 'dashboard' | 'workshop' | 'deliverables';
+type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin';
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -70,6 +71,17 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Administration</div>
+            <div
+              className={`nav-item ${currentPage === 'admin' ? 'active' : ''}`}
+              onClick={() => { setCurrentPage('admin'); setSidebarOpen(false); }}
+            >
+              <span className="nav-item-icon">⚙️</span>
+              <span>Configuration LLM</span>
+            </div>
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -92,6 +104,7 @@ export default function Home() {
               {currentPage === 'dashboard' && 'Tableau de bord'}
               {currentPage === 'workshop' && 'Atelier de conception'}
               {currentPage === 'deliverables' && 'Livrables'}
+              {currentPage === 'admin' && 'Configuration LLM'}
             </h1>
           </div>
           <div className="header-actions">
@@ -119,6 +132,7 @@ export default function Home() {
           }} onViewDeliverables={() => setCurrentPage('deliverables')} />}
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
+          {currentPage === 'admin' && <AdminPanel />}
         </div>
       </div>
     </div>

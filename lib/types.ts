@@ -207,11 +207,21 @@ export interface WorkshopSession {
   messages: ChatMessage[];
 }
 
+// ---- LLM Configuration ----
+
+export interface LLMSettings {
+  provider: 'openai' | 'google' | 'custom';
+  apiKey: string;
+  model: string;
+  customBaseUrl?: string;
+}
+
 // ---- Store ----
 
 export interface WorkshopStore {
   session: WorkshopSession | null;
   sessions: WorkshopSession[];
+  llmSettings: LLMSettings;
   isLoading: boolean;
   isSending: boolean;
   
@@ -221,6 +231,7 @@ export interface WorkshopStore {
   setCurrentStep: (step: number) => void;
   addMessage: (message: ChatMessage) => void;
   updateSessionData: (data: Partial<WorkshopSession>) => void;
+  updateLLMSettings: (settings: Partial<LLMSettings>) => void;
   completeSession: () => void;
   deleteSession: (id: string) => void;
   setLoading: (loading: boolean) => void;

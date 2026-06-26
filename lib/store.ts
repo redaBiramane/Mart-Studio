@@ -45,11 +45,19 @@ function createEmptySession(): WorkshopSession {
   };
 }
 
+const defaultLLMSettings = {
+  provider: 'openai' as const,
+  apiKey: '',
+  model: 'gpt-4o',
+  customBaseUrl: '',
+};
+
 export const useWorkshopStore = create<WorkshopStore>()(
   persist(
     (set, get) => ({
       session: null,
       sessions: [],
+      llmSettings: defaultLLMSettings,
       isLoading: false,
       isSending: false,
 
@@ -144,6 +152,15 @@ export const useWorkshopStore = create<WorkshopStore>()(
         }));
       },
 
+      updateLLMSettings: (settings) => {
+        set((state) => ({
+          llmSettings: {
+            ...state.llmSettings,
+            ...settings,
+          },
+        }));
+      },
+
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       setSending: (sending: boolean) => set({ isSending: sending }),
     }),
@@ -151,6 +168,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       name: 'mart-studio-sessions',
       partialize: (state) => ({
         sessions: state.sessions,
+        llmSettings: state.llmSettings,
       }),
     }
   )

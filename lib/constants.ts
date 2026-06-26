@@ -199,7 +199,7 @@ export const STEPS: StepDefinition[] = [
 ];
 
 export const MATURITY_DIMENSIONS = [
-  { key: 'businessUnderstanding', label: 'Compréhension métier', color: '#00854A' },
+  { key: 'businessUnderstanding', label: 'Compréhension métier', color: '#00664F' },
   { key: 'modeling', label: 'Modélisation', color: '#10B981' },
   { key: 'documentation', label: 'Documentation', color: '#6366F1' },
   { key: 'governance', label: 'Gouvernance', color: '#F59E0B' },

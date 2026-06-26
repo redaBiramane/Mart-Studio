@@ -3,13 +3,14 @@
 // ============================================================
 
 import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { openai, createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { SYSTEM_PROMPT, getStepInstruction } from '@/lib/prompts/system-prompt';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const { messages, currentStep, sessionData } = await req.json();
+  const { messages, currentStep, sessionData, llmSettings } = await req.json();
 
   // Build the full system prompt with step-specific instructions
   const stepInstruction = getStepInstruction(currentStep || 1);
@@ -48,8 +49,47 @@ export async function POST(req: Request) {
     content: m.content || (m.parts?.filter((p: { type: string }) => p.type === 'text').map((p: { text: string }) => p.text).join('') ?? ''),
   }));
 
+  let modelInstance;
+
+  if (llmSettings && llmSettings.apiKey) {
+    if (llmSettings.provider === 'google') {
+      const googleProvider = createGoogleGenerativeAI({
+        apiKey: llmSettings.apiKey,
+      });
+      modelInstance = googleProvider(llmSettings.model || 'gemini-1.5-flash');
+    } else if (llmSettings.provider === 'custom') {
+      const customOpenAIProvider = createOpenAI({
+        apiKey: llmSettings.apiKey || '',
+        baseURL: llmSettings.customBaseUrl || undefined,
+      });
+      modelInstance = customOpenAIProvider(llmSettings.model || 'custom-model');
+    } else {
+      const openaiProvider = createOpenAI({
+        apiKey: llmSettings.apiKey,
+      });
+      modelInstance = openaiProvider(llmSettings.model || 'gpt-4o');
+    }
+  } else {
+    // Server fallback
+    if (llmSettings?.provider === 'google') {
+      const googleProvider = createGoogleGenerativeAI({
+        apiKey: process.env.GEMINI_API_KEY || '',
+      });
+      modelInstance = googleProvider(llmSettings.model || 'gemini-1.5-flash');
+    } else if (llmSettings?.provider === 'custom') {
+      const customOpenAIProvider = createOpenAI({
+        apiKey: process.env.OPENAI_API_KEY || '',
+        baseURL: llmSettings.customBaseUrl || undefined,
+      });
+      modelInstance = customOpenAIProvider(llmSettings.model || 'custom-model');
+    } else {
+      // Default to OpenAI server configuration
+      modelInstance = openai(llmSettings?.model || 'gpt-4o');
+    }
+  }
+
   const result = streamText({
-    model: openai('gpt-4o'),
+    model: modelInstance,
     system: fullSystemPrompt,
     messages: formattedMessages,
     temperature: 0.7,
