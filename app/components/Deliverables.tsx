@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
-import { WorkshopSession } from '@/lib/types';
+import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
 
 type Tab = 'overview' | 'mcd' | 'sql' | 'dbt' | 'dictionary' | 'dad';
@@ -235,24 +235,228 @@ function DADTab({ session }: { session: WorkshopSession }) {
 
 // ---- Generators ----
 
+interface ForeignKey {
+  columnName: string;
+  referencedTable: string;
+  referencedColumn: string;
+  isUnique: boolean;
+  isRequired: boolean;
+  relationDescription?: string;
+}
+
+interface ColumnDefinition {
+  name: string;
+  type: string;
+  description: string;
+  isPk: boolean;
+  isRequired: boolean;
+  isUnique: boolean;
+  referencedTable?: string;
+  referencedColumn?: string;
+  relationDescription?: string;
+}
+
+function cleanEntityName(name: string): string {
+  return name.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
+}
+
+function cleanTableName(name: string): string {
+  return name.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+}
+
+function getPrimaryKeyOfEntity(
+  nameOrId: string,
+  session: WorkshopSession,
+  entitiesToGenerate: Entity[]
+): string {
+  const ent = entitiesToGenerate.find(e => e.id === nameOrId || cleanEntityName(e.name) === cleanEntityName(nameOrId));
+  if (ent) {
+    const pkAttr = session.attributes.find(a => (a.entityId === ent.id || a.entityId === ent.name) && a.isPrimaryKey);
+    if (pkAttr) {
+      return pkAttr.name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').toLowerCase();
+    }
+  }
+  return 'id';
+}
+
+function buildFkMap(session: WorkshopSession, entitiesToGenerate: Entity[]): Map<string, ForeignKey[]> {
+  const fkMap = new Map<string, ForeignKey[]>();
+  
+  session.relations.forEach(rel => {
+    const srcTable = cleanTableName(rel.sourceEntityName);
+    const tgtTable = cleanTableName(rel.targetEntityName);
+    
+    const srcPk = getPrimaryKeyOfEntity(rel.sourceEntityName, session, entitiesToGenerate);
+    const tgtPk = getPrimaryKeyOfEntity(rel.targetEntityName, session, entitiesToGenerate);
+    
+    if (rel.type === '1:N') {
+      const ent = entitiesToGenerate.find(e => e.id === rel.targetEntityId || cleanEntityName(e.name) === cleanEntityName(rel.targetEntityName));
+      const key = ent ? ent.id : rel.targetEntityName;
+      const existing = fkMap.get(key) || [];
+      existing.push({
+        columnName: `${srcTable}_${srcPk}`,
+        referencedTable: srcTable,
+        referencedColumn: srcPk,
+        isUnique: false,
+        isRequired: rel.isRequired,
+        relationDescription: rel.description
+      });
+      fkMap.set(key, existing);
+    } else if (rel.type === 'N:1') {
+      const ent = entitiesToGenerate.find(e => e.id === rel.sourceEntityId || cleanEntityName(e.name) === cleanEntityName(rel.sourceEntityName));
+      const key = ent ? ent.id : rel.sourceEntityName;
+      const existing = fkMap.get(key) || [];
+      existing.push({
+        columnName: `${tgtTable}_${tgtPk}`,
+        referencedTable: tgtTable,
+        referencedColumn: tgtPk,
+        isUnique: false,
+        isRequired: rel.isRequired,
+        relationDescription: rel.description
+      });
+      fkMap.set(key, existing);
+    } else if (rel.type === '1:1') {
+      const ent = entitiesToGenerate.find(e => e.id === rel.targetEntityId || cleanEntityName(e.name) === cleanEntityName(rel.targetEntityName));
+      const key = ent ? ent.id : rel.targetEntityName;
+      const existing = fkMap.get(key) || [];
+      existing.push({
+        columnName: `${srcTable}_${srcPk}`,
+        referencedTable: srcTable,
+        referencedColumn: srcPk,
+        isUnique: true,
+        isRequired: rel.isRequired,
+        relationDescription: rel.description
+      });
+      fkMap.set(key, existing);
+    }
+  });
+  
+  return fkMap;
+}
+
+function getTableColumns(
+  entity: Entity,
+  session: WorkshopSession,
+  entitiesToGenerate: Entity[],
+  fkMap: Map<string, ForeignKey[]>
+): ColumnDefinition[] {
+  const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
+  const columns: ColumnDefinition[] = [];
+  
+  const hasExplicitPk = attrs.some(a => a.isPrimaryKey);
+  const hasIdAttr = attrs.some(a => a.name.toLowerCase() === 'id');
+  const needsDefaultId = !hasExplicitPk && !hasIdAttr;
+  
+  if (needsDefaultId) {
+    columns.push({
+      name: 'id',
+      type: 'BIGINT',
+      description: 'Clé primaire auto-générée',
+      isPk: true,
+      isRequired: true,
+      isUnique: true
+    });
+  }
+  
+  attrs.forEach(a => {
+    const isPk = a.isPrimaryKey || (!hasExplicitPk && a.name.toLowerCase() === 'id');
+    columns.push({
+      name: a.name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').toLowerCase(),
+      type: a.type,
+      description: a.description || a.name,
+      isPk: isPk,
+      isRequired: a.isRequired || isPk,
+      isUnique: isPk
+    });
+  });
+  
+  const fks = fkMap.get(entity.id) || fkMap.get(entity.name) || [];
+  fks.forEach(fk => {
+    const existing = columns.find(c => c.name === fk.columnName);
+    if (existing) {
+      existing.referencedTable = fk.referencedTable;
+      existing.referencedColumn = fk.referencedColumn;
+      if (fk.isUnique) existing.isUnique = true;
+      if (fk.isRequired) existing.isRequired = true;
+      if (fk.relationDescription) {
+        existing.relationDescription = fk.relationDescription;
+        existing.description += ` (Ref: ${fk.referencedTable}.${fk.referencedColumn} - ${fk.relationDescription})`;
+      }
+    } else {
+      columns.push({
+        name: fk.columnName,
+        type: 'BIGINT',
+        description: fk.relationDescription || `Clé étrangère pointant vers ${fk.referencedTable}`,
+        isPk: false,
+        isRequired: fk.isRequired,
+        isUnique: fk.isUnique,
+        referencedTable: fk.referencedTable,
+        referencedColumn: fk.referencedColumn,
+        relationDescription: fk.relationDescription
+      });
+    }
+  });
+  
+  return columns;
+}
+
 function generateMermaidERD(session: WorkshopSession): string {
   let code = 'erDiagram\n';
-  session.entities.forEach(entity => {
+  
+  // Resolve all entities (including implicit ones from relations)
+  const entitiesToGenerate = [...session.entities];
+  const existingEntityNames = new Set(session.entities.map(e => cleanEntityName(e.name)));
+  
+  session.relations.forEach(rel => {
+    const src = cleanEntityName(rel.sourceEntityName);
+    const tgt = cleanEntityName(rel.targetEntityName);
+    if (!existingEntityNames.has(src)) {
+      entitiesToGenerate.push({
+        id: rel.sourceEntityName,
+        name: rel.sourceEntityName,
+        definition: `Entité implicite générée à partir des relations`,
+        description: `Entité implicite générée à partir des relations`,
+        example: '',
+        responsible: '',
+        type: 'reference',
+        lifecycle: 'created'
+      });
+      existingEntityNames.add(src);
+    }
+    if (!existingEntityNames.has(tgt)) {
+      entitiesToGenerate.push({
+        id: rel.targetEntityName,
+        name: rel.targetEntityName,
+        definition: `Entité implicite générée à partir des relations`,
+        description: `Entité implicite générée à partir des relations`,
+        example: '',
+        responsible: '',
+        type: 'reference',
+        lifecycle: 'created'
+      });
+      existingEntityNames.add(tgt);
+    }
+  });
+
+  entitiesToGenerate.forEach(entity => {
+    const codeName = cleanEntityName(entity.name);
     const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
     if (attrs.length > 0) {
-      code += `    ${entity.name.replace(/\s/g, '_').toUpperCase()} {\n`;
+      code += `    ${codeName} {\n`;
       attrs.forEach(a => {
         const pkTag = a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '';
-        code += `        ${a.type || 'string'} ${a.name.replace(/\s/g, '_')}${pkTag ? ` "${pkTag}"` : ''}\n`;
+        const attrName = a.name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').toLowerCase();
+        code += `        ${a.type || 'string'} ${attrName}${pkTag ? ` "${pkTag}"` : ''}\n`;
       });
       code += `    }\n`;
     } else {
-      code += `    ${entity.name.replace(/\s/g, '_').toUpperCase()} {\n        string id "PK"\n    }\n`;
+      code += `    ${codeName} {\n        string id "PK"\n    }\n`;
     }
   });
+
   session.relations.forEach(rel => {
-    const src = rel.sourceEntityName.replace(/\s/g, '_').toUpperCase();
-    const tgt = rel.targetEntityName.replace(/\s/g, '_').toUpperCase();
+    const src = cleanEntityName(rel.sourceEntityName);
+    const tgt = cleanEntityName(rel.targetEntityName);
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
     code += `    ${src} ${card} ${tgt} : "${rel.description || 'lié à'}"\n`;
   });
@@ -261,24 +465,97 @@ function generateMermaidERD(session: WorkshopSession): string {
 
 function generateSQL(session: WorkshopSession): string {
   let sql = `-- ============================================\n-- ${session.productName || 'Data Product'} — DDL\n-- Généré par Mart Studio\n-- ============================================\n\n`;
-  session.entities.forEach(entity => {
-    const tableName = entity.name.replace(/\s/g, '_').toLowerCase();
-    const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
-    sql += `-- ${entity.definition || entity.name}\nCREATE TABLE ${tableName} (\n`;
-    if (attrs.length > 0) {
-      const lines = attrs.map(a => {
-        let line = `    ${a.name.replace(/\s/g, '_').toLowerCase()} ${mapSqlType(a.type)}`;
-        if (a.isPrimaryKey) line += ' PRIMARY KEY';
-        if (a.isRequired && !a.isPrimaryKey) line += ' NOT NULL';
-        if (a.description) line += ` -- ${a.description}`;
-        return line;
+  
+  // Resolve all entities (including implicit ones from relations)
+  const entitiesToGenerate = [...session.entities];
+  const existingEntityNames = new Set(session.entities.map(e => cleanEntityName(e.name)));
+  
+  session.relations.forEach(rel => {
+    const src = cleanEntityName(rel.sourceEntityName);
+    const tgt = cleanEntityName(rel.targetEntityName);
+    if (!existingEntityNames.has(src)) {
+      entitiesToGenerate.push({
+        id: rel.sourceEntityName,
+        name: rel.sourceEntityName,
+        definition: `Entité implicite générée à partir des relations`,
+        description: `Entité implicite générée à partir des relations`,
+        example: '',
+        responsible: '',
+        type: 'reference',
+        lifecycle: 'created'
       });
-      sql += lines.join(',\n');
-    } else {
-      sql += `    id BIGINT PRIMARY KEY,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`;
+      existingEntityNames.add(src);
     }
+    if (!existingEntityNames.has(tgt)) {
+      entitiesToGenerate.push({
+        id: rel.targetEntityName,
+        name: rel.targetEntityName,
+        definition: `Entité implicite générée à partir des relations`,
+        description: `Entité implicite générée à partir des relations`,
+        example: '',
+        responsible: '',
+        type: 'reference',
+        lifecycle: 'created'
+      });
+      existingEntityNames.add(tgt);
+    }
+  });
+
+  const fkMap = buildFkMap(session, entitiesToGenerate);
+  
+  entitiesToGenerate.forEach(entity => {
+    const tableName = cleanTableName(entity.name);
+    const cols = getTableColumns(entity, session, entitiesToGenerate, fkMap);
+    
+    sql += `-- ${entity.definition || entity.name}\nCREATE TABLE ${tableName} (\n`;
+    
+    const lines: string[] = [];
+    const constraints: string[] = [];
+    
+    cols.forEach(c => {
+      let line = `    ${c.name} ${mapSqlType(c.type)}`;
+      if (c.isPk) line += ' PRIMARY KEY';
+      if (c.isRequired && !c.isPk) line += ' NOT NULL';
+      if (c.description) line += ` -- ${c.description}`;
+      lines.push(line);
+      
+      if (c.referencedTable && c.referencedColumn) {
+        constraints.push(`    CONSTRAINT fk_${tableName}_${c.name} FOREIGN KEY (${c.name}) REFERENCES ${c.referencedTable}(${c.referencedColumn})`);
+      }
+    });
+    
+    const allLines = [...lines, ...constraints];
+    sql += allLines.join(',\n');
     sql += `\n);\n\n`;
   });
+  
+  // Generate N:N Join tables
+  const processedNnRelations = new Set<string>();
+  session.relations.forEach(rel => {
+    if (rel.type === 'N:N') {
+      const srcTable = cleanTableName(rel.sourceEntityName);
+      const tgtTable = cleanTableName(rel.targetEntityName);
+      
+      const relationKey = [srcTable, tgtTable].sort().join('_');
+      if (processedNnRelations.has(relationKey)) return;
+      processedNnRelations.add(relationKey);
+      
+      const srcPk = getPrimaryKeyOfEntity(rel.sourceEntityName, session, entitiesToGenerate);
+      const tgtPk = getPrimaryKeyOfEntity(rel.targetEntityName, session, entitiesToGenerate);
+      const joinTableName = `${srcTable}_${tgtTable}`;
+      
+      sql += `-- Table de jointure pour la relation N:N entre ${rel.sourceEntityName} et ${rel.targetEntityName}\n`;
+      sql += `-- Description : ${rel.description || 'Association N:N'}\n`;
+      sql += `CREATE TABLE ${joinTableName} (\n`;
+      sql += `    ${srcTable}_${srcPk} BIGINT NOT NULL,\n`;
+      sql += `    ${tgtTable}_${tgtPk} BIGINT NOT NULL,\n`;
+      sql += `    PRIMARY KEY (${srcTable}_${srcPk}, ${tgtTable}_${tgtPk}),\n`;
+      sql += `    CONSTRAINT fk_${joinTableName}_${srcTable} FOREIGN KEY (${srcTable}_${srcPk}) REFERENCES ${srcTable}(${srcPk}),\n`;
+      sql += `    CONSTRAINT fk_${joinTableName}_${tgtTable} FOREIGN KEY (${tgtTable}_${tgtPk}) REFERENCES ${tgtTable}(${tgtPk})\n`;
+      sql += `);\n\n`;
+    }
+  });
+  
   return sql;
 }
 
@@ -295,27 +572,124 @@ function mapSqlType(type: string): string {
 
 function generateDbtYaml(session: WorkshopSession): string {
   let yaml = `version: 2\n\nmodels:\n`;
-  session.entities.forEach(entity => {
-    const modelName = entity.name.replace(/\s/g, '_').toLowerCase();
-    yaml += `  - name: ${modelName}\n`;
-    yaml += `    description: "${entity.definition || entity.description || entity.name}"\n`;
-    const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
-    if (attrs.length > 0) {
-      yaml += `    columns:\n`;
-      attrs.forEach(a => {
-        yaml += `      - name: ${a.name.replace(/\s/g, '_').toLowerCase()}\n`;
-        yaml += `        description: "${a.description || a.name}"\n`;
-        const tests: string[] = [];
-        if (a.isPrimaryKey) { tests.push('unique'); tests.push('not_null'); }
-        else if (a.isRequired) tests.push('not_null');
-        if (tests.length > 0) {
-          yaml += `        tests:\n`;
-          tests.forEach(t => { yaml += `          - ${t}\n`; });
-        }
+  
+  // Resolve all entities (including implicit ones from relations)
+  const entitiesToGenerate = [...session.entities];
+  const existingEntityNames = new Set(session.entities.map(e => cleanEntityName(e.name)));
+  
+  session.relations.forEach(rel => {
+    const src = cleanEntityName(rel.sourceEntityName);
+    const tgt = cleanEntityName(rel.targetEntityName);
+    if (!existingEntityNames.has(src)) {
+      entitiesToGenerate.push({
+        id: rel.sourceEntityName,
+        name: rel.sourceEntityName,
+        definition: `Entité implicite générée à partir des relations`,
+        description: `Entité implicite générée à partir des relations`,
+        example: '',
+        responsible: '',
+        type: 'reference',
+        lifecycle: 'created'
       });
+      existingEntityNames.add(src);
     }
+    if (!existingEntityNames.has(tgt)) {
+      entitiesToGenerate.push({
+        id: rel.targetEntityName,
+        name: rel.targetEntityName,
+        definition: `Entité implicite générée à partir des relations`,
+        description: `Entité implicite générée à partir des relations`,
+        example: '',
+        responsible: '',
+        type: 'reference',
+        lifecycle: 'created'
+      });
+      existingEntityNames.add(tgt);
+    }
+  });
+
+  const fkMap = buildFkMap(session, entitiesToGenerate);
+  
+  entitiesToGenerate.forEach(entity => {
+    const modelName = cleanTableName(entity.name);
+    yaml += `  - name: ${modelName}\n`;
+    yaml += `    description: "${(entity.definition || entity.description || entity.name).replace(/"/g, '\\"')}"\n`;
+    yaml += `    columns:\n`;
+    
+    const cols = getTableColumns(entity, session, entitiesToGenerate, fkMap);
+    
+    cols.forEach(c => {
+      yaml += `      - name: ${c.name}\n`;
+      yaml += `        description: "${c.description.replace(/"/g, '\\"')}"\n`;
+      
+      const tests: string[] = [];
+      if (c.isPk) {
+        tests.push('unique');
+        tests.push('not_null');
+      } else if (c.isRequired) {
+        tests.push('not_null');
+      }
+      
+      const hasTests = tests.length > 0;
+      const hasRelation = c.referencedTable && c.referencedColumn;
+      
+      if (hasTests || hasRelation) {
+        yaml += `        tests:\n`;
+        tests.forEach(t => {
+          yaml += `          - ${t}\n`;
+        });
+        if (hasRelation) {
+          yaml += `          - relationships:\n`;
+          yaml += `              to: ref('${c.referencedTable}')\n`;
+          yaml += `              field: ${c.referencedColumn}\n`;
+        }
+      }
+    });
+    
     yaml += `\n`;
   });
+
+  // N:N relations to define join tables
+  const processedNnRelations = new Set<string>();
+  session.relations.forEach(rel => {
+    if (rel.type === 'N:N') {
+      const srcTable = cleanTableName(rel.sourceEntityName);
+      const tgtTable = cleanTableName(rel.targetEntityName);
+      
+      const relationKey = [srcTable, tgtTable].sort().join('_');
+      if (processedNnRelations.has(relationKey)) return;
+      processedNnRelations.add(relationKey);
+      
+      const srcPk = getPrimaryKeyOfEntity(rel.sourceEntityName, session, entitiesToGenerate);
+      const tgtPk = getPrimaryKeyOfEntity(rel.targetEntityName, session, entitiesToGenerate);
+      const joinTableName = `${srcTable}_${tgtTable}`;
+      
+      yaml += `  - name: ${joinTableName}\n`;
+      yaml += `    description: "Table de jointure N:N reliant les entités ${rel.sourceEntityName} et ${rel.targetEntityName}. Description : ${(rel.description || '').replace(/"/g, '\\"')}"\n`;
+      yaml += `    columns:\n`;
+      
+      // Column 1
+      yaml += `      - name: ${srcTable}_${srcPk}\n`;
+      yaml += `        description: "Clé étrangère composite vers ${srcTable}"\n`;
+      yaml += `        tests:\n`;
+      yaml += `          - not_null\n`;
+      yaml += `          - relationships:\n`;
+      yaml += `              to: ref('${srcTable}')\n`;
+      yaml += `              field: ${srcPk}\n`;
+      
+      // Column 2
+      yaml += `      - name: ${tgtTable}_${tgtPk}\n`;
+      yaml += `        description: "Clé étrangère composite vers ${tgtTable}"\n`;
+      yaml += `        tests:\n`;
+      yaml += `          - not_null\n`;
+      yaml += `          - relationships:\n`;
+      yaml += `              to: ref('${tgtTable}')\n`;
+      yaml += `              field: ${tgtPk}\n`;
+      
+      yaml += `\n`;
+    }
+  });
+  
   return yaml;
 }
 

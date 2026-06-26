@@ -447,33 +447,46 @@ export default function Workshop() {
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                     {currentStep < 5 
-                      ? 'Les informations requises ont été extraites. Vous pouvez passer à l\'étape suivante.' 
+                      ? 'Les informations requises ont été extraites. Vous pouvez valider ou affiner la réponse.' 
                       : 'Toutes les informations ont été validées. Vous pouvez maintenant clore l\'atelier.'}
                   </div>
                 </div>
               </div>
-              {currentStep < 5 ? (
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
-                  className="cta-btn"
-                  style={{ padding: '10px 20px', fontSize: '13px', whiteSpace: 'nowrap' }}
-                  onClick={() => handleStepChange(currentStep + 1)}
-                >
-                  Étape suivante ➔
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="cta-btn"
-                  style={{ padding: '10px 20px', fontSize: '13px', whiteSpace: 'nowrap', background: 'linear-gradient(135deg, var(--primary), #10B981)' }}
+                  className="cta-btn cta-btn-secondary"
+                  style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                  disabled={isLoading}
                   onClick={() => {
-                    completeSession();
-                    setCurrentPage('deliverables');
+                    sendMessage({ text: "Je souhaite donner plus d'informations pour affiner cette étape." });
                   }}
                 >
-                  Terminer l&apos;atelier ✓
+                  Donner plus d&apos;infos 💬
                 </button>
-              )}
+                {currentStep < 5 ? (
+                  <button
+                    type="button"
+                    className="cta-btn"
+                    style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                    onClick={() => handleStepChange(currentStep + 1)}
+                  >
+                    Valider la réponse ➔
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="cta-btn"
+                    style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap', background: 'linear-gradient(135deg, var(--primary), #10B981)' }}
+                    onClick={() => {
+                      completeSession();
+                      setCurrentPage('deliverables');
+                    }}
+                  >
+                    Terminer l&apos;atelier ✓
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
