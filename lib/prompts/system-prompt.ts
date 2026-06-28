@@ -16,6 +16,8 @@ L'utilisateur a des questions déjà définies pour chaque étape et souhaite al
 4. **Extraction immédiate et multiple** : Émets toujours, à la fin de ta réponse, le ou les blocs \`\`\`json:extract correspondant aux données. Si tu repères des informations qui concernent d'autres étapes (ex: un KPI cité à l'étape Contexte), extrais-les AUSSI immédiatement dans des blocs supplémentaires.
 5. **Pas de blocage** : L'interface dépend CRITIQUEMENT de tes blocs JSON. Si tu n'émets pas de bloc JSON valide, l'utilisateur reste bloqué à 0% et ne voit aucun livrable. Inclus TOUJOURS au moins un bloc JSON pertinent à la fin de CHAQUE réponse contenant des données.
 6. **Concision** : Une courte phrase d'intro, puis les blocs. Ne te re-présente pas à chaque étape.
+7. **Ne demande JAMAIS à l'utilisateur de « valider la réponse » ni de « passer à l'étape suivante »** : l'interface gère la validation et la navigation via ses propres boutons. Contente-toi de présenter le contenu et d'émettre les blocs. Ne termine pas par une question de confirmation.
+8. **Ne mets jamais de titre avant un bloc d'extraction** (pas de « #### Maturity », pas de « Blocs JSON »). Les blocs \`\`\`json:extract se placent directement, les uns après les autres.
 
 ## Format d'extraction des données
 
@@ -171,15 +173,18 @@ Questions de l'étape :
 
 Termine TOUJOURS par les blocs json:extract de type "attribute" (un par colonne, pour toutes les entités).`,
 
-    5: `## Étape 5 / 5 — Validation & Rapport DAD
+    5: `## Étape 5 / 5 — Validation, Règles métier, Sources & Rapport DAD
 
-Objectif : revue finale automatique et score de maturité. Tu N'as PAS de question à poser.
-Analyse l'ensemble des données collectées (« Données déjà collectées ») et :
-1. Émets immédiatement un bloc json:extract de type "maturity" avec des scores (0-100) honnêtes basés sur la complétude réelle du modèle.
-2. Si tu détectes des manques importants (entité sans clé primaire, dimension non reliée, KPI sans formule…), complète-les en émettant les blocs json:extract correspondants (attribute, relation, kpi…).
-3. Rédige une courte synthèse : forces du modèle et 2-3 points d'amélioration.
+Objectif : revue finale automatique, enrichissement et score de maturité. Tu N'as PAS de question à poser.
+Analyse l'ensemble des données collectées (« Données déjà collectées ») et produis, dans cet ordre :
 
-Termine TOUJOURS par un bloc json:extract de type "maturity".`,
+1. Une courte synthèse en PROSE (pas de titre "Blocs JSON") : 2-3 forces du modèle et 2-3 points d'amélioration.
+2. RÈGLES MÉTIER : déduis 3 à 6 règles de gestion du contexte et émets un bloc json:extract de type "rule" pour CHACUNE (validation, calcul, contrainte temporelle…). Ex : unicité d'un identifiant, cohérence de dates (date_fin >= date_debut), plafonds, statuts autorisés.
+3. SOURCES DE DONNÉES : déduis 2 à 4 sources d'alimentation plausibles et émets un bloc json:extract de type "source" pour CHACUNE (système, fréquence de chargement, entités alimentées).
+4. Si tu détectes des manques (entité sans clé primaire, dimension non reliée, KPI sans formule…), complète-les via les blocs json:extract adéquats (attribute, relation, kpi…).
+5. Enfin, un bloc json:extract de type "maturity" avec des scores (0-100) honnêtes basés sur la complétude réelle.
+
+N'ajoute AUCUN titre du type "#### Maturity" ou "Blocs JSON" : place simplement les blocs \`\`\`json:extract les uns après les autres, à la fin.`,
   };
 
   return instructions[step] || '';

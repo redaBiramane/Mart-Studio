@@ -5,7 +5,7 @@ import { useWorkshopStore } from '@/lib/store';
 import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
 
-type Tab = 'overview' | 'mcd' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'mcd' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -25,6 +25,7 @@ export default function Deliverables() {
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Vue d\'ensemble', icon: '📊' },
     { key: 'mcd', label: 'MCD / ERD', icon: '🗺️' },
+    { key: 'dbml', label: 'DBML (dbdiagram.io)', icon: '🧬' },
     { key: 'sql', label: 'SQL DDL', icon: '💾' },
     { key: 'dbt', label: 'dbt YAML', icon: '🔧' },
     { key: 'dictionary', label: 'Dictionnaire', icon: '📖' },
@@ -47,6 +48,7 @@ export default function Deliverables() {
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         {activeTab === 'overview' && <OverviewTab session={session} />}
         {activeTab === 'mcd' && <MCDTab session={session} />}
+        {activeTab === 'dbml' && <DbmlTab session={session} />}
         {activeTab === 'sql' && <SQLTab session={session} />}
         {activeTab === 'dbt' && <DbtTab session={session} />}
         {activeTab === 'dictionary' && <DictionaryTab session={session} />}
@@ -112,6 +114,21 @@ function MCDTab({ session }: { session: WorkshopSession }) {
       <CodeBlock title="ERD Mermaid" language="mermaid" code={mermaidCode} />
       <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
         Copiez ce code dans un éditeur Mermaid (mermaid.live) pour visualiser le diagramme.
+      </p>
+    </div>
+  );
+}
+
+function DbmlTab({ session }: { session: WorkshopSession }) {
+  const dbml = generateDBML(session);
+  return (
+    <div className="fade-in">
+      <h3 style={{ fontSize: 18, marginBottom: 16 }}>DBML — Diagramme prêt pour dbdiagram.io</h3>
+      <CodeBlock title="schema.dbml" language="dbml" code={dbml} />
+      <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
+        Copiez ce code et collez-le directement sur{' '}
+        <a href="https://dbdiagram.io/d" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-light)' }}>dbdiagram.io</a>{' '}
+        pour visualiser le diagramme interactif.
       </p>
     </div>
   );
@@ -504,6 +521,95 @@ function generateMermaidERD(session: WorkshopSession): string {
   return code;
 }
 
+function resolveEntitiesToGenerate(session: WorkshopSession): Entity[] {
+  const entitiesToGenerate = [...session.entities];
+  const existingEntityNames = new Set(session.entities.map(e => cleanEntityName(e.name)));
+  session.relations.forEach(rel => {
+    [rel.sourceEntityName, rel.targetEntityName].forEach(rawName => {
+      const clean = cleanEntityName(rawName);
+      if (!existingEntityNames.has(clean)) {
+        entitiesToGenerate.push({
+          id: rawName,
+          name: rawName,
+          definition: 'Entité implicite générée à partir des relations',
+          description: 'Entité implicite générée à partir des relations',
+          example: '',
+          responsible: '',
+          type: 'reference',
+          lifecycle: 'created',
+        });
+        existingEntityNames.add(clean);
+      }
+    });
+  });
+  return entitiesToGenerate;
+}
+
+function dbmlType(type: string): string {
+  return mapSqlType(type).toLowerCase();
+}
+
+function generateDBML(session: WorkshopSession): string {
+  let dbml = `// ============================================\n// ${session.productName || 'Data Product'} — DBML\n// Généré par Mart Studio — à coller sur dbdiagram.io\n// ============================================\n\n`;
+
+  const entitiesToGenerate = resolveEntitiesToGenerate(session);
+  const fkMap = buildFkMap(session, entitiesToGenerate);
+  const refs: string[] = [];
+
+  entitiesToGenerate.forEach(entity => {
+    const tableName = cleanTableName(entity.name);
+    const cols = getTableColumns(entity, session, entitiesToGenerate, fkMap);
+
+    dbml += `Table ${tableName} {\n`;
+    cols.forEach(c => {
+      const settings: string[] = [];
+      if (c.isPk) settings.push('pk');
+      if (c.isUnique && !c.isPk) settings.push('unique');
+      if (c.isRequired && !c.isPk) settings.push('not null');
+      const note = sanitizeComment(c.description);
+      if (note) settings.push(`note: '${note.replace(/'/g, "\\'")}'`);
+      const settingStr = settings.length ? ` [${settings.join(', ')}]` : '';
+      dbml += `  ${c.name} ${dbmlType(c.type)}${settingStr}\n`;
+
+      if (c.referencedTable && c.referencedColumn) {
+        refs.push(`Ref: ${tableName}.${c.name} > ${c.referencedTable}.${c.referencedColumn}`);
+      }
+    });
+    if (entity.definition) {
+      dbml += `  Note: '${sanitizeComment(entity.definition).replace(/'/g, "\\'")}'\n`;
+    }
+    dbml += `}\n\n`;
+  });
+
+  // N:N join tables
+  const processedNn = new Set<string>();
+  session.relations.forEach(rel => {
+    if (rel.type !== 'N:N') return;
+    const srcTable = cleanTableName(rel.sourceEntityName);
+    const tgtTable = cleanTableName(rel.targetEntityName);
+    const key = [srcTable, tgtTable].sort().join('_');
+    if (processedNn.has(key)) return;
+    processedNn.add(key);
+
+    const srcPk = getPrimaryKeyOfEntity(rel.sourceEntityName, session, entitiesToGenerate);
+    const tgtPk = getPrimaryKeyOfEntity(rel.targetEntityName, session, entitiesToGenerate);
+    const joinTable = `${srcTable}_${tgtTable}`;
+    dbml += `Table ${joinTable} {\n`;
+    dbml += `  ${srcTable}_${srcPk} bigint [not null]\n`;
+    dbml += `  ${tgtTable}_${tgtPk} bigint [not null]\n`;
+    dbml += `  indexes {\n    (${srcTable}_${srcPk}, ${tgtTable}_${tgtPk}) [pk]\n  }\n`;
+    dbml += `}\n\n`;
+    refs.push(`Ref: ${joinTable}.${srcTable}_${srcPk} > ${srcTable}.${srcPk}`);
+    refs.push(`Ref: ${joinTable}.${tgtTable}_${tgtPk} > ${tgtTable}.${tgtPk}`);
+  });
+
+  if (refs.length) {
+    dbml += `// Relations\n${refs.join('\n')}\n`;
+  }
+
+  return dbml;
+}
+
 function generateSQL(session: WorkshopSession): string {
   let sql = `-- ============================================\n-- ${session.productName || 'Data Product'} — DDL\n-- Généré par Mart Studio\n-- ============================================\n\n`;
   
@@ -762,7 +868,7 @@ function CodeBlock({ title, language, code }: { title: string; language: string;
   }
 
   function downloadCode() {
-    const ext = language === 'sql' ? '.sql' : language === 'yaml' ? '.yml' : '.txt';
+    const ext = language === 'sql' ? '.sql' : language === 'yaml' ? '.yml' : language === 'dbml' ? '.dbml' : '.txt';
     const blob = new Blob([code], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

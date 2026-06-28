@@ -403,12 +403,16 @@ export default function Workshop() {
           {displayMessages.map((message) => {
             const text = getMessageText(message);
             if (!text) return null;
+            const isAssistant = message.role === 'assistant';
             return (
               <div key={message.id} className={`chat-message ${message.role}`}>
-                <div className="message-avatar">
-                  {message.role === 'assistant' ? '🧠' : '👤'}
-                </div>
+                <MartyAvatar role={message.role} />
                 <div>
+                  {isAssistant && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>
+                      Marty <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>· Assistant Data Architect</span>
+                    </div>
+                  )}
                   <div className="message-bubble" dangerouslySetInnerHTML={{ __html: formatMarkdown(text) }} />
                 </div>
               </div>
@@ -417,7 +421,7 @@ export default function Workshop() {
 
           {isLoading && (
             <div className="chat-message assistant">
-              <div className="message-avatar">🧠</div>
+              <MartyAvatar role="assistant" />
               <div className="message-bubble">
                 <div className="typing-indicator">
                   <div className="typing-dot"></div>
@@ -542,11 +546,33 @@ export default function Workshop() {
   );
 }
 
+// Marty — the Crédit Agricole assistant avatar
+function MartyAvatar({ role }: { role: string }) {
+  if (role !== 'assistant') {
+    return <div className="message-avatar">👤</div>;
+  }
+  return (
+    <div
+      className="message-avatar"
+      style={{ background: '#fff', padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}
+      title="Marty — Assistant Data Architect"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/marty-avatar.svg" alt="Marty" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    </div>
+  );
+}
+
 // Simple markdown formatter
 function formatMarkdown(text: string): string {
-  // Remove JSON extract blocks from display
+  // Remove JSON extract blocks from display (the UI consumes them separately)
   let html = text.replace(/```json:extract[\s\S]*?```/g, '');
-  
+  // Also drop a generic "Blocs JSON" wrapper heading and any heading that is left
+  // empty once its JSON block was stripped (e.g. "#### Maturity" with nothing after).
+  html = html.replace(/^#{1,4}\s*Blocs?\s*JSON.*$/gim, '');
+  html = html.replace(/^#{1,4}\s*(Maturity|Exemple[^\n]*|JSON[^\n]*)\s*$/gim, '');
+  html = html.replace(/\n{3,}/g, '\n\n').trim();
+
   // Code blocks
   html = html.replace(/```(\w+)?\n([\s\S]*?)\n```/g, '<pre><code>$2</code></pre>');
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
