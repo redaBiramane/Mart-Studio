@@ -82,7 +82,7 @@ export default function Workshop() {
         })));
       } else {
         // Trigger initial AI message
-        sendMessage({ text: `[SYSTÈME] Début de l'étape ${currentStep}: "${stepDef.title}". Présente-toi et commence l'entretien.` });
+        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur 5 : "${stepDef.title}". ${currentStep === 1 ? 'Présente-toi en une phrase, puis' : 'Sans te re-présenter,'} affiche directement les questions de cette étape en une seule fois.` });
       }
     }
   }, [session, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps

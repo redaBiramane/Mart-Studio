@@ -35,7 +35,13 @@ export async function POST(req: Request) {
     if (sessionData.relations?.length > 0) {
       parts.push(`**Relations**: ${sessionData.relations.map((r: { sourceEntityName: string; targetEntityName: string; type: string }) => `${r.sourceEntityName} → ${r.targetEntityName} (${r.type})`).join(', ')}`);
     }
-    
+    if (sessionData.attributes?.length > 0) {
+      parts.push(`**Attributs déjà définis**: ${sessionData.attributes.length} (n'extrais que les colonnes manquantes pour éviter les doublons)`);
+    }
+    if (sessionData.kpis?.length > 0) {
+      parts.push(`**KPIs**: ${sessionData.kpis.map((k: { name: string }) => k.name).join(', ')}`);
+    }
+
     if (parts.length > 0) {
       collectedContext = `\n\n## Données déjà collectées\n\n${parts.join('\n')}`;
     }
