@@ -29,14 +29,9 @@ export default function Home() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
-            <div style={{ width: '100%' }}>
-              <Image src="/ca-logo.svg" alt="CA Personal Finance & Mobility" width={180} height={50} style={{ width: '100%', maxWidth: 180, height: 'auto' }} />
-            </div>
-            <div>
-              <div className="sidebar-title">Mart Studio</div>
-              <div className="sidebar-subtitle">Data Product Workshop</div>
-            </div>
+          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+            <Image src="/ca-logo.svg" alt="CA Personal Finance & Mobility" width={140} height={28} style={{ width: 140, height: 28 }} />
+            <div className="sidebar-title">Mart Studio</div>
           </div>
         </div>
 
