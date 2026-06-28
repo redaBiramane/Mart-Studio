@@ -95,7 +95,7 @@ C'est l'étape CLÉ. Ta mission : à partir du contexte métier, concevoir le mo
 Présente d'abord brièvement les questions, puis — dès la réponse de l'utilisateur (même très courte) — émets TOUT le modèle. Sois exhaustif et inférentiel :
 
 1. ENTITÉS (4 à 8 minimum) : 1+ table(s) de FAITS (mesures : Realisation, Objectif, Transaction, Enquête…) + toutes les DIMENSIONS qui les qualifient (Client, Agence, Région, Direction, Période/Temps, Produit, Canal…). Un bloc json:extract "entity" par entité.
-2. ATTRIBUTS : pour CHAQUE entité, une clé primaire (isPK:true, ex "<entite>_id" BIGINT), 3 à 6 attributs métier typés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT), et les clés étrangères (isFK:true) côté « N ». Un bloc json:extract "attribute" par colonne.
+2. ATTRIBUTS : pour CHAQUE entité, EXACTEMENT une clé primaire en snake_case (isPK:true, nommée "<entite>_id", type BIGINT) et 3 à 6 attributs métier typés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT). Un bloc json:extract "attribute" par colonne. Noms TOUJOURS en snake_case (ex: "date_souscription"), jamais en camelCase. N'émets JAMAIS deux fois le même attribut. N'émets PAS de colonnes de clé étrangère : les FK sont générées AUTOMATIQUEMENT à partir des relations.
 3. RELATIONS : relie chaque dimension à la table de faits (1:N), modélise les hiérarchies. Un bloc json:extract "relation" par lien.
 
 Même si l'utilisateur ne cite qu'un ou deux objets, DÉDUIS le modèle complet et signale-le (« Modèle déduit du contexte : … »). Ne te limite jamais à recopier ses mots.
@@ -115,11 +115,12 @@ Pour un contexte « suivi des ventes par magasin », tu produirais entre autres 
 {"type":"attribute","data":{"entityName":"Vente","name":"montant","type":"DECIMAL","required":true,"description":"Montant de la vente"}}
 \`\`\`
 \`\`\`json:extract
-{"type":"attribute","data":{"entityName":"Vente","name":"magasin_id","type":"BIGINT","isFK":true,"required":true,"description":"FK vers Magasin"}}
+{"type":"attribute","data":{"entityName":"Vente","name":"date_vente","type":"DATE","required":true,"description":"Date de la vente"}}
 \`\`\`
 \`\`\`json:extract
 {"type":"attribute","data":{"entityName":"Magasin","name":"magasin_id","type":"BIGINT","isPK":true,"required":true,"description":"Clé primaire"}}
 \`\`\`
+(Pas de bloc pour une colonne magasin_id dans Vente : la relation Magasin → Vente génère la FK automatiquement.)
 \`\`\`json:extract
 {"type":"relation","data":{"source":"Magasin","target":"Vente","cardinality":"1:N","required":true,"description":"Un magasin a plusieurs ventes"}}
 \`\`\`
@@ -156,10 +157,10 @@ Présente les questions en une fois, puis émets UN bloc json:extract de type "a
 
 Règles impératives de modélisation :
 - CHAQUE entité (voir « Données déjà collectées ») DOIT recevoir ses attributs. N'en oublie aucune.
-- CHAQUE entité DOIT avoir exactement une clé primaire (isPK: true), typiquement "<entite>_id" en BIGINT.
-- Pour CHAQUE relation 1:N, ajoute la clé étrangère correspondante (isFK: true) dans l'entité côté « N ».
+- CHAQUE entité DOIT avoir EXACTEMENT une clé primaire (isPK: true), nommée "<entite>_id" en BIGINT, en snake_case.
+- N'émets PAS de colonnes de clé étrangère : les FK sont générées automatiquement à partir des relations. Concentre-toi sur la PK et les attributs métier.
 - Ajoute les attributs descriptifs métier pertinents (libellés, montants, dates, statuts…) avec des types SQL adaptés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT…).
-- Vise 3 à 6 attributs par entité. Déduis-les du métier ; ne te limite pas à ce que l'utilisateur cite.
+- Vise 3 à 6 attributs par entité. Noms TOUJOURS en snake_case, jamais deux fois le même attribut. Déduis-les du métier ; ne te limite pas à ce que l'utilisateur cite.
 - Renseigne "entityName" avec le nom EXACT de l'entité.
 
 Questions de l'étape :

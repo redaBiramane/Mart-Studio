@@ -396,8 +396,45 @@ function getTableColumns(
       });
     }
   });
-  
-  return columns;
+
+  return dedupeColumns(columns);
+}
+
+// Make column lists valid no matter what the AI emitted:
+// 1. Merge columns whose names are the same once normalized (e.g. "sinistre_id"
+//    and "sinistreId" -> "sinistreid"), OR-combining their flags. This removes
+//    exact and near-duplicate columns.
+// 2. Enforce a single PRIMARY KEY per table (keep the first, demote the rest to
+//    a regular NOT NULL column) so the DDL is not rejected by the database.
+function dedupeColumns(columns: ColumnDefinition[]): ColumnDefinition[] {
+  const seen = new Map<string, ColumnDefinition>();
+  for (const col of columns) {
+    const key = col.name.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const prev = seen.get(key);
+    if (!prev) {
+      seen.set(key, { ...col });
+    } else {
+      prev.isPk = prev.isPk || col.isPk;
+      prev.isRequired = prev.isRequired || col.isRequired;
+      prev.isUnique = prev.isUnique || col.isUnique;
+      if (!prev.referencedTable && col.referencedTable) {
+        prev.referencedTable = col.referencedTable;
+        prev.referencedColumn = col.referencedColumn;
+        prev.relationDescription = col.relationDescription;
+      }
+    }
+  }
+
+  let pkAssigned = false;
+  return Array.from(seen.values()).map((col) => {
+    if (col.isPk) {
+      if (pkAssigned) {
+        return { ...col, isPk: false, isRequired: true, isUnique: false };
+      }
+      pkAssigned = true;
+    }
+    return col;
+  });
 }
 
 function generateMermaidERD(session: WorkshopSession): string {
@@ -438,19 +475,23 @@ function generateMermaidERD(session: WorkshopSession): string {
     }
   });
 
+  const mermaidFkMap = buildFkMap(session, entitiesToGenerate);
+
   entitiesToGenerate.forEach(entity => {
     const codeName = cleanEntityName(entity.name);
-    const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
-    if (attrs.length > 0) {
+    // Use the same deduplicated column resolution as the SQL/dbt generators so the
+    // diagram never shows duplicate attributes or columns.
+    const cols = getTableColumns(entity, session, entitiesToGenerate, mermaidFkMap);
+    if (cols.length > 0) {
       code += `    ${codeName} {\n`;
-      attrs.forEach(a => {
-        const pkTag = a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '';
-        const attrName = a.name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').toLowerCase();
-        code += `        ${a.type || 'string'} ${attrName}${pkTag ? ` "${pkTag}"` : ''}\n`;
+      cols.forEach(c => {
+        const pkTag = c.isPk ? 'PK' : c.referencedTable ? 'FK' : '';
+        const mermaidType = mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase();
+        code += `        ${mermaidType} ${c.name}${pkTag ? ` "${pkTag}"` : ''}\n`;
       });
       code += `    }\n`;
     } else {
-      code += `    ${codeName} {\n        string id "PK"\n    }\n`;
+      code += `    ${codeName} {\n        bigint id "PK"\n    }\n`;
     }
   });
 
@@ -508,24 +549,34 @@ function generateSQL(session: WorkshopSession): string {
     const cols = getTableColumns(entity, session, entitiesToGenerate, fkMap);
     
     sql += `-- ${entity.definition || entity.name}\nCREATE TABLE ${tableName} (\n`;
-    
-    const lines: string[] = [];
-    const constraints: string[] = [];
-    
+
+    // Build each item as { definition, comment } so the separating comma is placed
+    // BEFORE the inline "--" comment. Otherwise the comma ends up inside the comment
+    // and the whole CREATE TABLE statement becomes invalid.
+    const items: { def: string; comment: string }[] = [];
+
     cols.forEach(c => {
-      let line = `    ${c.name} ${mapSqlType(c.type)}`;
-      if (c.isPk) line += ' PRIMARY KEY';
-      if (c.isRequired && !c.isPk) line += ' NOT NULL';
-      if (c.description) line += ` -- ${c.description}`;
-      lines.push(line);
-      
+      let def = `    ${c.name} ${mapSqlType(c.type)}`;
+      if (c.isPk) def += ' PRIMARY KEY';
+      if (c.isRequired && !c.isPk) def += ' NOT NULL';
+      items.push({ def, comment: sanitizeComment(c.description) });
+    });
+
+    cols.forEach(c => {
       if (c.referencedTable && c.referencedColumn) {
-        constraints.push(`    CONSTRAINT fk_${tableName}_${c.name} FOREIGN KEY (${c.name}) REFERENCES ${c.referencedTable}(${c.referencedColumn})`);
+        items.push({
+          def: `    CONSTRAINT fk_${tableName}_${c.name} FOREIGN KEY (${c.name}) REFERENCES ${c.referencedTable}(${c.referencedColumn})`,
+          comment: '',
+        });
       }
     });
-    
-    const allLines = [...lines, ...constraints];
-    sql += allLines.join(',\n');
+
+    sql += items
+      .map((item, i) => {
+        const comma = i < items.length - 1 ? ',' : '';
+        return `${item.def}${comma}${item.comment ? ` -- ${item.comment}` : ''}`;
+      })
+      .join('\n');
     sql += `\n);\n\n`;
   });
   
@@ -557,6 +608,12 @@ function generateSQL(session: WorkshopSession): string {
   });
   
   return sql;
+}
+
+// Inline SQL comments run to end of line, so any newline inside a description
+// would break the statement. Collapse whitespace to keep the comment on one line.
+function sanitizeComment(text: string): string {
+  return (text || '').replace(/\s+/g, ' ').trim();
 }
 
 function mapSqlType(type: string): string {
