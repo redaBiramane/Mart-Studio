@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import Workshop from './components/Workshop';
 import Deliverables from './components/Deliverables';
 import AdminPanel from './components/AdminPanel';
+import Image from 'next/image';
 
 type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin';
 
@@ -19,19 +20,33 @@ export default function Home() {
     { key: 'deliverables' as Page, icon: '📦', label: 'Livrables' },
   ];
 
+  const adminItems = [
+    { key: 'admin' as Page, icon: '⚙️', label: 'Configuration LLM' },
+  ];
+
   return (
     <div className="app-layout">
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <div className="sidebar-logo">MS</div>
+          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{ width: '100%' }}>
+              <Image src="/ca-logo.svg" alt="CA Personal Finance & Mobility" width={180} height={50} style={{ width: '100%', maxWidth: 180, height: 'auto' }} />
+            </div>
             <div>
               <div className="sidebar-title">Mart Studio</div>
               <div className="sidebar-subtitle">Data Product Workshop</div>
             </div>
           </div>
         </div>
+
+        <button
+          className="sidebar-collapse-btn"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label="Toggle sidebar"
+        >
+          ◁
+        </button>
 
         <nav className="sidebar-nav">
           <div className="sidebar-section">
@@ -73,18 +88,25 @@ export default function Home() {
 
           <div className="sidebar-section">
             <div className="sidebar-section-title">Administration</div>
-            <div
-              className={`nav-item ${currentPage === 'admin' ? 'active' : ''}`}
-              onClick={() => { setCurrentPage('admin'); setSidebarOpen(false); }}
-            >
-              <span className="nav-item-icon">⚙️</span>
-              <span>Configuration LLM</span>
-            </div>
+            {adminItems.map((item) => (
+              <div
+                key={item.key}
+                className={`nav-item ${currentPage === item.key ? 'active' : ''}`}
+                onClick={() => { setCurrentPage(item.key); setSidebarOpen(false); }}
+              >
+                <span className="nav-item-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+            ))}
           </div>
         </nav>
 
         <div className="sidebar-footer">
-          Mart Studio v1.0 — IA Workshop
+          <div className="sidebar-footer-avatar">A</div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>admin</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Admin</div>
+          </div>
         </div>
       </aside>
 
@@ -118,6 +140,13 @@ export default function Home() {
                 ✨ Nouvel Atelier
               </button>
             )}
+            <button className="header-icon-btn" title="Aide">💡</button>
+            <div className="header-lang">🇫🇷 FR</div>
+            <button className="header-icon-btn" title="Paramètres">⚙️</button>
+            <button className="header-icon-btn" title="Notifications">
+              🔔
+              <span className="badge-dot"></span>
+            </button>
           </div>
         </header>
 

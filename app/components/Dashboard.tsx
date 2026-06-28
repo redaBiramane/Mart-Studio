@@ -21,22 +21,68 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
   return (
     <div className="dashboard">
       <div className="dashboard-hero">
-        <h2>Concevez votre Data Product avec l&apos;IA</h2>
+        {/* Badge */}
+        <div className="dashboard-badge">
+          <span className="dashboard-badge-icon">📊</span>
+          {`${sessions.length} session${sessions.length !== 1 ? 's' : ''} dans l'atelier`}
+        </div>
+
+        <h2>Plateforme de conception<br />des Data Products</h2>
         <p>
-          Un Senior Data Architect IA vous accompagne à travers 12 étapes structurées pour produire un modèle conceptuel cohérent et une documentation de qualité.
+          Concevez automatiquement vos Data Products avec l&apos;accompagnement
+          d&apos;un Senior Data Architect IA. Modélisez, documentez et exportez
+          en quelques clics.
         </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', position: 'relative' }}>
+
+        <div className="dashboard-cta-group">
           <button className="cta-btn" onClick={onStartWorkshop}>
-            ✨ Démarrer un atelier
+            <span className="cta-btn-icon">✨</span>
+            Démarrer un atelier →
           </button>
           {completedCount > 0 && (
             <button className="cta-btn cta-btn-secondary" onClick={onViewDeliverables}>
-              📦 Voir les livrables
+              <span className="cta-btn-icon">📦</span>
+              Livrables
             </button>
           )}
         </div>
       </div>
 
+      {/* Transformation Example Card */}
+      <div className="transform-card">
+        <div className="transform-card-title">Exemple de modélisation</div>
+        <div className="transform-example">
+          <div>
+            <div className="transform-col-label">Entrée utilisateur</div>
+            <div className="transform-before">
+              <code>
+                table_client_contrat<br />
+                date_souscription_credit<br />
+                montant_capital_restant_du
+              </code>
+            </div>
+          </div>
+          <div>
+            <div className="transform-col-label">Sortie IA</div>
+            <div className="transform-after">
+              <div className="transform-after-line">
+                <code>CLIENT_CONTRAT</code>
+                <span className="transform-ok-badge">OK</span>
+              </div>
+              <div className="transform-after-line">
+                <code>DT_SOUSCRIPTION</code>
+                <span className="transform-ok-badge">OK</span>
+              </div>
+              <div className="transform-after-line">
+                <code>MT_CAPITAL_REST_DU</code>
+                <span className="transform-ok-badge">OK</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
       <div className="dashboard-stats">
         <div className="stat-card">
           <div className="stat-value">{sessions.length}</div>
@@ -52,6 +98,7 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
         </div>
       </div>
 
+      {/* Sessions list */}
       {sessions.length > 0 && (
         <div className="sessions-section">
           <h3>Sessions récentes</h3>
