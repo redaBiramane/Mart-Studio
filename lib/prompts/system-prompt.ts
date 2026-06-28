@@ -88,22 +88,48 @@ Questions de l'étape :
 
 Termine TOUJOURS par un bloc json:extract de type "context".`,
 
-    2: `## Étape 2 / 5 — Concepts métiers (Entités)
+    2: `## Étape 2 / 5 — Concepts métiers : conçois le MODÈLE COMPLET en une passe
 
-Objectif : identifier TOUTES les entités (tables) du modèle. C'est l'étape la plus importante pour la qualité du MCD.
-Présente les questions en une fois. Dès que l'utilisateur répond, DÉDUIS le modèle complet et émets UN bloc json:extract de type "entity" PAR ENTITÉ.
+C'est l'étape CLÉ. Ta mission : à partir du contexte métier, concevoir le modèle dimensionnel COMPLET d'un datamart décisionnel, en UNE SEULE réponse. Tu n'extrais PAS seulement les entités : tu produis aussi leurs attributs et leurs relations, pour que le MCD/SQL soit immédiatement riche et exploitable.
 
-Sois exhaustif et inférentiel comme un Data Architect concevant un datamart décisionnel :
-- Identifie la/les table(s) de FAITS (les mesures, ex: Realisation, Objectif, Transaction, Vente).
-- Identifie TOUTES les tables de DIMENSIONS qui qualifient ces faits (ex: Agence, Région, Direction, Période/Temps, Produit, Client, Canal…).
-- Même si l'utilisateur ne cite qu'un ou deux objets, propose le jeu d'entités complet et cohérent qui découle de son contexte, et signale les ajouts (« Entités déduites : … »).
-- Vise au minimum 4 à 8 entités pour un datamart réaliste.
+Présente d'abord brièvement les questions, puis — dès la réponse de l'utilisateur (même très courte) — émets TOUT le modèle. Sois exhaustif et inférentiel :
+
+1. ENTITÉS (4 à 8 minimum) : 1+ table(s) de FAITS (mesures : Realisation, Objectif, Transaction, Enquête…) + toutes les DIMENSIONS qui les qualifient (Client, Agence, Région, Direction, Période/Temps, Produit, Canal…). Un bloc json:extract "entity" par entité.
+2. ATTRIBUTS : pour CHAQUE entité, une clé primaire (isPK:true, ex "<entite>_id" BIGINT), 3 à 6 attributs métier typés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT), et les clés étrangères (isFK:true) côté « N ». Un bloc json:extract "attribute" par colonne.
+3. RELATIONS : relie chaque dimension à la table de faits (1:N), modélise les hiérarchies. Un bloc json:extract "relation" par lien.
+
+Même si l'utilisateur ne cite qu'un ou deux objets, DÉDUIS le modèle complet et signale-le (« Modèle déduit du contexte : … »). Ne te limite jamais à recopier ses mots.
+
+### Exemple du niveau de détail attendu (domaine différent, à adapter)
+Pour un contexte « suivi des ventes par magasin », tu produirais entre autres :
+\`\`\`json:extract
+{"type":"entity","data":{"name":"Vente","definition":"Fait : ligne de vente","type":"transactional","lifecycle":"created"}}
+\`\`\`
+\`\`\`json:extract
+{"type":"entity","data":{"name":"Magasin","definition":"Dimension : point de vente","type":"reference","lifecycle":"created"}}
+\`\`\`
+\`\`\`json:extract
+{"type":"attribute","data":{"entityName":"Vente","name":"vente_id","type":"BIGINT","isPK":true,"required":true,"description":"Clé primaire"}}
+\`\`\`
+\`\`\`json:extract
+{"type":"attribute","data":{"entityName":"Vente","name":"montant","type":"DECIMAL","required":true,"description":"Montant de la vente"}}
+\`\`\`
+\`\`\`json:extract
+{"type":"attribute","data":{"entityName":"Vente","name":"magasin_id","type":"BIGINT","isFK":true,"required":true,"description":"FK vers Magasin"}}
+\`\`\`
+\`\`\`json:extract
+{"type":"attribute","data":{"entityName":"Magasin","name":"magasin_id","type":"BIGINT","isPK":true,"required":true,"description":"Clé primaire"}}
+\`\`\`
+\`\`\`json:extract
+{"type":"relation","data":{"source":"Magasin","target":"Vente","cardinality":"1:N","required":true,"description":"Un magasin a plusieurs ventes"}}
+\`\`\`
+(… et ainsi de suite pour TOUTES les entités, attributs et relations du domaine réel de l'utilisateur.)
 
 Questions de l'étape :
 - Quelles sont les principales entités / tables ?
 - Quelle est la définition métier de chaque entité ?
 
-Termine TOUJOURS par un bloc json:extract de type "entity" pour CHAQUE entité.`,
+Produis le modèle COMPLET : plusieurs entités, leurs attributs (PK/FK/types) ET leurs relations, en une seule réponse.`,
 
     3: `## Étape 3 / 5 — Relations entre entités
 

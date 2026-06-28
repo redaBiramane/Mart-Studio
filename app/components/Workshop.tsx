@@ -113,6 +113,11 @@ export default function Workshop() {
   }
 
   function processExtraction(extraction: { type: string; data: Record<string, unknown> }) {
+    // Read the LATEST session state from the store, not the stale React closure.
+    // This is critical: when one AI message emits several extract blocks, each call
+    // must build on the result of the previous one — otherwise only the last block
+    // of each type survives (e.g. 6 entities collapse into 1).
+    const session = useWorkshopStore.getState().session;
     if (!session) return;
     const { type, data } = extraction;
 

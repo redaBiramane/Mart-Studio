@@ -98,8 +98,8 @@ export async function POST(req: Request) {
     model: modelInstance,
     system: fullSystemPrompt,
     messages: formattedMessages,
-    temperature: 0.7,
-    maxOutputTokens: 2000,
+    temperature: 0.4,
+    maxOutputTokens: 6000,
   });
 
   return result.toUIMessageStreamResponse();
