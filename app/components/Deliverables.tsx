@@ -5,12 +5,34 @@ import { useWorkshopStore } from '@/lib/store';
 import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
 import MermaidDiagram from './MermaidDiagram';
+import { transformMany } from '@/lib/naming';
 
 type Tab = 'overview' | 'mcd' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  // Standardisation des noms via Naming Studio (fieldmapper.space)
+  const [naming, setNaming] = useState<Record<string, string> | null>(null);
+  const [translating, setTranslating] = useState(false);
+
+  async function translateNames() {
+    if (!session) return;
+    setTranslating(true);
+    try {
+      const map = await transformMany(collectModelKeywords(session));
+      setNaming(map);
+    } finally {
+      setTranslating(false);
+    }
+  }
+
+  const namingProps = {
+    naming,
+    translating,
+    onTranslate: translateNames,
+    onReset: () => setNaming(null),
+  };
 
   if (!session || session.entities.length === 0) {
     return (
@@ -50,8 +72,8 @@ export default function Deliverables() {
         {activeTab === 'overview' && <OverviewTab session={session} />}
         {activeTab === 'mcd' && <MCDTab session={session} />}
         {activeTab === 'dbml' && <DbmlTab session={session} />}
-        {activeTab === 'sql' && <SQLTab session={session} />}
-        {activeTab === 'dbt' && <DbtTab session={session} />}
+        {activeTab === 'sql' && <SQLTab session={session} {...namingProps} />}
+        {activeTab === 'dbt' && <DbtTab session={session} {...namingProps} />}
         {activeTab === 'dictionary' && <DictionaryTab session={session} />}
         {activeTab === 'dad' && <DADTab session={session} />}
       </div>
@@ -225,21 +247,52 @@ function DbmlTab({ session }: { session: WorkshopSession }) {
   );
 }
 
-function SQLTab({ session }: { session: WorkshopSession }) {
-  const sql = generateSQL(session);
+interface NamingProps {
+  naming: Record<string, string> | null;
+  translating: boolean;
+  onTranslate: () => void;
+  onReset: () => void;
+}
+
+function NamingToolbar({ naming, translating, onTranslate, onReset }: NamingProps) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      {!naming ? (
+        <button className="cta-btn cta-btn-secondary" onClick={onTranslate} disabled={translating}>
+          {translating ? '⏳ Standardisation…' : '🔤 Standardiser les noms (dictionnaire)'}
+        </button>
+      ) : (
+        <>
+          <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>✓ Noms standardisés via Naming Studio</span>
+          <button className="suggested-chip" onClick={onReset}>↩ Revenir aux noms d&apos;origine</button>
+        </>
+      )}
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+        Traduit tables &amp; colonnes selon le dictionnaire fieldmapper.space.
+      </span>
+    </div>
+  );
+}
+
+function SQLTab({ session, ...naming }: { session: WorkshopSession } & NamingProps) {
+  const effective = naming.naming ? translateSession(session, naming.naming) : session;
+  const sql = generateSQL(effective);
   return (
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>SQL — Création des tables</h3>
+      <NamingToolbar {...naming} />
       <CodeBlock title="DDL SQL" language="sql" code={sql} />
     </div>
   );
 }
 
-function DbtTab({ session }: { session: WorkshopSession }) {
-  const yaml = generateDbtYaml(session);
+function DbtTab({ session, ...naming }: { session: WorkshopSession } & NamingProps) {
+  const effective = naming.naming ? translateSession(session, naming.naming) : session;
+  const yaml = generateDbtYaml(effective);
   return (
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>dbt — Schema YAML</h3>
+      <NamingToolbar {...naming} />
       <CodeBlock title="schema.yml" language="yaml" code={yaml} />
     </div>
   );
@@ -638,6 +691,50 @@ function resolveEntitiesToGenerate(session: WorkshopSession): Entity[] {
 
 function dbmlType(type: string): string {
   return mapSqlType(type).toLowerCase();
+}
+
+// ---- Standardisation des noms via Naming Studio --------------------------
+
+// Convertit "ContratTravail" / "montant salaire" -> "contrat_travail" / "montant_salaire"
+// (format attendu par l'API du dictionnaire).
+function toSnake(name: string): string {
+  return (name || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .toLowerCase();
+}
+
+// Liste tous les noms (entités + colonnes) à standardiser.
+function collectModelKeywords(session: WorkshopSession): string[] {
+  const kws = new Set<string>();
+  session.entities.forEach(e => kws.add(toSnake(e.name)));
+  session.relations.forEach(r => { kws.add(toSnake(r.sourceEntityName)); kws.add(toSnake(r.targetEntityName)); });
+  session.attributes.forEach(a => kws.add(toSnake(a.name)));
+  return Array.from(kws).filter(Boolean);
+}
+
+// Renvoie une copie de la session avec les noms standardisés. Les générateurs
+// (SQL/dbt) tournent ensuite dessus sans modification : les FK restent cohérentes
+// car entités, attributs et relations sont renommés de façon coordonnée.
+function translateSession(session: WorkshopSession, naming: Record<string, string>): WorkshopSession {
+  const tr = (raw: string) => naming[toSnake(raw)] || raw;
+  const entityNameMap = new Map(session.entities.map(e => [e.name, tr(e.name)]));
+  return {
+    ...session,
+    entities: session.entities.map(e => ({ ...e, name: tr(e.name) })),
+    attributes: session.attributes.map(a => ({
+      ...a,
+      name: tr(a.name),
+      entityId: entityNameMap.get(a.entityId) ?? a.entityId,
+    })),
+    relations: session.relations.map(r => ({
+      ...r,
+      sourceEntityName: tr(r.sourceEntityName),
+      targetEntityName: tr(r.targetEntityName),
+    })),
+  };
 }
 
 function generateDBML(session: WorkshopSession): string {
