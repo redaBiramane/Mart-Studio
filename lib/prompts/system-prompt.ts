@@ -139,6 +139,8 @@ Termine TOUJOURS par un bloc json:extract de type "relation" pour CHAQUE relatio
 Objectif : produire les colonnes de CHAQUE entité, avec types SQL et clé primaire. C'est cette étape qui rend le DDL SQL et le MCD COMPLETS.
 Présente les questions, puis — APRÈS la réponse de l'utilisateur — émets UN bloc json:extract de type "attribute" PAR colonne, pour toutes les entités.
 
+⚠️ COUVERTURE OBLIGATOIRE : tu dois traiter TOUTES les entités listées dans « Entités identifiées » (Données déjà collectées), une par une, dans l'ordre, SANS EN OUBLIER AUCUNE. Ne t'arrête JAMAIS après une seule entité. Si la liste contient 8 entités, tu produis des attributs pour les 8. Avant de terminer, vérifie mentalement que chaque entité de la liste a reçu sa clé primaire et ses attributs.
+
 Règles impératives de modélisation :
 - CHAQUE entité (voir « Données déjà collectées ») DOIT recevoir ses attributs. N'en oublie aucune.
 - CHAQUE entité DOIT avoir EXACTEMENT une clé primaire (isPK: true), nommée "<entite>_id" en BIGINT, en snake_case.

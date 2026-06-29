@@ -7,7 +7,7 @@ import { MATURITY_DIMENSIONS } from '@/lib/constants';
 import MermaidDiagram from './MermaidDiagram';
 import { transformMany } from '@/lib/naming';
 
-type Tab = 'overview' | 'mcd' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'report' | 'mcd' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -45,8 +45,11 @@ export default function Deliverables() {
     );
   }
 
+  const data = enrichSession(session);
+
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Vue d\'ensemble', icon: '📊' },
+    { key: 'report', label: 'Rapport détaillé (PDF)', icon: '📄' },
     { key: 'mcd', label: 'MCD / ERD', icon: '🗺️' },
     { key: 'dbml', label: 'DBML (dbdiagram.io)', icon: '🧬' },
     { key: 'sql', label: 'SQL DDL', icon: '💾' },
@@ -69,13 +72,14 @@ export default function Deliverables() {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        {activeTab === 'overview' && <OverviewTab session={session} />}
-        {activeTab === 'mcd' && <MCDTab session={session} />}
-        {activeTab === 'dbml' && <DbmlTab session={session} />}
-        {activeTab === 'sql' && <SQLTab session={session} {...namingProps} />}
-        {activeTab === 'dbt' && <DbtTab session={session} {...namingProps} />}
-        {activeTab === 'dictionary' && <DictionaryTab session={session} />}
-        {activeTab === 'dad' && <DADTab session={session} />}
+        {activeTab === 'overview' && <OverviewTab session={data} />}
+        {activeTab === 'report' && <ReportTab session={data} />}
+        {activeTab === 'mcd' && <MCDTab session={data} />}
+        {activeTab === 'dbml' && <DbmlTab session={data} />}
+        {activeTab === 'sql' && <SQLTab session={data} {...namingProps} />}
+        {activeTab === 'dbt' && <DbtTab session={data} {...namingProps} />}
+        {activeTab === 'dictionary' && <DictionaryTab session={data} />}
+        {activeTab === 'dad' && <DADTab session={data} />}
       </div>
     </div>
   );
@@ -191,6 +195,112 @@ function OverviewDetailModal({ session, detail, onClose }: { session: WorkshopSe
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReportTab({ session }: { session: WorkshopSession }) {
+  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+  const card: React.CSSProperties = { marginBottom: 20 };
+  const h: React.CSSProperties = { fontSize: 16, margin: '0 0 10px', color: 'var(--primary)' };
+  const th: React.CSSProperties = { textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontSize: 12 };
+  const td: React.CSSProperties = { padding: '6px 10px', borderBottom: '1px solid var(--border)', fontSize: 13 };
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 22, margin: 0 }}>Rapport détaillé — {session.productName || 'Data Product'}</h2>
+        <button className="cta-btn" onClick={() => downloadReportPdf(session)}>📄 Télécharger en PDF</button>
+      </div>
+
+      <div className="context-card" style={card}>
+        <h3 style={h}>🎯 Contexte</h3>
+        <div style={{ fontSize: 14, lineHeight: 1.7 }}>
+          <div><strong>Produit :</strong> {session.productName || '—'}</div>
+          <div><strong>Domaine :</strong> {session.domain || '—'}</div>
+          <div><strong>Product Owner :</strong> {session.productOwner || '—'}</div>
+          <div><strong>Data Steward :</strong> {session.dataSteward || '—'}</div>
+          {session.objective && <div><strong>Objectif :</strong> {session.objective}</div>}
+          {session.contextSummary && <div style={{ marginTop: 6 }}>{session.contextSummary}</div>}
+        </div>
+      </div>
+
+      <div className="context-card" style={card}>
+        <h3 style={h}>🧩 Entités &amp; attributs ({session.entities.length})</h3>
+        {session.entities.map(e => (
+          <div key={e.id} style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>{e.name} {e.definition && <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>— {e.definition}</span>}</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr><th style={th}>Attribut</th><th style={th}>Type</th><th style={th}>Clé</th><th style={th}>Description</th></tr></thead>
+              <tbody>
+                {attrsOf(e).map(a => (
+                  <tr key={a.id}>
+                    <td style={td}>{a.name}</td>
+                    <td style={{ ...td, color: 'var(--accent-blue)' }}>{a.type}</td>
+                    <td style={td}>{a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : ''}{a.isSensitive ? ' 🔒' : ''}</td>
+                    <td style={{ ...td, color: 'var(--text-secondary)' }}>{a.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+
+      {session.relations.length > 0 && (
+        <div className="context-card" style={card}>
+          <h3 style={h}>🔗 Relations ({session.relations.length})</h3>
+          {session.relations.map(r => (
+            <div key={r.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <strong>{r.sourceEntityName} → {r.targetEntityName}</strong> <span style={{ color: 'var(--accent-blue)' }}>({r.type})</span>
+              {r.description && <span style={{ color: 'var(--text-muted)' }}> — {r.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {session.kpis.length > 0 && (
+        <div className="context-card" style={card}>
+          <h3 style={h}>📊 KPIs ({session.kpis.length})</h3>
+          {session.kpis.map(k => (
+            <div key={k.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <strong>{k.name}</strong>{k.formula && <span> — <code>{k.formula}</code></span>}{k.description && <span style={{ color: 'var(--text-muted)' }}> · {k.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {session.businessRules.length > 0 && (
+        <div className="context-card" style={card}>
+          <h3 style={h}>⚖️ Règles métier ({session.businessRules.length})</h3>
+          {session.businessRules.map(r => (
+            <div key={r.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <strong>{r.name}</strong> <span style={{ color: 'var(--text-muted)' }}>{r.type}</span>{r.description && <span> — {r.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {session.dataSources.length > 0 && (
+        <div className="context-card" style={card}>
+          <h3 style={h}>🗄️ Sources de données ({session.dataSources.length})</h3>
+          {session.dataSources.map(s => (
+            <div key={s.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <strong>{s.name}</strong>{s.system && <span> — {s.system}</span>}{s.loadFrequency && <span style={{ color: 'var(--text-muted)' }}> · {s.loadFrequency}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {session.maturityScores && (
+        <div className="context-card" style={card}>
+          <h3 style={h}>🏁 Score de maturité</h3>
+          {MATURITY_DIMENSIONS.map(dim => {
+            const v = session.maturityScores![dim.key as keyof typeof session.maturityScores];
+            return <div key={dim.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0' }}><span>{dim.label}</span><strong>{v}/100</strong></div>;
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -691,6 +801,122 @@ function resolveEntitiesToGenerate(session: WorkshopSession): Entity[] {
 
 function dbmlType(type: string): string {
   return mapSqlType(type).toLowerCase();
+}
+
+// Garantit que CHAQUE entité possède au moins une clé primaire, même si l'IA
+// n'a pas généré ses attributs. Évite les tables vides dans les livrables.
+function enrichSession(session: WorkshopSession): WorkshopSession {
+  const attributes = [...session.attributes];
+  session.entities.forEach(e => {
+    const hasAttrs = attributes.some(a => a.entityId === e.id || a.entityId === e.name);
+    if (!hasAttrs) {
+      const pkName = toSnake(e.name) + '_id';
+      attributes.push({
+        id: `auto_${e.id}`,
+        entityId: e.id,
+        name: pkName,
+        type: 'BIGINT',
+        description: `Clé primaire de ${e.name}`,
+        isPrimaryKey: true,
+        isForeignKey: false,
+        isNaturalKey: false,
+        isRequired: true,
+        isSensitive: false,
+        isHistorized: false,
+      });
+    }
+  });
+  return { ...session, attributes };
+}
+
+// ---- Rapport détaillé imprimable (PDF) -----------------------------------
+
+function escapeHtml(s: string): string {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildReportHtml(session: WorkshopSession): string {
+  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+
+  const entitiesHtml = session.entities.map(e => `
+    <h3>${escapeHtml(e.name)}</h3>
+    ${e.definition ? `<p class="muted">${escapeHtml(e.definition)}</p>` : ''}
+    <table>
+      <thead><tr><th>Attribut</th><th>Type</th><th>Clé</th><th>Description</th></tr></thead>
+      <tbody>
+        ${attrsOf(e).map(a => `<tr>
+          <td><b>${escapeHtml(a.name)}</b></td>
+          <td>${escapeHtml(a.type)}</td>
+          <td>${a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : ''}${a.isSensitive ? ' 🔒' : ''}</td>
+          <td>${escapeHtml(a.description)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`).join('');
+
+  const relationsHtml = session.relations.length ? `<h2>Relations (${session.relations.length})</h2><ul>${
+    session.relations.map(r => `<li><b>${escapeHtml(r.sourceEntityName)} → ${escapeHtml(r.targetEntityName)}</b> (${r.type})${r.description ? ' — ' + escapeHtml(r.description) : ''}</li>`).join('')
+  }</ul>` : '';
+
+  const kpisHtml = session.kpis.length ? `<h2>KPIs (${session.kpis.length})</h2><ul>${
+    session.kpis.map(k => `<li><b>${escapeHtml(k.name)}</b>${k.formula ? ' — ' + escapeHtml(k.formula) : ''}${k.description ? ' · ' + escapeHtml(k.description) : ''}</li>`).join('')
+  }</ul>` : '';
+
+  const rulesHtml = session.businessRules.length ? `<h2>Règles métier (${session.businessRules.length})</h2><ul>${
+    session.businessRules.map(r => `<li><b>${escapeHtml(r.name)}</b> (${escapeHtml(r.type)})${r.description ? ' — ' + escapeHtml(r.description) : ''}</li>`).join('')
+  }</ul>` : '';
+
+  const sourcesHtml = session.dataSources.length ? `<h2>Sources de données (${session.dataSources.length})</h2><ul>${
+    session.dataSources.map(s => `<li><b>${escapeHtml(s.name)}</b>${s.system ? ' — ' + escapeHtml(s.system) : ''}${s.loadFrequency ? ' · ' + escapeHtml(s.loadFrequency) : ''}</li>`).join('')
+  }</ul>` : '';
+
+  const maturityHtml = session.maturityScores ? `<h2>Score de maturité</h2><ul>${
+    MATURITY_DIMENSIONS.map(d => `<li>${d.label} : <b>${session.maturityScores![d.key as keyof typeof session.maturityScores]}/100</b></li>`).join('')
+  }</ul>` : '';
+
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${escapeHtml(session.productName || 'Data Product')} — Rapport</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Arial, sans-serif; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 32px; }
+    h1 { color: #006B4F; font-size: 24px; margin-bottom: 4px; }
+    h2 { color: #006B4F; font-size: 17px; margin-top: 28px; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
+    h3 { font-size: 15px; margin: 16px 0 4px; }
+    .muted { color: #666; font-size: 13px; margin: 2px 0 6px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12.5px; }
+    th { text-align: left; background: #f3f4f6; padding: 6px 8px; border: 1px solid #e5e7eb; }
+    td { padding: 6px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
+    ul { font-size: 13px; line-height: 1.7; }
+    .head-meta { font-size: 13px; line-height: 1.7; color: #333; }
+    @media print { body { padding: 0; } h2 { page-break-after: avoid; } table, h3 { page-break-inside: avoid; } }
+  </style></head><body>
+    <h1>${escapeHtml(session.productName || 'Data Product')}</h1>
+    <div class="head-meta">
+      <div><b>Domaine :</b> ${escapeHtml(session.domain || '—')}</div>
+      <div><b>Product Owner :</b> ${escapeHtml(session.productOwner || '—')} &nbsp;·&nbsp; <b>Data Steward :</b> ${escapeHtml(session.dataSteward || '—')}</div>
+      ${session.objective ? `<div><b>Objectif :</b> ${escapeHtml(session.objective)}</div>` : ''}
+      ${session.contextSummary ? `<div style="margin-top:6px">${escapeHtml(session.contextSummary)}</div>` : ''}
+    </div>
+    <h2>Entités &amp; attributs (${session.entities.length})</h2>
+    ${entitiesHtml}
+    ${relationsHtml}
+    ${kpisHtml}
+    ${rulesHtml}
+    ${sourcesHtml}
+    ${maturityHtml}
+    <p style="margin-top:32px;color:#999;font-size:11px">Généré par Mart Studio — Crédit Agricole PF&amp;M</p>
+  </body></html>`;
+}
+
+function downloadReportPdf(session: WorkshopSession) {
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Veuillez autoriser les pop-ups pour générer le PDF.');
+    return;
+  }
+  w.document.open();
+  w.document.write(buildReportHtml(session));
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 500);
 }
 
 // ---- Standardisation des noms via Naming Studio --------------------------
