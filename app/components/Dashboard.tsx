@@ -6,9 +6,10 @@ interface DashboardProps {
   onStartWorkshop: () => void;
   onOpenSession: (id: string) => void;
   onViewDeliverables: () => void;
+  onViewDocs?: () => void;
 }
 
-export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDeliverables }: DashboardProps) {
+export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDeliverables, onViewDocs }: DashboardProps) {
   const { sessions, deleteSession } = useWorkshopStore();
 
   const completedCount = sessions.filter(s => s.status === 'completed').length;
@@ -48,38 +49,47 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
         </div>
       </div>
 
-      {/* Transformation Example Card */}
+      {/* How it works */}
       <div className="transform-card">
-        <div className="transform-card-title">Exemple de modélisation</div>
+        <div className="transform-card-title">Comment ça marche</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
+          {[
+            { icon: '💬', title: '1. Décrivez', text: 'Expliquez votre besoin métier en langage simple à Marty, votre Data Architect IA.' },
+            { icon: '🧠', title: '2. Marty modélise', text: 'En 5 étapes guidées, il conçoit entités, relations, attributs, clés, règles et sources.' },
+            { icon: '📦', title: '3. Exportez', text: 'Récupérez le MCD, le SQL, le DBML, le schéma dbt, le dictionnaire et le rapport DAD.' },
+          ].map(s => (
+            <div key={s.title} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 26, marginBottom: 6 }}>{s.icon}</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>{s.title}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{s.text}</div>
+            </div>
+          ))}
+        </div>
+
         <div className="transform-example">
           <div>
-            <div className="transform-col-label">Entrée utilisateur</div>
+            <div className="transform-col-label">Vous écrivez (langage métier)</div>
             <div className="transform-before">
-              <code>
-                table_client_contrat<br />
-                date_souscription_credit<br />
-                montant_capital_restant_du
-              </code>
+              <em style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>
+                « Je veux piloter les réclamations clients : volume, statut, délai de résolution, motifs et actions correctives. »
+              </em>
             </div>
           </div>
           <div>
-            <div className="transform-col-label">Sortie IA</div>
+            <div className="transform-col-label">Marty génère un modèle complet</div>
             <div className="transform-after">
-              <div className="transform-after-line">
-                <code>CLIENT_CONTRAT</code>
-                <span className="transform-ok-badge">OK</span>
-              </div>
-              <div className="transform-after-line">
-                <code>DT_SOUSCRIPTION</code>
-                <span className="transform-ok-badge">OK</span>
-              </div>
-              <div className="transform-after-line">
-                <code>MT_CAPITAL_REST_DU</code>
-                <span className="transform-ok-badge">OK</span>
-              </div>
+              <div className="transform-after-line"><code>8 entités (Client, Réclamation…)</code><span className="transform-ok-badge">✓</span></div>
+              <div className="transform-after-line"><code>14 relations + clés FK</code><span className="transform-ok-badge">✓</span></div>
+              <div className="transform-after-line"><code>SQL · DBML · dbt · DAD</code><span className="transform-ok-badge">✓</span></div>
             </div>
           </div>
         </div>
+
+        {onViewDocs && (
+          <button className="cta-btn cta-btn-secondary" style={{ marginTop: 16 }} onClick={onViewDocs}>
+            📖 Lire la documentation complète
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -105,7 +115,7 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
           {sessions.map(s => (
             <div key={s.id} className="session-card" onClick={() => onOpenSession(s.id)}>
               <span className={`session-step-badge ${s.status === 'completed' ? 'session-status-completed' : ''}`}>
-                {s.status === 'completed' ? '✓ Terminé' : `Étape ${s.currentStep}/12`}
+                {s.status === 'completed' ? '✓ Terminé' : `Étape ${s.currentStep}/5`}
               </span>
               <div className="session-info">
                 <div className="session-name">{s.productName || 'Nouveau Data Product'}</div>

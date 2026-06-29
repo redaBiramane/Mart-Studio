@@ -155,7 +155,7 @@ export default function Home() {
           }} onOpenSession={(id) => {
             useWorkshopStore.getState().loadSession(id);
             setCurrentPage('workshop');
-          }} onViewDeliverables={() => setCurrentPage('deliverables')} />}
+          }} onViewDeliverables={() => setCurrentPage('deliverables')} onViewDocs={() => setCurrentPage('docs')} />}
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}

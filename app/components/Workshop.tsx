@@ -190,6 +190,16 @@ export default function Workshop() {
             const found = session.entities.find(e => e.name.toLowerCase() === (data.entityName as string).toLowerCase());
             if (found) targetEntityId = found.id;
           }
+          // Skip duplicates: same entity + same normalized column name (handles
+          // snake_case vs camelCase and the step 2 / step 4 overlap).
+          const normName = (data.name as string).replace(/[^a-z0-9]/gi, '').toLowerCase();
+          const entityKeys = [targetEntityId, (data.entityName as string) || ''].filter(Boolean).map(k => k.toLowerCase());
+          const isDuplicate = session.attributes.some(a => {
+            const sameName = a.name.replace(/[^a-z0-9]/gi, '').toLowerCase() === normName;
+            const sameEntity = entityKeys.includes((a.entityId || '').toLowerCase());
+            return sameName && (sameEntity || entityKeys.length === 0);
+          });
+          if (isDuplicate) break;
           updateSessionData({
             attributes: [...session.attributes, {
               id: `attr_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
@@ -404,6 +414,11 @@ export default function Workshop() {
             const text = getMessageText(message);
             if (!text) return null;
             const isAssistant = message.role === 'assistant';
+            const html = formatMarkdown(text);
+            // After stripping the json:extract blocks, an assistant message can be
+            // visually empty (Marty answered only with extraction). Show a clear
+            // confirmation instead of an empty bubble.
+            const isEmpty = html.replace(/<[^>]*>/g, '').trim().length === 0;
             return (
               <div key={message.id} className={`chat-message ${message.role}`}>
                 <MartyAvatar role={message.role} />
@@ -413,7 +428,13 @@ export default function Workshop() {
                       Marty <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>· Assistant Data Architect</span>
                     </div>
                   )}
-                  <div className="message-bubble" dangerouslySetInnerHTML={{ __html: formatMarkdown(text) }} />
+                  {isEmpty && isAssistant ? (
+                    <div className="message-bubble" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      ✓ Informations extraites et enregistrées dans « Données collectées ».
+                    </div>
+                  ) : (
+                    <div className="message-bubble" dangerouslySetInnerHTML={{ __html: html }} />
+                  )}
                 </div>
               </div>
             );

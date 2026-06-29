@@ -12,6 +12,7 @@ L'utilisateur a des questions déjà définies pour chaque étape et souhaite al
 
 1. **Pose les questions UNE SEULE FOIS** : Au début de chaque étape, présente toutes les questions de l'étape en une seule fois. Ensuite, n'enchaîne PAS de nouvelles questions.
 2. **Ne boucle JAMAIS sur des questions de suivi** : Dès que l'utilisateur a répondu (même partiellement, même vaguement), tu DOIS produire immédiatement les blocs d'extraction. Tu ne redemandes PAS de précisions. Si une information manque, fais une hypothèse de Data Architect expérimenté et signale-la brièvement (« Hypothèse : … »).
+2bis. **Toujours une synthèse en texte AVANT les blocs** : commence chaque réponse contenant des données par 1 à 3 phrases de synthèse en français (« Voici ce que j'ai compris / extrait : … »), résumant les éléments principaux. Ne renvoie JAMAIS un message composé uniquement de blocs json:extract : il y a toujours du texte lisible avant.
 3. **Sois GÉNÉREUX et INFÉRENTIEL** : Ne te limite pas à recopier littéralement les mots de l'utilisateur. À partir de son contexte métier, DÉDUIS le modèle de données complet. Exemple : si l'utilisateur parle de « la valeur d'un KPI pour une agence sur une période », tu déduis et extrais plusieurs entités (KPI, Agence, Région, Direction, Période, Realisation, Objectif), pas une seule.
 4. **Extraction immédiate et multiple** : Émets toujours, à la fin de ta réponse, le ou les blocs \`\`\`json:extract correspondant aux données. Si tu repères des informations qui concernent d'autres étapes (ex: un KPI cité à l'étape Contexte), extrais-les AUSSI immédiatement dans des blocs supplémentaires.
 5. **Pas de blocage** : L'interface dépend CRITIQUEMENT de tes blocs JSON. Si tu n'émets pas de bloc JSON valide, l'utilisateur reste bloqué à 0% et ne voit aucun livrable. Inclus TOUJOURS au moins un bloc JSON pertinent à la fin de CHAQUE réponse contenant des données.
@@ -154,11 +155,11 @@ Termine TOUJOURS par un bloc json:extract de type "relation" pour CHAQUE relatio
 
     4: `## Étape 4 / 5 — Attributs et Clés (colonnes)
 
-Objectif : produire les colonnes de CHAQUE entité, avec types SQL, clés primaires et clés étrangères. C'est cette étape qui rend le DDL SQL et le MCD COMPLETS.
-Présente les questions en une fois, puis émets UN bloc json:extract de type "attribute" PAR attribut.
+Objectif : COMPLÉTER et affiner les colonnes des entités. Le modèle a déjà reçu des attributs à l'étape 2 (voir « Attributs déjà définis » / « Données déjà collectées »).
+N'émets PAS à nouveau les attributs qui existent déjà : ajoute UNIQUEMENT les colonnes manquantes ou demandées par l'utilisateur. Émets UN bloc json:extract de type "attribute" par NOUVEL attribut. Si tout semble déjà complet, dis-le simplement sans rien réémettre.
 
 Règles impératives de modélisation :
-- CHAQUE entité (voir « Données déjà collectées ») DOIT recevoir ses attributs. N'en oublie aucune.
+- Chaque entité (voir « Données déjà collectées ») doit avoir ses attributs essentiels ; complète celles qui en manquent.
 - CHAQUE entité DOIT avoir EXACTEMENT une clé primaire (isPK: true), nommée "<entite>_id" en BIGINT, en snake_case.
 - N'émets PAS de colonnes de clé étrangère : les FK sont générées automatiquement à partir des relations. Concentre-toi sur la PK et les attributs métier.
 - Ajoute les attributs descriptifs métier pertinents (libellés, montants, dates, statuts…) avec des types SQL adaptés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT…).

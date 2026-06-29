@@ -59,28 +59,40 @@ export default function Deliverables() {
 }
 
 function OverviewTab({ session }: { session: WorkshopSession }) {
+  const [detail, setDetail] = useState<OverviewDetailKey | null>(null);
+
+  const cards: { key: OverviewDetailKey; label: string; value: number; icon: string }[] = [
+    { key: 'entities', label: 'Entités', value: session.entities.length, icon: '🧩' },
+    { key: 'relations', label: 'Relations', value: session.relations.length, icon: '🔗' },
+    { key: 'attributes', label: 'Attributs', value: session.attributes.length, icon: '📋' },
+    { key: 'kpis', label: 'KPIs', value: session.kpis.length, icon: '📊' },
+    { key: 'rules', label: 'Règles métier', value: session.businessRules.length, icon: '⚖️' },
+    { key: 'sources', label: 'Sources', value: session.dataSources.length, icon: '🗄️' },
+  ];
+
   return (
     <div className="fade-in">
-      <h2 style={{ fontSize: 22, marginBottom: 24 }}>
+      <h2 style={{ fontSize: 22, marginBottom: 8 }}>
         {session.productName || 'Data Product'} — Vue d&apos;ensemble
       </h2>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Cliquez sur une carte pour voir le détail.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
-        {[
-          { label: 'Entités', value: session.entities.length, icon: '🧩' },
-          { label: 'Relations', value: session.relations.length, icon: '🔗' },
-          { label: 'Attributs', value: session.attributes.length, icon: '📋' },
-          { label: 'KPIs', value: session.kpis.length, icon: '📊' },
-          { label: 'Règles métier', value: session.businessRules.length, icon: '⚖️' },
-          { label: 'Sources', value: session.dataSources.length, icon: '🗄️' },
-        ].map(s => (
-          <div key={s.label} className="stat-card">
+        {cards.map(s => (
+          <div
+            key={s.label}
+            className="stat-card"
+            style={{ cursor: s.value > 0 ? 'pointer' : 'default', transition: 'border-color .15s' }}
+            onClick={() => s.value > 0 && setDetail(s.key)}
+          >
             <div style={{ fontSize: 24, marginBottom: 4 }}>{s.icon}</div>
             <div className="stat-value" style={{ fontSize: 28 }}>{s.value}</div>
-            <div className="stat-label">{s.label}</div>
+            <div className="stat-label">{s.label}{s.value > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}> · voir ›</span>}</div>
           </div>
         ))}
       </div>
+
+      {detail && <OverviewDetailModal session={session} detail={detail} onClose={() => setDetail(null)} />}
 
       {session.maturityScores && (
         <div>
@@ -101,6 +113,61 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+type OverviewDetailKey = 'entities' | 'relations' | 'attributes' | 'kpis' | 'rules' | 'sources';
+
+function OverviewDetailModal({ session, detail, onClose }: { session: WorkshopSession; detail: OverviewDetailKey; onClose: () => void }) {
+  const titles: Record<OverviewDetailKey, string> = {
+    entities: '🧩 Entités', relations: '🔗 Relations', attributes: '📋 Attributs',
+    kpis: '📊 KPIs', rules: '⚖️ Règles métier', sources: '🗄️ Sources de données',
+  };
+  const row: React.CSSProperties = { padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 };
+  const itemTitle: React.CSSProperties = { fontWeight: 700, marginBottom: 2 };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(760px, 100%)', maxHeight: '82vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+        <div style={{ position: 'sticky', top: 0, background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: 16, margin: 0 }}>{titles[detail]}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+        </div>
+        <div style={{ padding: 20 }}>
+          {detail === 'entities' && session.entities.map(e => (
+            <div key={e.id} style={row}><div style={itemTitle}>{e.name} <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{e.type}</span></div>{e.definition && <div style={{ color: 'var(--text-secondary)' }}>{e.definition}</div>}</div>
+          ))}
+          {detail === 'relations' && session.relations.map(r => (
+            <div key={r.id} style={row}><div style={itemTitle}>{r.sourceEntityName} → {r.targetEntityName} <span style={{ fontSize: 11, color: 'var(--accent-blue)' }}>({r.type})</span></div>{r.description && <div style={{ color: 'var(--text-secondary)' }}>{r.description}</div>}</div>
+          ))}
+          {detail === 'attributes' && session.entities.map(entity => {
+            const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
+            if (attrs.length === 0) return null;
+            return (
+              <div key={entity.id} style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, color: 'var(--primary-light)', marginBottom: 6 }}>{entity.name}</div>
+                {attrs.map(a => (
+                  <div key={a.id} style={row}>
+                    <strong>{a.name}</strong> <span style={{ color: 'var(--accent-blue)' }}>{a.type}</span>{' '}
+                    {a.isPrimaryKey && '🔑'}{a.isForeignKey && '🔗'}{a.isSensitive && '🔒'}
+                    {a.description && <span style={{ color: 'var(--text-muted)' }}> — {a.description}</span>}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+          {detail === 'kpis' && session.kpis.map(k => (
+            <div key={k.id} style={row}><div style={itemTitle}>{k.name}</div>{k.formula && <div>Formule : <code>{k.formula}</code></div>}{k.description && <div style={{ color: 'var(--text-secondary)' }}>{k.description}</div>}</div>
+          ))}
+          {detail === 'rules' && session.businessRules.map(r => (
+            <div key={r.id} style={row}><div style={itemTitle}>{r.name} <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.type}</span></div>{r.description && <div style={{ color: 'var(--text-secondary)' }}>{r.description}</div>}{r.expression && <div>Expression : <code>{r.expression}</code></div>}</div>
+          ))}
+          {detail === 'sources' && session.dataSources.map(s => (
+            <div key={s.id} style={row}><div style={itemTitle}>{s.name} <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.type}</span></div>{s.system && <div>Système : {s.system}</div>}{s.loadFrequency && <div style={{ color: 'var(--text-secondary)' }}>Fréquence : {s.loadFrequency}</div>}</div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
