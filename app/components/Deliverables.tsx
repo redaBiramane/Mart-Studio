@@ -194,15 +194,33 @@ function MCDTab({ session }: { session: WorkshopSession }) {
 
 function DbmlTab({ session }: { session: WorkshopSession }) {
   const dbml = generateDBML(session);
+  const [opened, setOpened] = useState(false);
+
+  function copyAndOpen() {
+    navigator.clipboard.writeText(dbml).catch(() => {});
+    window.open('https://dbdiagram.io/d', '_blank', 'noopener,noreferrer');
+    setOpened(true);
+    setTimeout(() => setOpened(false), 6000);
+  }
+
   return (
     <div className="fade-in">
-      <h3 style={{ fontSize: 18, marginBottom: 16 }}>DBML — Diagramme prêt pour dbdiagram.io</h3>
-      <CodeBlock title="schema.dbml" language="dbml" code={dbml} />
-      <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-        Copiez ce code et collez-le directement sur{' '}
-        <a href="https://dbdiagram.io/d" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-light)' }}>dbdiagram.io</a>{' '}
-        pour visualiser le diagramme interactif.
+      <h3 style={{ fontSize: 18, marginBottom: 16 }}>DBML — Diagramme interactif (dbdiagram.io)</h3>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button className="cta-btn" onClick={copyAndOpen}>🧬 Copier + ouvrir dbdiagram.io</button>
+        {opened && (
+          <span style={{ fontSize: 13, color: 'var(--primary)' }}>
+            ✓ Code copié — collez-le (Cmd/Ctrl+V) dans l&apos;éditeur dbdiagram.io qui vient de s&apos;ouvrir.
+          </span>
+        )}
+      </div>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+        💡 Le diagramme visuel est aussi disponible directement dans l&apos;onglet <strong>MCD / ERD</strong> (sans rien copier).
+        dbdiagram.io sert à obtenir une version interactive et déplaçable.
       </p>
+
+      <CodeBlock title="schema.dbml" language="dbml" code={dbml} />
     </div>
   );
 }
