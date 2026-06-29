@@ -216,6 +216,42 @@ export interface LLMSettings {
   customBaseUrl?: string;
 }
 
+// ---- Auth / Admin ----
+
+export type UserRole = 'user' | 'admin';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface ActivityLog {
+  id: number;
+  user_id: string | null;
+  user_email: string | null;
+  action: string;
+  detail: string | null;
+  created_at: string;
+}
+
+export interface AdminProduct {
+  id: string;
+  owner_email: string | null;
+  name: string | null;
+  domain: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---- Store ----
 
 export interface WorkshopStore {
@@ -224,10 +260,19 @@ export interface WorkshopStore {
   llmSettings: LLMSettings;
   isLoading: boolean;
   isSending: boolean;
-  currentPage: 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs';
-  
+  currentPage: 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
+
+  // Auth / admin state
+  authReady: boolean;
+  user: AuthUser | null;
+  profile: Profile | null;
+  authError: string | null;
+  adminProducts: AdminProduct[];
+  adminProfiles: Profile[];
+  activityLogs: ActivityLog[];
+
   // Actions
-  setCurrentPage: (page: 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs') => void;
+  setCurrentPage: (page: WorkshopStore['currentPage']) => void;
   createSession: () => void;
   loadSession: (id: string) => void;
   setCurrentStep: (step: number) => void;
@@ -238,4 +283,13 @@ export interface WorkshopStore {
   deleteSession: (id: string) => void;
   setLoading: (loading: boolean) => void;
   setSending: (sending: boolean) => void;
+
+  // Auth actions
+  initAuth: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<boolean>;
+  signUp: (email: string, password: string, fullName: string) => Promise<string | null>;
+  signOut: () => Promise<void>;
+  loadUserSessions: () => Promise<void>;
+  loadAdminData: () => Promise<void>;
+  logActivity: (action: string, detail?: string) => Promise<void>;
 }

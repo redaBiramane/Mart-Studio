@@ -1,19 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWorkshopStore } from '@/lib/store';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import Dashboard from './components/Dashboard';
 import Workshop from './components/Workshop';
 import Deliverables from './components/Deliverables';
 import AdminPanel from './components/AdminPanel';
 import Documentation from './components/Documentation';
+import Supervision from './components/Supervision';
+import Login from './components/Login';
 import Image from 'next/image';
 
-type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs';
+type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { session, sessions, currentPage, setCurrentPage } = useWorkshopStore();
+  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut } = useWorkshopStore();
+
+  useEffect(() => { initAuth(); }, [initAuth]);
+
+  const isAdmin = profile?.role === 'admin';
 
   const navItems = [
     { key: 'dashboard' as Page, icon: '🏠', label: 'Accueil' },
@@ -23,8 +30,17 @@ export default function Home() {
   ];
 
   const adminItems = [
+    ...(isAdmin ? [{ key: 'supervision' as Page, icon: '🛡️', label: 'Supervision' }] : []),
     { key: 'admin' as Page, icon: '⚙️', label: 'Configuration LLM' },
   ];
+
+  // Auth gate (only when Supabase is configured)
+  if (isSupabaseConfigured && !authReady) {
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Chargement…</div>;
+  }
+  if (isSupabaseConfigured && !user) {
+    return <Login />;
+  }
 
   return (
     <div className="app-layout">
@@ -99,11 +115,19 @@ export default function Home() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-footer-avatar">A</div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>admin</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Admin</div>
+          <div className="sidebar-footer-avatar">{(user?.email || 'A').charAt(0).toUpperCase()}</div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user?.email || 'Invité (mode local)'}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{isAdmin ? 'Administrateur' : (user ? 'Utilisateur' : 'Non connecté')}</div>
           </div>
+          {user && (
+            <button onClick={() => signOut()} title="Se déconnecter"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)', fontSize: 16 }}>
+              ⎋
+            </button>
+          )}
         </div>
       </aside>
 
@@ -124,6 +148,7 @@ export default function Home() {
               {currentPage === 'deliverables' && 'Livrables'}
               {currentPage === 'admin' && 'Configuration LLM'}
               {currentPage === 'docs' && 'Documentation'}
+              {currentPage === 'supervision' && 'Supervision'}
             </h1>
           </div>
           <div className="header-actions">
@@ -159,6 +184,7 @@ export default function Home() {
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}
+          {currentPage === 'supervision' && <Supervision />}
           {currentPage === 'docs' && <Documentation onStartWorkshop={() => {
             useWorkshopStore.getState().createSession();
             setCurrentPage('workshop');
