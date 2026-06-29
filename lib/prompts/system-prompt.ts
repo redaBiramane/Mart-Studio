@@ -91,54 +91,35 @@ Questions de l'étape :
 
 Termine TOUJOURS par un bloc json:extract de type "context".`,
 
-    2: `## Étape 2 / 5 — Concepts métiers : conçois le MODÈLE COMPLET en une passe
+    2: `## Étape 2 / 5 — Concepts métiers (Entités UNIQUEMENT)
 
-C'est l'étape CLÉ. Ta mission : à partir du contexte métier, concevoir le modèle dimensionnel COMPLET d'un datamart décisionnel, en UNE SEULE réponse. Tu n'extrais PAS seulement les entités : tu produis aussi leurs attributs et leurs relations, pour que le MCD/SQL soit immédiatement riche et exploitable.
+Objectif : identifier TOUTES les entités (tables) du modèle. C'est l'étape la plus importante pour la qualité du MCD.
+IMPORTANT : à cette étape, tu n'extrais QUE des entités. N'extrais NI relations NI attributs — ils seront traités aux étapes 3 et 4. Émets uniquement des blocs json:extract de type "entity".
 
-Présente d'abord brièvement les questions, puis — dès la réponse de l'utilisateur (même très courte) — émets TOUT le modèle. Sois exhaustif et inférentiel :
+Présente brièvement les questions, puis — dès la réponse de l'utilisateur — DÉDUIS le jeu d'entités complet et émets UN bloc json:extract de type "entity" PAR entité. Sois exhaustif et inférentiel comme un Data Architect concevant un datamart décisionnel :
+- Identifie la/les table(s) de FAITS (les mesures : Realisation, Transaction, Réclamation, Enquête…).
+- Identifie TOUTES les dimensions qui qualifient ces faits (Client, Agence, Région, Direction, Période/Temps, Produit, Canal…).
+- Vise 4 à 8 entités. Même si l'utilisateur n'en cite qu'une ou deux, complète le modèle et signale-le (« Entités déduites : … »).
 
-1. ENTITÉS (4 à 8 minimum) : 1+ table(s) de FAITS (mesures : Realisation, Objectif, Transaction, Enquête…) + toutes les DIMENSIONS qui les qualifient (Client, Agence, Région, Direction, Période/Temps, Produit, Canal…). Un bloc json:extract "entity" par entité.
-2. ATTRIBUTS : pour CHAQUE entité, EXACTEMENT une clé primaire en snake_case (isPK:true, nommée "<entite>_id", type BIGINT) et 3 à 6 attributs métier typés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT). Un bloc json:extract "attribute" par colonne. Noms TOUJOURS en snake_case (ex: "date_souscription"), jamais en camelCase. N'émets JAMAIS deux fois le même attribut. N'émets PAS de colonnes de clé étrangère : les FK sont générées AUTOMATIQUEMENT à partir des relations.
-3. RELATIONS : relie chaque dimension à la table de faits (1:N), modélise les hiérarchies. Un bloc json:extract "relation" par lien.
-
-Même si l'utilisateur ne cite qu'un ou deux objets, DÉDUIS le modèle complet et signale-le (« Modèle déduit du contexte : … »). Ne te limite jamais à recopier ses mots.
-
-### Exemple du niveau de détail attendu (domaine différent, à adapter)
-Pour un contexte « suivi des ventes par magasin », tu produirais entre autres :
+### Exemple (domaine différent, à adapter)
 \`\`\`json:extract
 {"type":"entity","data":{"name":"Vente","definition":"Fait : ligne de vente","type":"transactional","lifecycle":"created"}}
 \`\`\`
 \`\`\`json:extract
 {"type":"entity","data":{"name":"Magasin","definition":"Dimension : point de vente","type":"reference","lifecycle":"created"}}
 \`\`\`
-\`\`\`json:extract
-{"type":"attribute","data":{"entityName":"Vente","name":"vente_id","type":"BIGINT","isPK":true,"required":true,"description":"Clé primaire"}}
-\`\`\`
-\`\`\`json:extract
-{"type":"attribute","data":{"entityName":"Vente","name":"montant","type":"DECIMAL","required":true,"description":"Montant de la vente"}}
-\`\`\`
-\`\`\`json:extract
-{"type":"attribute","data":{"entityName":"Vente","name":"date_vente","type":"DATE","required":true,"description":"Date de la vente"}}
-\`\`\`
-\`\`\`json:extract
-{"type":"attribute","data":{"entityName":"Magasin","name":"magasin_id","type":"BIGINT","isPK":true,"required":true,"description":"Clé primaire"}}
-\`\`\`
-(Pas de bloc pour une colonne magasin_id dans Vente : la relation Magasin → Vente génère la FK automatiquement.)
-\`\`\`json:extract
-{"type":"relation","data":{"source":"Magasin","target":"Vente","cardinality":"1:N","required":true,"description":"Un magasin a plusieurs ventes"}}
-\`\`\`
-(… et ainsi de suite pour TOUTES les entités, attributs et relations du domaine réel de l'utilisateur.)
+(… une entité par bloc, pour tout le domaine réel de l'utilisateur.)
 
 Questions de l'étape :
 - Quelles sont les principales entités / tables ?
 - Quelle est la définition métier de chaque entité ?
 
-Produis le modèle COMPLET : plusieurs entités, leurs attributs (PK/FK/types) ET leurs relations, en une seule réponse.`,
+Termine par les blocs json:extract de type "entity" — et RIEN d'autre (pas de relation, pas d'attribut).`,
 
     3: `## Étape 3 / 5 — Relations entre entités
 
 Objectif : définir les liens entre les entités déjà identifiées (voir « Données déjà collectées »).
-Présente les questions en une fois, puis émets UN bloc json:extract de type "relation" PAR relation.
+Présente les questions en une fois, puis — APRÈS la réponse de l'utilisateur — émets UN bloc json:extract de type "relation" PAR relation. N'extrais que des relations à cette étape.
 
 Sois exhaustif : relie chaque table de dimension à la (aux) table(s) de faits, et modélise les hiérarchies (ex: Agence → Région → Direction).
 - Une dimension qui qualifie un fait donne typiquement une relation 1:N (Dimension → Fait).
@@ -155,11 +136,11 @@ Termine TOUJOURS par un bloc json:extract de type "relation" pour CHAQUE relatio
 
     4: `## Étape 4 / 5 — Attributs et Clés (colonnes)
 
-Objectif : COMPLÉTER et affiner les colonnes des entités. Le modèle a déjà reçu des attributs à l'étape 2 (voir « Attributs déjà définis » / « Données déjà collectées »).
-N'émets PAS à nouveau les attributs qui existent déjà : ajoute UNIQUEMENT les colonnes manquantes ou demandées par l'utilisateur. Émets UN bloc json:extract de type "attribute" par NOUVEL attribut. Si tout semble déjà complet, dis-le simplement sans rien réémettre.
+Objectif : produire les colonnes de CHAQUE entité, avec types SQL et clé primaire. C'est cette étape qui rend le DDL SQL et le MCD COMPLETS.
+Présente les questions, puis — APRÈS la réponse de l'utilisateur — émets UN bloc json:extract de type "attribute" PAR colonne, pour toutes les entités.
 
 Règles impératives de modélisation :
-- Chaque entité (voir « Données déjà collectées ») doit avoir ses attributs essentiels ; complète celles qui en manquent.
+- CHAQUE entité (voir « Données déjà collectées ») DOIT recevoir ses attributs. N'en oublie aucune.
 - CHAQUE entité DOIT avoir EXACTEMENT une clé primaire (isPK: true), nommée "<entite>_id" en BIGINT, en snake_case.
 - N'émets PAS de colonnes de clé étrangère : les FK sont générées automatiquement à partir des relations. Concentre-toi sur la PK et les attributs métier.
 - Ajoute les attributs descriptifs métier pertinents (libellés, montants, dates, statuts…) avec des types SQL adaptés (VARCHAR, DECIMAL, DATE, TIMESTAMP, BOOLEAN, INT…).

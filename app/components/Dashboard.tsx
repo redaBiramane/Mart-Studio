@@ -7,9 +7,10 @@ interface DashboardProps {
   onOpenSession: (id: string) => void;
   onViewDeliverables: () => void;
   onViewDocs?: () => void;
+  onOpenDeliverables?: (id: string) => void;
 }
 
-export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDeliverables, onViewDocs }: DashboardProps) {
+export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDeliverables, onViewDocs, onOpenDeliverables }: DashboardProps) {
   const { sessions, deleteSession } = useWorkshopStore();
 
   const completedCount = sessions.filter(s => s.status === 'completed').length;
@@ -125,9 +126,13 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
                   {s.entities.length > 0 && ` · ${s.entities.length} entités`}
                 </div>
               </div>
-              <button className="session-delete" onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }} title="Supprimer">
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                <button className="suggested-chip" onClick={() => onOpenSession(s.id)} title="Ouvrir l'atelier">🧠 Atelier</button>
+                {s.entities.length > 0 && onOpenDeliverables && (
+                  <button className="suggested-chip" onClick={() => onOpenDeliverables(s.id)} title="Voir les livrables">📦 Livrables</button>
+                )}
+                <button className="session-delete" onClick={() => deleteSession(s.id)} title="Supprimer">✕</button>
+              </div>
             </div>
           ))}
         </div>

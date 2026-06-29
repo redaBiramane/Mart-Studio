@@ -396,6 +396,12 @@ export default function Workshop() {
   // Filter system messages from display
   const displayMessages = messages.filter(m => !getMessageText(m).startsWith('[SYSTÈME]'));
 
+  // Only offer "Valider la réponse" once the user has actually answered in THIS
+  // step. Data may already exist (deduced earlier), but we don't want the banner
+  // to appear before the user has had a chance to type.
+  const userHasMessagedThisStep = displayMessages.some(m => m.role === 'user');
+  const showStepBanner = hasStepData(currentStep) && userHasMessagedThisStep;
+
   return (
     <div className="workshop-layout">
       <StepSidebar currentStep={currentStep} onStepChange={handleStepChange} session={session} />
@@ -456,7 +462,7 @@ export default function Workshop() {
         </div>
 
         <div className="chat-input-area">
-          {hasStepData(currentStep) && (
+          {showStepBanner && (
             <div style={{
               display: 'flex',
               alignItems: 'center',

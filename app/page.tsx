@@ -180,7 +180,10 @@ export default function Home() {
           }} onOpenSession={(id) => {
             useWorkshopStore.getState().loadSession(id);
             setCurrentPage('workshop');
-          }} onViewDeliverables={() => setCurrentPage('deliverables')} onViewDocs={() => setCurrentPage('docs')} />}
+          }} onViewDeliverables={() => setCurrentPage('deliverables')} onViewDocs={() => setCurrentPage('docs')} onOpenDeliverables={(id) => {
+            useWorkshopStore.getState().loadSession(id);
+            setCurrentPage('deliverables');
+          }} />}
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}

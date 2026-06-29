@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
+import MermaidDiagram from './MermaidDiagram';
 
 type Tab = 'overview' | 'mcd' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
@@ -177,11 +178,16 @@ function MCDTab({ session }: { session: WorkshopSession }) {
 
   return (
     <div className="fade-in">
-      <h3 style={{ fontSize: 18, marginBottom: 16 }}>Modèle Conceptuel de Données</h3>
-      <CodeBlock title="ERD Mermaid" language="mermaid" code={mermaidCode} />
-      <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-        Copiez ce code dans un éditeur Mermaid (mermaid.live) pour visualiser le diagramme.
-      </p>
+      <h3 style={{ fontSize: 18, marginBottom: 16 }}>Architecture visuelle du Data Product (MCD)</h3>
+      <MermaidDiagram code={mermaidCode} />
+      <details style={{ marginTop: 16 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
+          Voir / copier le code source (Mermaid)
+        </summary>
+        <div style={{ marginTop: 8 }}>
+          <CodeBlock title="ERD Mermaid" language="mermaid" code={mermaidCode} />
+        </div>
+      </details>
     </div>
   );
 }
