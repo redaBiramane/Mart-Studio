@@ -6,9 +6,10 @@ import Dashboard from './components/Dashboard';
 import Workshop from './components/Workshop';
 import Deliverables from './components/Deliverables';
 import AdminPanel from './components/AdminPanel';
+import Documentation from './components/Documentation';
 import Image from 'next/image';
 
-type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin';
+type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs';
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -18,6 +19,7 @@ export default function Home() {
     { key: 'dashboard' as Page, icon: '🏠', label: 'Accueil' },
     { key: 'workshop' as Page, icon: '🧠', label: 'Atelier IA', badge: session?.status === 'active' ? `${session.currentStep}/5` : undefined },
     { key: 'deliverables' as Page, icon: '📦', label: 'Livrables' },
+    { key: 'docs' as Page, icon: '📖', label: 'Documentation' },
   ];
 
   const adminItems = [
@@ -121,6 +123,7 @@ export default function Home() {
               {currentPage === 'workshop' && 'Atelier de conception'}
               {currentPage === 'deliverables' && 'Livrables'}
               {currentPage === 'admin' && 'Configuration LLM'}
+              {currentPage === 'docs' && 'Documentation'}
             </h1>
           </div>
           <div className="header-actions">
@@ -156,6 +159,10 @@ export default function Home() {
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}
+          {currentPage === 'docs' && <Documentation onStartWorkshop={() => {
+            useWorkshopStore.getState().createSession();
+            setCurrentPage('workshop');
+          }} />}
         </div>
       </div>
     </div>
