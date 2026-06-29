@@ -829,94 +829,86 @@ function enrichSession(session: WorkshopSession): WorkshopSession {
   return { ...session, attributes };
 }
 
-// ---- Rapport détaillé imprimable (PDF) -----------------------------------
+// ---- Rapport détaillé PDF (jsPDF, téléchargement direct) -----------------
 
-function escapeHtml(s: string): string {
-  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+async function downloadReportPdf(session: WorkshopSession) {
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
 
-function buildReportHtml(session: WorkshopSession): string {
-  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 40;
+  let y = margin;
 
-  const entitiesHtml = session.entities.map(e => `
-    <h3>${escapeHtml(e.name)}</h3>
-    ${e.definition ? `<p class="muted">${escapeHtml(e.definition)}</p>` : ''}
-    <table>
-      <thead><tr><th>Attribut</th><th>Type</th><th>Clé</th><th>Description</th></tr></thead>
-      <tbody>
-        ${attrsOf(e).map(a => `<tr>
-          <td><b>${escapeHtml(a.name)}</b></td>
-          <td>${escapeHtml(a.type)}</td>
-          <td>${a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : ''}${a.isSensitive ? ' 🔒' : ''}</td>
-          <td>${escapeHtml(a.description)}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`).join('');
+  const ensure = (needed: number) => {
+    if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+  };
+  const para = (text: string, size = 10, color = 40) => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(color);
+    const lines = doc.splitTextToSize(text, pageW - margin * 2) as string[];
+    ensure(lines.length * (size + 2));
+    doc.text(lines, margin, y);
+    y += lines.length * (size + 2) + 2;
+  };
+  const sectionTitle = (t: string) => {
+    y += 8; ensure(28);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(0, 107, 79);
+    doc.text(t, margin, y); y += 6;
+    doc.setDrawColor(220); doc.line(margin, y, pageW - margin, y); y += 14;
+  };
+  const bullets = (title: string, items: string[]) => {
+    if (!items.length) return;
+    sectionTitle(title);
+    items.forEach(it => para('•  ' + it, 10, 30));
+  };
 
-  const relationsHtml = session.relations.length ? `<h2>Relations (${session.relations.length})</h2><ul>${
-    session.relations.map(r => `<li><b>${escapeHtml(r.sourceEntityName)} → ${escapeHtml(r.targetEntityName)}</b> (${r.type})${r.description ? ' — ' + escapeHtml(r.description) : ''}</li>`).join('')
-  }</ul>` : '';
+  // En-tête
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(0, 107, 79);
+  doc.text(session.productName || 'Data Product', margin, y); y += 22;
+  para(`Domaine : ${session.domain || '—'}`, 10, 70);
+  para(`Product Owner : ${session.productOwner || '—'}    |    Data Steward : ${session.dataSteward || '—'}`, 10, 70);
+  if (session.objective) para(`Objectif : ${session.objective}`, 10, 70);
+  if (session.contextSummary) para(session.contextSummary, 10, 70);
 
-  const kpisHtml = session.kpis.length ? `<h2>KPIs (${session.kpis.length})</h2><ul>${
-    session.kpis.map(k => `<li><b>${escapeHtml(k.name)}</b>${k.formula ? ' — ' + escapeHtml(k.formula) : ''}${k.description ? ' · ' + escapeHtml(k.description) : ''}</li>`).join('')
-  }</ul>` : '';
+  // Entités & attributs
+  sectionTitle(`Entités & attributs (${session.entities.length})`);
+  session.entities.forEach(e => {
+    ensure(40);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20);
+    doc.text(e.name, margin, y); y += 4;
+    const attrs = session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+    autoTable(doc, {
+      startY: y + 2,
+      head: [['Attribut', 'Type', 'Clé', 'Description']],
+      body: attrs.map(a => [a.name, a.type, a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '', a.description || '']),
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8.5, cellPadding: 3, overflow: 'linebreak' },
+      headStyles: { fillColor: [0, 107, 79] },
+      columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 70 }, 2: { cellWidth: 40 } },
+      theme: 'grid',
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
+  });
 
-  const rulesHtml = session.businessRules.length ? `<h2>Règles métier (${session.businessRules.length})</h2><ul>${
-    session.businessRules.map(r => `<li><b>${escapeHtml(r.name)}</b> (${escapeHtml(r.type)})${r.description ? ' — ' + escapeHtml(r.description) : ''}</li>`).join('')
-  }</ul>` : '';
-
-  const sourcesHtml = session.dataSources.length ? `<h2>Sources de données (${session.dataSources.length})</h2><ul>${
-    session.dataSources.map(s => `<li><b>${escapeHtml(s.name)}</b>${s.system ? ' — ' + escapeHtml(s.system) : ''}${s.loadFrequency ? ' · ' + escapeHtml(s.loadFrequency) : ''}</li>`).join('')
-  }</ul>` : '';
-
-  const maturityHtml = session.maturityScores ? `<h2>Score de maturité</h2><ul>${
-    MATURITY_DIMENSIONS.map(d => `<li>${d.label} : <b>${session.maturityScores![d.key as keyof typeof session.maturityScores]}/100</b></li>`).join('')
-  }</ul>` : '';
-
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${escapeHtml(session.productName || 'Data Product')} — Rapport</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, Arial, sans-serif; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 32px; }
-    h1 { color: #006B4F; font-size: 24px; margin-bottom: 4px; }
-    h2 { color: #006B4F; font-size: 17px; margin-top: 28px; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
-    h3 { font-size: 15px; margin: 16px 0 4px; }
-    .muted { color: #666; font-size: 13px; margin: 2px 0 6px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12.5px; }
-    th { text-align: left; background: #f3f4f6; padding: 6px 8px; border: 1px solid #e5e7eb; }
-    td { padding: 6px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
-    ul { font-size: 13px; line-height: 1.7; }
-    .head-meta { font-size: 13px; line-height: 1.7; color: #333; }
-    @media print { body { padding: 0; } h2 { page-break-after: avoid; } table, h3 { page-break-inside: avoid; } }
-  </style></head><body>
-    <h1>${escapeHtml(session.productName || 'Data Product')}</h1>
-    <div class="head-meta">
-      <div><b>Domaine :</b> ${escapeHtml(session.domain || '—')}</div>
-      <div><b>Product Owner :</b> ${escapeHtml(session.productOwner || '—')} &nbsp;·&nbsp; <b>Data Steward :</b> ${escapeHtml(session.dataSteward || '—')}</div>
-      ${session.objective ? `<div><b>Objectif :</b> ${escapeHtml(session.objective)}</div>` : ''}
-      ${session.contextSummary ? `<div style="margin-top:6px">${escapeHtml(session.contextSummary)}</div>` : ''}
-    </div>
-    <h2>Entités &amp; attributs (${session.entities.length})</h2>
-    ${entitiesHtml}
-    ${relationsHtml}
-    ${kpisHtml}
-    ${rulesHtml}
-    ${sourcesHtml}
-    ${maturityHtml}
-    <p style="margin-top:32px;color:#999;font-size:11px">Généré par Mart Studio — Crédit Agricole PF&amp;M</p>
-  </body></html>`;
-}
-
-function downloadReportPdf(session: WorkshopSession) {
-  const w = window.open('', '_blank');
-  if (!w) {
-    alert('Veuillez autoriser les pop-ups pour générer le PDF.');
-    return;
+  bullets(`Relations (${session.relations.length})`, session.relations.map(r => `${r.sourceEntityName} -> ${r.targetEntityName} (${r.type})${r.description ? ' — ' + r.description : ''}`));
+  bullets(`KPIs (${session.kpis.length})`, session.kpis.map(k => `${k.name}${k.formula ? ' — ' + k.formula : ''}`));
+  bullets(`Règles métier (${session.businessRules.length})`, session.businessRules.map(r => `${r.name} (${r.type})${r.description ? ' — ' + r.description : ''}`));
+  bullets(`Sources de données (${session.dataSources.length})`, session.dataSources.map(s => `${s.name}${s.system ? ' — ' + s.system : ''}${s.loadFrequency ? ' · ' + s.loadFrequency : ''}`));
+  if (session.maturityScores) {
+    bullets('Score de maturité', MATURITY_DIMENSIONS.map(d => `${d.label} : ${session.maturityScores![d.key as keyof typeof session.maturityScores]}/100`));
   }
-  w.document.open();
-  w.document.write(buildReportHtml(session));
-  w.document.close();
-  w.focus();
-  setTimeout(() => w.print(), 500);
+
+  // Pied de page sur chaque page
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(150);
+    doc.text(`Mart Studio — Crédit Agricole PF&M   ·   page ${i}/${pages}`, margin, pageH - 20);
+  }
+
+  const fileName = (session.productName || 'data-product').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+  doc.save(`${fileName}.pdf`);
 }
 
 // ---- Standardisation des noms via Naming Studio --------------------------
