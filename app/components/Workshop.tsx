@@ -9,7 +9,7 @@ import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 
 export default function Workshop() {
-  const { session, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage } = useWorkshopStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
@@ -407,6 +407,22 @@ export default function Workshop() {
       <StepSidebar currentStep={currentStep} onStepChange={handleStepChange} session={session} />
 
       <div className="chat-panel">
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+          padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)',
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Propulsé par</span>
+          <span
+            title={`Fournisseur : ${llmSettings.provider}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+              color: 'var(--primary-light)', background: 'var(--primary-glow)',
+              border: '1px solid var(--border-active)', borderRadius: 999, padding: '3px 10px',
+            }}
+          >
+            {llmProviderIcon(llmSettings.provider)} {llmLabel(llmSettings.provider, llmSettings.model)}
+          </span>
+        </div>
         <div className="chat-messages">
           {displayMessages.length === 0 && !isLoading && (
             <div className="welcome-message">
@@ -585,6 +601,30 @@ export default function Workshop() {
       )}
     </div>
   );
+}
+
+// Friendly label for the active LLM (provider + model)
+function llmLabel(provider: string, model: string): string {
+  const names: Record<string, string> = {
+    'gpt-4o': 'GPT-4o', 'gpt-4o-mini': 'GPT-4o Mini', 'gpt-4-turbo': 'GPT-4 Turbo',
+    'claude-opus-4-8': 'Claude Opus 4.8', 'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+    'claude-haiku-4-5': 'Claude Haiku 4.5', 'claude-fable-5': 'Claude Fable 5',
+    'gemini-1.5-flash': 'Gemini 1.5 Flash', 'gemini-1.5-pro': 'Gemini 1.5 Pro',
+    'gemini-2.5-flash': 'Gemini 2.5 Flash', 'gemini-2.5-pro': 'Gemini 2.5 Pro',
+  };
+  if (model && names[model]) return names[model];
+  if (model) return model;
+  const providerNames: Record<string, string> = {
+    openai: 'OpenAI', anthropic: 'Claude', google: 'Gemini', custom: 'Modèle personnalisé',
+  };
+  return providerNames[provider] || provider || 'Non configuré';
+}
+
+function llmProviderIcon(provider: string): string {
+  const icons: Record<string, string> = {
+    openai: '🟢', anthropic: '🧠', google: '✦', custom: '⚙️',
+  };
+  return icons[provider] || '🤖';
 }
 
 // Marty — the Crédit Agricole assistant avatar
