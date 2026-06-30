@@ -357,11 +357,11 @@ function DimensionalTab({ session }: { session: WorkshopSession }) {
       <div className="context-card" style={{ marginBottom: 20 }}>
         <div style={{ marginBottom: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>⭐ TABLES DE FAITS ({facts.length})</span><br />
-          {facts.map(f => <span key={f.id} style={chip('#92400e', '#fde68a')}>{f.name} · fact_{cleanTableName(f.name)}</span>)}
+          {facts.map(f => <span key={f.id} style={chip('#92400e', '#fde68a')}>{f.name} · fact_{stripDimFactAffix(cleanTableName(f.name))}</span>)}
         </div>
         <div>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>🧩 DIMENSIONS ({dims.length})</span><br />
-          {dims.map(d => <span key={d.id} style={chip('var(--primary-light)', 'var(--primary-glow)')}>{d.name} · dim_{cleanTableName(d.name)}</span>)}
+          {dims.map(d => <span key={d.id} style={chip('var(--primary-light)', 'var(--primary-glow)')}>{d.name} · dim_{stripDimFactAffix(cleanTableName(d.name))}</span>)}
         </div>
       </div>
 
@@ -1084,11 +1084,24 @@ function isFactEntity(e: Entity): boolean {
   return e.type === 'transactional' || e.type === 'event' || e.type === 'aggregate';
 }
 
-// Sépare les entités en faits (mesures) et dimensions (axes). Si aucune entité
-// n'est typée "fait", on prend par défaut celle qui reçoit le plus de relations.
+// Le nom de l'entité indique-t-il déjà un fait / une dimension ?
+function nameSaysFact(name: string): boolean {
+  return /^(fact|fct|faits?)[_\s-]/i.test((name || '').trim());
+}
+function nameSaysDim(name: string): boolean {
+  return /^(dim|dimension)[_\s-]/i.test((name || '').trim());
+}
+// Retire un préfixe fact_/dim_/… déjà présent pour ne pas le doubler.
+function stripDimFactAffix(cleanName: string): string {
+  return cleanName.replace(/^(fact|fct|faits?|dim|dimension)_+/i, '') || cleanName;
+}
+
+// Sépare les entités en faits (mesures) et dimensions (axes). On respecte le
+// préfixe du nom (Fact_/Dim_) s'il existe, sinon on se base sur le type, puis
+// en dernier recours sur l'entité la plus reliée.
 function classifyDimensional(session: WorkshopSession): { facts: Entity[]; dims: Entity[] } {
   const entities = session.entities;
-  let facts = entities.filter(isFactEntity);
+  let facts = entities.filter(e => nameSaysFact(e.name) || (isFactEntity(e) && !nameSaysDim(e.name)));
 
   if (facts.length === 0 && entities.length > 0) {
     const incoming: Record<string, number> = {};
@@ -1111,10 +1124,11 @@ function classifyDimensional(session: WorkshopSession): { facts: Entity[]; dims:
 }
 
 // Nom technique préfixé (convention Kimball) : fact_ pour les faits, dim_ pour
-// les dimensions, en snake_case minuscule.
+// les dimensions, en snake_case minuscule. Tout préfixe existant est retiré
+// pour éviter les doublons (Fact_Appels -> fact_appels, pas fact_fact_appels).
 function dimFactName(rawName: string, factNames: Set<string>): string {
   const prefix = factNames.has(cleanEntityName(rawName)) ? 'fact_' : 'dim_';
-  return prefix + cleanTableName(rawName);
+  return prefix + stripDimFactAffix(cleanTableName(rawName));
 }
 
 function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relations: WorkshopSession['relations'], factNames: Set<string>): string {
