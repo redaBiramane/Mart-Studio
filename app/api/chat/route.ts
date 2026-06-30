@@ -50,11 +50,15 @@ export async function POST(req: Request) {
 
   const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${stepInstruction}${collectedContext}`;
 
-  // Convert incoming messages to the format expected by streamText
-  const formattedMessages = messages.map((m: { role: string; content?: string; parts?: Array<{ type: string; text: string }> }) => ({
-    role: m.role as 'user' | 'assistant' | 'system',
-    content: m.content || (m.parts?.filter((p: { type: string }) => p.type === 'text').map((p: { text: string }) => p.text).join('') ?? ''),
-  }));
+  // Convert incoming messages to the format expected by streamText.
+  // On filtre les messages vides : Anthropic (Claude) rejette tout bloc de
+  // texte vide ("text content blocks must be non-empty").
+  const formattedMessages = messages
+    .map((m: { role: string; content?: string; parts?: Array<{ type: string; text: string }> }) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content || (m.parts?.filter((p: { type: string }) => p.type === 'text').map((p: { text: string }) => p.text).join('') ?? ''),
+    }))
+    .filter((m: { content: string }) => typeof m.content === 'string' && m.content.trim().length > 0);
 
   let modelInstance;
 
