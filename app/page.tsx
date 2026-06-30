@@ -17,6 +17,21 @@ type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supe
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined' ? localStorage.getItem('mart-theme') : null) as 'light' | 'dark' | null;
+    const initial = saved || 'light';
+    setTheme(initial);
+    document.documentElement.setAttribute('data-theme', initial);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('mart-theme', next); } catch { /* ignore */ }
+  }
   const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut } = useWorkshopStore();
 
   useEffect(() => { initAuth(); }, [initAuth]);
@@ -167,6 +182,13 @@ export default function Home() {
             )}
             <button className="header-icon-btn" title="Aide">💡</button>
             <div className="header-lang">🇫🇷 FR</div>
+            <button
+              className="header-icon-btn"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <button className="header-icon-btn" title="Paramètres">⚙️</button>
             <button className="header-icon-btn" title="Notifications">
               🔔

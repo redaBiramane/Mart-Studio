@@ -39,6 +39,34 @@
   --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
+/* ---- Mode nuit ---- */
+[data-theme="dark"] {
+  --primary: #10A37F;
+  --primary-light: #1DB894;
+  --primary-dark: #0C7C60;
+  --primary-glow: rgba(16, 163, 127, 0.12);
+  --primary-surface: rgba(16, 163, 127, 0.16);
+  --bg-root: #0E1015;
+  --bg-surface: #171A21;
+  --bg-card: #1B1F27;
+  --bg-elevated: #232833;
+  --bg-input: #232833;
+  --bg-code: #0B0D12;
+  --border: #2A2F3A;
+  --border-light: #232833;
+  --border-active: rgba(29, 184, 148, 0.35);
+  --text: #E8EAF0;
+  --text-secondary: #B3B8C4;
+  --text-muted: #7C8494;
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.45);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.55);
+  --glass: rgba(23,26,33,0.9);
+  --glass-border: rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #3A4150; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-root); color: var(--text); -webkit-font-smoothing: antialiased; }
