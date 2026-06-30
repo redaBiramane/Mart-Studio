@@ -52,7 +52,13 @@ export default function Home() {
 
   // Auth gate (only when Supabase is configured)
   if (isSupabaseConfigured && !authReady) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Chargement…</div>;
+    return (
+      <div className="app-loading">
+        <Image className="app-loading-logo" src="/sofinco-logo.svg" alt="Sofinco" width={200} height={42} style={{ width: 200, height: 42 }} priority />
+        <div className="app-spinner" />
+        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chargement…</div>
+      </div>
+    );
   }
   if (isSupabaseConfigured && !user) {
     return <Login />;
