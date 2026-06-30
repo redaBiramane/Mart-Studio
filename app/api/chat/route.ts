@@ -105,13 +105,25 @@ export async function POST(req: Request) {
     }
   }
 
+  // Les modèles Claude récents (Opus 4.8/4.7, Fable 5) REJETTENT le paramètre
+  // temperature (erreur 400). On ne l'envoie donc pas pour le provider Anthropic.
+  const isAnthropic = llmSettings?.provider === 'anthropic';
+
   const result = streamText({
     model: modelInstance,
     system: fullSystemPrompt,
     messages: formattedMessages,
-    temperature: 0.4,
+    ...(isAnthropic ? {} : { temperature: 0.4 }),
     maxOutputTokens: 6000,
+    onError: ({ error }) => {
+      console.error('[chat] streamText error:', error);
+    },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      return `Erreur du fournisseur LLM : ${msg}`;
+    },
+  });
 }
