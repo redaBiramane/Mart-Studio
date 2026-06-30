@@ -210,7 +210,7 @@ export interface WorkshopSession {
 // ---- LLM Configuration ----
 
 export interface LLMSettings {
-  provider: 'openai' | 'google' | 'custom';
+  provider: 'openai' | 'google' | 'anthropic' | 'custom';
   apiKey: string;
   model: string;
   customBaseUrl?: string;

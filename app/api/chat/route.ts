@@ -5,6 +5,7 @@
 import { streamText } from 'ai';
 import { openai, createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { SYSTEM_PROMPT, getStepInstruction } from '@/lib/prompts/system-prompt';
 
 export const maxDuration = 60;
@@ -63,6 +64,11 @@ export async function POST(req: Request) {
         apiKey: llmSettings.apiKey,
       });
       modelInstance = googleProvider(llmSettings.model || 'gemini-1.5-flash');
+    } else if (llmSettings.provider === 'anthropic') {
+      const anthropicProvider = createAnthropic({
+        apiKey: llmSettings.apiKey,
+      });
+      modelInstance = anthropicProvider(llmSettings.model || 'claude-opus-4-8');
     } else if (llmSettings.provider === 'custom') {
       const customOpenAIProvider = createOpenAI({
         apiKey: llmSettings.apiKey || '',
@@ -82,6 +88,11 @@ export async function POST(req: Request) {
         apiKey: process.env.GEMINI_API_KEY || '',
       });
       modelInstance = googleProvider(llmSettings.model || 'gemini-1.5-flash');
+    } else if (llmSettings?.provider === 'anthropic') {
+      const anthropicProvider = createAnthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY || '',
+      });
+      modelInstance = anthropicProvider(llmSettings.model || 'claude-opus-4-8');
     } else if (llmSettings?.provider === 'custom') {
       const customOpenAIProvider = createOpenAI({
         apiKey: process.env.OPENAI_API_KEY || '',

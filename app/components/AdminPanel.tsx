@@ -27,6 +27,12 @@ export default function AdminPanel() {
       { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
       { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
     ],
+    anthropic: [
+      { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Recommandé)' },
+      { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Équilibré)' },
+      { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Rapide)' },
+      { value: 'claude-fable-5', label: 'Claude Fable 5 (Max capacité)' },
+    ],
     custom: [
       { value: 'custom-model', label: 'Modèle personnalisé' },
     ],
@@ -41,12 +47,14 @@ export default function AdminPanel() {
   }, [llmSettings]);
 
   // Handle provider change to auto-set a valid model
-  const handleProviderChange = (newProvider: 'openai' | 'google' | 'custom') => {
+  const handleProviderChange = (newProvider: 'openai' | 'google' | 'anthropic' | 'custom') => {
     setProvider(newProvider);
     if (newProvider === 'openai') {
       setModel('gpt-4o');
     } else if (newProvider === 'google') {
       setModel('gemini-1.5-flash');
+    } else if (newProvider === 'anthropic') {
+      setModel('claude-opus-4-8');
     } else {
       setModel('');
     }
@@ -99,6 +107,7 @@ export default function AdminPanel() {
             style={{ width: '100%', padding: '12px', height: '48px' }}
           >
             <option value="openai">OpenAI (GPT)</option>
+            <option value="anthropic">Anthropic (Claude)</option>
             <option value="google">Google Gemini</option>
             <option value="custom">Autre (Compatible OpenAI API, local, etc.)</option>
           </select>
@@ -112,7 +121,7 @@ export default function AdminPanel() {
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setStatusMessage(null); }}
-              placeholder={provider === 'openai' ? 'sk-...' : provider === 'google' ? 'AIzaSy...' : 'Votre clé API'}
+              placeholder={provider === 'openai' ? 'sk-...' : provider === 'google' ? 'AIzaSy...' : provider === 'anthropic' ? 'sk-ant-api03-...' : 'Votre clé API'}
               className="chat-input"
               style={{ width: '100%', paddingRight: '50px' }}
             />
@@ -129,6 +138,7 @@ export default function AdminPanel() {
           </div>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             {provider === 'openai' && 'Nécessite une clé API valide provenant du tableau de bord de développeur OpenAI.'}
+            {provider === 'anthropic' && 'Nécessite une clé API Anthropic (console.anthropic.com → API Keys). Format : sk-ant-api03-…'}
             {provider === 'google' && 'Nécessite une clé API Google AI Studio pour Gemini.'}
             {provider === 'custom' && 'Clé API requise par votre fournisseur personnalisé (laisser vide si non requise).'}
           </span>
