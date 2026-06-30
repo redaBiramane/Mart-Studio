@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 const ACTION_LABELS: Record<string, string> = {
   login: '🔑 Connexion',
@@ -12,13 +13,27 @@ const ACTION_LABELS: Record<string, string> = {
   delete_product: '🗑️ Suppression produit',
 };
 
-export default function Supervision() {
-  const { profile, adminProducts, adminProfiles, activityLogs, loadAdminData } = useWorkshopStore();
-  const [tab, setTab] = useState<'activity' | 'products' | 'users'>('activity');
+export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' }) {
+  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData } = useWorkshopStore();
+  const [tab, setTab] = useState<'activity' | 'products' | 'users'>(initialTab);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAdminData();
   }, [loadAdminData]);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  async function changeRole(id: string, currentRole: string) {
+    if (!supabase) return;
+    setBusyId(id);
+    const next = currentRole === 'admin' ? 'user' : 'admin';
+    await supabase.from('profiles').update({ role: next }).eq('id', id);
+    await loadAdminData();
+    setBusyId(null);
+  }
 
   if (profile?.role !== 'admin') {
     return (
@@ -117,7 +132,7 @@ export default function Supervision() {
 
         {tab === 'users' && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead><tr><th style={th}>Nom</th><th style={th}>Email</th><th style={th}>Rôle</th><th style={th}>Inscrit le</th></tr></thead>
+            <thead><tr><th style={th}>Nom</th><th style={th}>Email</th><th style={th}>Rôle</th><th style={th}>Inscrit le</th><th style={th}>Actions</th></tr></thead>
             <tbody>
               {adminProfiles.map(u => (
                 <tr key={u.id}>
@@ -129,6 +144,15 @@ export default function Supervision() {
                     </span>
                   </td>
                   <td style={td}>{fmt(u.created_at)}</td>
+                  <td style={td}>
+                    {u.id === user?.id ? (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>vous</span>
+                    ) : (
+                      <button className="suggested-chip" disabled={busyId === u.id} onClick={() => changeRole(u.id, u.role)}>
+                        {busyId === u.id ? '…' : u.role === 'admin' ? '↓ Rétrograder' : '↑ Promouvoir admin'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

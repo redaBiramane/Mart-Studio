@@ -18,6 +18,8 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users'>('activity');
 
   useEffect(() => {
     const saved = (typeof window !== 'undefined' ? localStorage.getItem('mart-theme') : null) as 'light' | 'dark' | null;
@@ -137,20 +139,38 @@ export default function Home() {
           </div>
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-footer-avatar">{(user?.email || 'A').charAt(0).toUpperCase()}</div>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.email || 'Invité (mode local)'}
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{isAdmin ? 'Administrateur' : (user ? 'Utilisateur' : 'Non connecté')}</div>
-          </div>
-          {user && (
-            <button onClick={() => signOut()} title="Se déconnecter"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)', fontSize: 16 }}>
-              ⎋
-            </button>
+        <div className="sidebar-footer" style={{ position: 'relative' }}>
+          {userMenuOpen && (
+            <>
+              <div onClick={() => setUserMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+              <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 12, right: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 41 }}>
+                {isAdmin && (
+                  <>
+                    <button className="user-menu-item" onClick={() => { setSupervisionTab('activity'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}>🛡️ Supervision</button>
+                    <button className="user-menu-item" onClick={() => { setSupervisionTab('users'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}>👥 Utilisateurs</button>
+                    <button className="user-menu-item" onClick={() => { setCurrentPage('admin'); setSidebarOpen(false); setUserMenuOpen(false); }}>⚙️ Configuration LLM</button>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                  </>
+                )}
+                {user && (
+                  <button className="user-menu-item" style={{ color: 'var(--accent-red)' }} onClick={() => { signOut(); setUserMenuOpen(false); }}>↩ Se déconnecter</button>
+                )}
+              </div>
+            </>
           )}
+          <button
+            onClick={() => setUserMenuOpen((o) => !o)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+          >
+            <div className="sidebar-footer-avatar">{(user?.email || 'A').charAt(0).toUpperCase()}</div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.email || 'Invité (mode local)'}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{isAdmin ? 'Administrateur' : (user ? 'Utilisateur' : 'Non connecté')}</div>
+            </div>
+            <span style={{ color: 'var(--text-muted)', fontSize: 12, transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>⌃</span>
+          </button>
         </div>
       </aside>
 
@@ -217,7 +237,7 @@ export default function Home() {
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}
-          {currentPage === 'supervision' && <Supervision />}
+          {currentPage === 'supervision' && <Supervision initialTab={supervisionTab} />}
           {currentPage === 'docs' && <Documentation onStartWorkshop={() => {
             useWorkshopStore.getState().createSession();
             setCurrentPage('workshop');

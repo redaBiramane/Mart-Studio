@@ -93,6 +93,11 @@ drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
   for update using (id = auth.uid());
 
+-- L'admin peut modifier le rôle de n'importe quel utilisateur (promouvoir / rétrograder)
+drop policy if exists "profiles_update_admin" on public.profiles;
+create policy "profiles_update_admin" on public.profiles
+  for update using (public.is_admin());
+
 -- Data products : le propriétaire gère les siens ; l'admin lit tout
 drop policy if exists "products_select_own_or_admin" on public.data_products;
 create policy "products_select_own_or_admin" on public.data_products
