@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useWorkshopStore } from '@/lib/store';
 
-export default function Login() {
+export default function Login({ onBack }: { onBack?: () => void }) {
   const { signIn, signUp, authError } = useWorkshopStore();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -28,7 +28,12 @@ export default function Login() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f3f4f6)', padding: 24 }}>
-      <div className="context-card" style={{ width: 'min(420px, 100%)', padding: 32 }}>
+      <div className="context-card" style={{ width: 'min(420px, 100%)', padding: 32, position: 'relative' }}>
+        {onBack && (
+          <button onClick={onBack} style={{ position: 'absolute', top: 16, left: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600 }}>
+            ← Accueil
+          </button>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 24 }}>
           <Image src="/sofinco-logo.svg" alt="Sofinco" width={150} height={32} style={{ width: 150, height: 32 }} />
           <h2 style={{ fontSize: 20, margin: '8px 0 0' }}>Mart Studio</h2>

@@ -10,6 +10,7 @@ import AdminPanel from './components/AdminPanel';
 import Documentation from './components/Documentation';
 import Supervision from './components/Supervision';
 import Login from './components/Login';
+import Landing from './components/Landing';
 import Image from 'next/image';
 
 type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
@@ -18,6 +19,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [showLogin, setShowLogin] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users'>('activity');
 
@@ -63,7 +65,7 @@ export default function Home() {
     );
   }
   if (isSupabaseConfigured && !user) {
-    return <Login />;
+    return showLogin ? <Login onBack={() => setShowLogin(false)} /> : <Landing onEnter={() => setShowLogin(true)} />;
   }
 
   return (
