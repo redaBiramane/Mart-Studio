@@ -47,9 +47,9 @@ function createEmptySession(): WorkshopSession {
 }
 
 const defaultLLMSettings = {
-  provider: 'openai' as const,
+  provider: 'anthropic' as const,
   apiKey: '',
-  model: 'gpt-4o',
+  model: 'claude-opus-4-8',
   customBaseUrl: '',
 };
 
