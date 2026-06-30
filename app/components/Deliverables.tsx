@@ -357,11 +357,11 @@ function DimensionalTab({ session }: { session: WorkshopSession }) {
       <div className="context-card" style={{ marginBottom: 20 }}>
         <div style={{ marginBottom: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>⭐ TABLES DE FAITS ({facts.length})</span><br />
-          {facts.map(f => <span key={f.id} style={chip('#92400e', '#fde68a')}>{f.name}</span>)}
+          {facts.map(f => <span key={f.id} style={chip('#92400e', '#fde68a')}>{f.name} · fact_{cleanTableName(f.name)}</span>)}
         </div>
         <div>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>🧩 DIMENSIONS ({dims.length})</span><br />
-          {dims.map(d => <span key={d.id} style={chip('var(--primary-light)', 'var(--primary-glow)')}>{d.name}</span>)}
+          {dims.map(d => <span key={d.id} style={chip('var(--primary-light)', 'var(--primary-glow)')}>{d.name} · dim_{cleanTableName(d.name)}</span>)}
         </div>
       </div>
 
@@ -1110,11 +1110,18 @@ function classifyDimensional(session: WorkshopSession): { facts: Entity[]; dims:
   return { facts, dims };
 }
 
-function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relations: WorkshopSession['relations']): string {
+// Nom technique préfixé (convention Kimball) : fact_ pour les faits, dim_ pour
+// les dimensions, en snake_case minuscule.
+function dimFactName(rawName: string, factNames: Set<string>): string {
+  const prefix = factNames.has(cleanEntityName(rawName)) ? 'fact_' : 'dim_';
+  return prefix + cleanTableName(rawName);
+}
+
+function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relations: WorkshopSession['relations'], factNames: Set<string>): string {
   let code = 'erDiagram\n';
   const fkMap = buildFkMap(session, entities);
   entities.forEach(entity => {
-    const codeName = cleanEntityName(entity.name);
+    const codeName = dimFactName(entity.name, factNames);
     const cols = getTableColumns(entity, session, entities, fkMap);
     if (cols.length > 0) {
       code += `    ${codeName} {\n`;
@@ -1129,8 +1136,8 @@ function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relat
     }
   });
   relations.forEach(rel => {
-    const src = cleanEntityName(rel.sourceEntityName);
-    const tgt = cleanEntityName(rel.targetEntityName);
+    const src = dimFactName(rel.sourceEntityName, factNames);
+    const tgt = dimFactName(rel.targetEntityName, factNames);
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
     code += `    ${src} ${card} ${tgt} : "${(rel.description || 'lié à').replace(/"/g, '')}"\n`;
   });
@@ -1146,12 +1153,13 @@ function generateStarSchema(session: WorkshopSession, facts: Entity[], dims: Ent
     const t = cleanEntityName(r.targetEntityName);
     return (factNames.has(s) && dimNames.has(t)) || (factNames.has(t) && dimNames.has(s));
   });
-  return buildDimensionalErd(session, [...facts, ...dims], starRels);
+  return buildDimensionalErd(session, [...facts, ...dims], starRels, factNames);
 }
 
 function generateSnowflakeSchema(session: WorkshopSession, facts: Entity[], dims: Entity[]): string {
+  const factNames = new Set(facts.map(f => cleanEntityName(f.name)));
   // Flocon : tous les liens, y compris dimension <-> dimension (hiérarchies normalisées).
-  return buildDimensionalErd(session, [...facts, ...dims], session.relations);
+  return buildDimensionalErd(session, [...facts, ...dims], session.relations, factNames);
 }
 
 function generateSQL(session: WorkshopSession): string {
