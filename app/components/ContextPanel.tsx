@@ -195,11 +195,16 @@ function DetailModal({ session, detail, onClose }: { session: WorkshopSession; d
 
           {detail === 'attributes' && session.entities.map(entity => {
             const attrs = session.attributes.filter(a => a.entityId === entity.id || a.entityId === entity.name);
-            if (attrs.length === 0) return null;
+            const pkName = entity.name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase() + '_id';
             return (
               <div key={entity.id} style={{ marginBottom: 18 }}>
                 <div style={{ fontWeight: 700, color: 'var(--primary-light)', marginBottom: 6 }}>{entity.name}</div>
-                {attrs.map(a => (
+                {attrs.length === 0 ? (
+                  <div style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                    <strong>{pkName}</strong> <span style={{ color: 'var(--accent-blue)' }}>BIGINT</span> <span title="Clé primaire">🔑</span>
+                    <span style={{ color: 'var(--text-muted)' }}> — clé primaire (par défaut, attributs non détaillés)</span>
+                  </div>
+                ) : attrs.map(a => (
                   <div key={a.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                     <strong>{a.name}</strong> <span style={{ color: 'var(--accent-blue)' }}>{a.type}</span>{' '}
                     {a.isPrimaryKey && <span title="Clé primaire">🔑</span>}

@@ -66,7 +66,21 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-  transition: transform var(--transition);
+  transition: width var(--transition), transform var(--transition);
+}
+
+/* Menu réduit (desktop) : largeur nulle, contenu masqué, bouton conservé */
+.sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  overflow: visible;
+}
+.sidebar.collapsed > *:not(.sidebar-collapse-btn) {
+  display: none;
+}
+.sidebar.collapsed .sidebar-collapse-btn {
+  right: -32px;
 }
 
 .sidebar-header {

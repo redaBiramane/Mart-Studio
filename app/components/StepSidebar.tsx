@@ -10,8 +10,6 @@ interface StepSidebarProps {
 }
 
 export default function StepSidebar({ currentStep, onStepChange, session }: StepSidebarProps) {
-  const progress = Math.round(((currentStep - 1) / 5) * 100);
-
   function getStepStatus(stepId: number): 'completed' | 'active' | 'pending' {
     if (stepId < currentStep) return 'completed';
     if (stepId === currentStep) return 'active';
@@ -28,6 +26,10 @@ export default function StepSidebar({ currentStep, onStepChange, session }: Step
       default: return false;
     }
   }
+
+  // Progression = étapes réellement complétées (atteint 100% une fois l'étape 5 validée).
+  const completedSteps = STEPS.filter((s) => hasStepData(s.id)).length;
+  const progress = Math.round((completedSteps / STEPS.length) * 100);
 
   return (
     <div className="step-sidebar">

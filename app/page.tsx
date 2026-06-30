@@ -16,6 +16,7 @@ type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supe
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut } = useWorkshopStore();
 
   useEffect(() => { initAuth(); }, [initAuth]);
@@ -45,7 +46,7 @@ export default function Home() {
   return (
     <div className="app-layout">
       {/* Sidebar */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
             <Image src="/sofinco-logo.svg" alt="Sofinco" width={180} height={38} style={{ width: 180, height: 38 }} />
@@ -55,10 +56,11 @@ export default function Home() {
 
         <button
           className="sidebar-collapse-btn"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          aria-label="Toggle sidebar"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? 'Afficher le menu' : 'Réduire le menu'}
+          title={collapsed ? 'Afficher le menu' : 'Réduire le menu'}
         >
-          ◁
+          {collapsed ? '▷' : '◁'}
         </button>
 
         <nav className="sidebar-nav">
