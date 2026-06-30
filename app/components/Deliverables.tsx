@@ -7,7 +7,7 @@ import { MATURITY_DIMENSIONS } from '@/lib/constants';
 import MermaidDiagram from './MermaidDiagram';
 import { transformMany } from '@/lib/naming';
 
-type Tab = 'overview' | 'report' | 'mcd' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -51,6 +51,7 @@ export default function Deliverables() {
     { key: 'overview', label: 'Vue d\'ensemble', icon: '📊' },
     { key: 'report', label: 'Rapport détaillé (PDF)', icon: '📄' },
     { key: 'mcd', label: 'MCD / ERD', icon: '🗺️' },
+    { key: 'dimensional', label: 'Étoile / Flocon', icon: '❄️' },
     { key: 'dbml', label: 'DBML (dbdiagram.io)', icon: '🧬' },
     { key: 'sql', label: 'SQL DDL', icon: '💾' },
     { key: 'dbt', label: 'dbt YAML', icon: '🔧' },
@@ -75,6 +76,7 @@ export default function Deliverables() {
         {activeTab === 'overview' && <OverviewTab session={data} />}
         {activeTab === 'report' && <ReportTab session={data} />}
         {activeTab === 'mcd' && <MCDTab session={data} />}
+        {activeTab === 'dimensional' && <DimensionalTab session={data} />}
         {activeTab === 'dbml' && <DbmlTab session={data} />}
         {activeTab === 'sql' && <SQLTab session={data} {...namingProps} />}
         {activeTab === 'dbt' && <DbtTab session={data} {...namingProps} />}
@@ -318,6 +320,66 @@ function MCDTab({ session }: { session: WorkshopSession }) {
         </summary>
         <div style={{ marginTop: 8 }}>
           <CodeBlock title="ERD Mermaid" language="mermaid" code={mermaidCode} />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function DimensionalTab({ session }: { session: WorkshopSession }) {
+  const { facts, dims } = classifyDimensional(session);
+  const star = generateStarSchema(session, facts, dims);
+  const snowflake = generateSnowflakeSchema(session, facts, dims);
+
+  if (facts.length === 0) {
+    return (
+      <div className="empty-state" style={{ padding: 40 }}>
+        <div className="empty-state-icon">❄️</div>
+        <div className="empty-state-text">
+          Aucune table de faits détectée. Marquez au moins une entité comme transactionnelle / événement (mesures) pour générer le modèle dimensionnel.
+        </div>
+      </div>
+    );
+  }
+
+  const chip = (color: string, bg: string): React.CSSProperties => ({
+    display: 'inline-block', fontSize: 12, fontWeight: 600, padding: '4px 10px',
+    borderRadius: 999, color, background: bg, margin: '0 6px 6px 0',
+  });
+
+  return (
+    <div className="fade-in">
+      <h3 style={{ fontSize: 18, marginBottom: 8 }}>Modèle dimensionnel (Étoile &amp; Flocon)</h3>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+        Classification automatique des entités en <strong>faits</strong> (mesures) et <strong>dimensions</strong> (axes d&apos;analyse).
+      </p>
+
+      <div className="context-card" style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>⭐ TABLES DE FAITS ({facts.length})</span><br />
+          {facts.map(f => <span key={f.id} style={chip('#92400e', '#fde68a')}>{f.name}</span>)}
+        </div>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>🧩 DIMENSIONS ({dims.length})</span><br />
+          {dims.map(d => <span key={d.id} style={chip('var(--primary-light)', 'var(--primary-glow)')}>{d.name}</span>)}
+        </div>
+      </div>
+
+      <h4 style={{ fontSize: 15, margin: '8px 0' }}>⭐ Schéma en étoile (Star schema)</h4>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Dimensions reliées directement aux faits (dénormalisées).</p>
+      <MermaidDiagram code={star} />
+
+      <h4 style={{ fontSize: 15, margin: '20px 0 8px' }}>❄️ Schéma en flocon (Snowflake schema)</h4>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Dimensions normalisées : les hiérarchies sont éclatées en sous-dimensions reliées.</p>
+      <MermaidDiagram code={snowflake} />
+
+      <details style={{ marginTop: 16 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)' }}>Voir / copier le code Mermaid</summary>
+        <div style={{ marginTop: 8 }}>
+          <CodeBlock title="Star schema (Mermaid)" language="mermaid" code={star} />
+          <div style={{ marginTop: 12 }}>
+            <CodeBlock title="Snowflake schema (Mermaid)" language="mermaid" code={snowflake} />
+          </div>
         </div>
       </details>
     </div>
@@ -1014,6 +1076,82 @@ function generateDBML(session: WorkshopSession): string {
   }
 
   return dbml;
+}
+
+// ---- Modèle dimensionnel (étoile / flocon) -------------------------------
+
+function isFactEntity(e: Entity): boolean {
+  return e.type === 'transactional' || e.type === 'event' || e.type === 'aggregate';
+}
+
+// Sépare les entités en faits (mesures) et dimensions (axes). Si aucune entité
+// n'est typée "fait", on prend par défaut celle qui reçoit le plus de relations.
+function classifyDimensional(session: WorkshopSession): { facts: Entity[]; dims: Entity[] } {
+  const entities = session.entities;
+  let facts = entities.filter(isFactEntity);
+
+  if (facts.length === 0 && entities.length > 0) {
+    const incoming: Record<string, number> = {};
+    session.relations.forEach(r => {
+      const tgt = cleanEntityName(r.targetEntityName);
+      incoming[tgt] = (incoming[tgt] || 0) + 1;
+    });
+    let best: Entity | null = null;
+    let bestCount = 0;
+    entities.forEach(e => {
+      const c = incoming[cleanEntityName(e.name)] || 0;
+      if (c > bestCount) { bestCount = c; best = e; }
+    });
+    if (best) facts = [best];
+  }
+
+  const factNames = new Set(facts.map(f => cleanEntityName(f.name)));
+  const dims = entities.filter(e => !factNames.has(cleanEntityName(e.name)));
+  return { facts, dims };
+}
+
+function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relations: WorkshopSession['relations']): string {
+  let code = 'erDiagram\n';
+  const fkMap = buildFkMap(session, entities);
+  entities.forEach(entity => {
+    const codeName = cleanEntityName(entity.name);
+    const cols = getTableColumns(entity, session, entities, fkMap);
+    if (cols.length > 0) {
+      code += `    ${codeName} {\n`;
+      cols.forEach(c => {
+        const pkTag = c.isPk ? 'PK' : c.referencedTable ? 'FK' : '';
+        const t = mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase();
+        code += `        ${t} ${c.name}${pkTag ? ` "${pkTag}"` : ''}\n`;
+      });
+      code += `    }\n`;
+    } else {
+      code += `    ${codeName} {\n        bigint id "PK"\n    }\n`;
+    }
+  });
+  relations.forEach(rel => {
+    const src = cleanEntityName(rel.sourceEntityName);
+    const tgt = cleanEntityName(rel.targetEntityName);
+    const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
+    code += `    ${src} ${card} ${tgt} : "${(rel.description || 'lié à').replace(/"/g, '')}"\n`;
+  });
+  return code;
+}
+
+function generateStarSchema(session: WorkshopSession, facts: Entity[], dims: Entity[]): string {
+  const factNames = new Set(facts.map(f => cleanEntityName(f.name)));
+  const dimNames = new Set(dims.map(d => cleanEntityName(d.name)));
+  // Étoile : uniquement les liens fait <-> dimension (dimensions dénormalisées).
+  const starRels = session.relations.filter(r => {
+    const s = cleanEntityName(r.sourceEntityName);
+    const t = cleanEntityName(r.targetEntityName);
+    return (factNames.has(s) && dimNames.has(t)) || (factNames.has(t) && dimNames.has(s));
+  });
+  return buildDimensionalErd(session, [...facts, ...dims], starRels);
+}
+
+function generateSnowflakeSchema(session: WorkshopSession, facts: Entity[], dims: Entity[]): string {
+  // Flocon : tous les liens, y compris dimension <-> dimension (hiérarchies normalisées).
+  return buildDimensionalErd(session, [...facts, ...dims], session.relations);
 }
 
 function generateSQL(session: WorkshopSession): string {

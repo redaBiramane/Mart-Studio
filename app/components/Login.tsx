@@ -30,7 +30,7 @@ export default function Login() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f3f4f6)', padding: 24 }}>
       <div className="context-card" style={{ width: 'min(420px, 100%)', padding: 32 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <Image src="/ca-logo.svg" alt="Crédit Agricole" width={160} height={32} style={{ width: 160, height: 32 }} />
+          <Image src="/sofinco-logo.svg" alt="Sofinco" width={150} height={32} style={{ width: 150, height: 32 }} />
           <h2 style={{ fontSize: 20, margin: '8px 0 0' }}>Mart Studio</h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
             {mode === 'login' ? 'Connectez-vous pour accéder à l’atelier' : 'Créez votre compte'}
