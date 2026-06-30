@@ -448,6 +448,9 @@ export default function Workshop() {
                   {isAssistant && (
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>
                       Marty <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>· Assistant Data Architect</span>
+                      <span style={{ fontWeight: 600, color: 'var(--primary-light)', marginLeft: 6 }}>
+                        · {llmProviderIcon(llmSettings.provider)} {llmLabel(llmSettings.provider, llmSettings.model)}
+                      </span>
                     </div>
                   )}
                   {isEmpty && isAssistant ? (
