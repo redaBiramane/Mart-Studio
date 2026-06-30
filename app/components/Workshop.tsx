@@ -15,6 +15,8 @@ export default function Workshop() {
   const [showContext, setShowContext] = useState(true);
   const [input, setInput] = useState('');
   const hasInitialized = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   const currentStep = session?.currentStep || 1;
   const stepDef = STEPS[currentStep - 1];
@@ -380,6 +382,47 @@ export default function Workshop() {
     }
   }
 
+  // Importer un fichier (SAS / SQL / CSV / Excel) et laisser Marty en déduire le modèle
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !session) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
+      e.target.value = '';
+      return;
+    }
+    setImporting(true);
+    try {
+      let content = '';
+      const name = file.name.toLowerCase();
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        const XLSX = await import('xlsx');
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        content = wb.SheetNames.map((sn) => `# Feuille: ${sn}\n${XLSX.utils.sheet_to_csv(wb.Sheets[sn])}`).join('\n\n');
+      } else {
+        content = await file.text();
+      }
+      const truncated = content.slice(0, 14000);
+      const prompt = `[SYSTÈME] [FICHIER IMPORTÉ: ${file.name}]
+Analyse le contenu ci-dessous (script SAS, requête SQL, CSV ou export Excel) et DÉDUIS-EN le modèle de données : les ENTITÉS (tables), leurs ATTRIBUTS (colonnes avec types SQL et clés primaires/étrangères) et les RELATIONS entre tables. Émets les blocs json:extract correspondants (un "entity" par table, un "attribute" par colonne, un "relation" par lien).
+- Script SAS : repère les DATA steps, PROC SQL, et les jointures (MERGE ... BY, JOIN ... ON) pour déduire tables et relations.
+- CSV / Excel : chaque fichier ou feuille = une entité, chaque colonne = un attribut (déduis le type SQL ; repère les colonnes *_id comme clés).
+Termine par une courte synthèse en français de ce que tu as importé.
+
+Contenu:
+\`\`\`
+${truncated}
+\`\`\``;
+      sendMessage({ text: prompt });
+    } catch {
+      alert('Impossible de lire ce fichier.');
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  }
+
   if (!session) {
     return (
       <div className="welcome-message">
@@ -575,13 +618,30 @@ export default function Workshop() {
           )}
 
           <form onSubmit={onSubmit} className="chat-input-wrapper">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".sas,.sql,.csv,.txt,.xlsx,.xls,.json"
+              style={{ display: 'none' }}
+              onChange={handleImportFile}
+            />
+            <button
+              type="button"
+              className="chat-send-btn"
+              title="Importer un fichier (SAS, SQL, CSV, Excel) — Marty en déduit le modèle"
+              disabled={isLoading || importing}
+              onClick={() => fileInputRef.current?.click()}
+              style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}
+            >
+              {importing ? '⏳' : '📎'}
+            </button>
             <textarea
               ref={textareaRef}
               className="chat-input"
               value={input}
               onChange={handleTextareaInput}
               onKeyDown={handleKeyDown}
-              placeholder="Décrivez votre Data Product..."
+              placeholder="Décrivez votre Data Product, ou importez un fichier (📎)…"
               rows={1}
               disabled={isLoading}
             />
