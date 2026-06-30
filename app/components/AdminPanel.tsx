@@ -106,8 +106,8 @@ export default function AdminPanel() {
             className="chat-input"
             style={{ width: '100%', padding: '12px', height: '48px' }}
           >
+            <option value="anthropic">Anthropic (Claude) — recommandé</option>
             <option value="openai">OpenAI (GPT)</option>
-            <option value="anthropic">Anthropic (Claude)</option>
             <option value="google">Google Gemini</option>
             <option value="custom">Autre (Compatible OpenAI API, local, etc.)</option>
           </select>

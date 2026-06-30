@@ -3,7 +3,7 @@
 // ============================================================
 
 import { streamText } from 'ai';
-import { openai, createOpenAI } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { SYSTEM_PROMPT, getStepInstruction } from '@/lib/prompts/system-prompt';
@@ -104,8 +104,11 @@ export async function POST(req: Request) {
       });
       modelInstance = customOpenAIProvider(llmSettings.model || 'custom-model');
     } else {
-      // Default to OpenAI server configuration
-      modelInstance = openai(llmSettings?.model || 'gpt-4o');
+      // Défaut serveur : Claude (Anthropic)
+      const anthropicProvider = createAnthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY || '',
+      });
+      modelInstance = anthropicProvider(llmSettings?.model || 'claude-opus-4-8');
     }
   }
 
