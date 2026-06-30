@@ -49,7 +49,7 @@ export default function Workshop() {
     },
   }), []);
 
-  const { messages, setMessages, status, sendMessage } = useChat({
+  const { messages, setMessages, status, sendMessage, error } = useChat({
     transport,
     onFinish: ({ message }) => {
       if (session) {
@@ -455,6 +455,20 @@ export default function Workshop() {
                   <div className="typing-dot"></div>
                   <div className="typing-dot"></div>
                 </div>
+              </div>
+            </div>
+          )}
+          {error && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c',
+              borderRadius: 'var(--radius)', padding: '12px 16px', margin: '8px 0', fontSize: 13,
+            }}>
+              <strong>⚠️ Erreur du fournisseur LLM</strong>
+              <div style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-word' }}>
+                {error.message || String(error)}
+              </div>
+              <div style={{ marginTop: 6, color: '#7f1d1d' }}>
+                Vérifiez votre clé API et vos crédits dans « Configuration LLM ».
               </div>
             </div>
           )}
