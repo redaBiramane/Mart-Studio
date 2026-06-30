@@ -47,9 +47,9 @@ export default function Home() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
-            <Image src="/sofinco-logo.svg" alt="Sofinco" width={140} height={30} style={{ width: 140, height: 30 }} />
-            <div className="sidebar-title">Mart Studio</div>
+          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+            <Image src="/sofinco-logo.svg" alt="Sofinco" width={180} height={38} style={{ width: 180, height: 38 }} />
+            <div className="sidebar-title" style={{ textAlign: 'center' }}>Mart Studio</div>
           </div>
         </div>
 
