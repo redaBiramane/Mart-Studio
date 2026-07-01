@@ -4,9 +4,9 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useWorkshopStore } from '@/lib/store';
 
-export default function Login({ onBack }: { onBack?: () => void }) {
+export default function Login({ onBack, initialMode = 'login' }: { onBack?: () => void; initialMode?: 'login' | 'signup' }) {
   const { signIn, signUp, resetPassword, authError } = useWorkshopStore();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -48,9 +48,10 @@ export default function Login({ onBack }: { onBack?: () => void }) {
           </button>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <Image src="/sofinco-logo.svg" alt="Sofinco" width={240} height={51} style={{ width: 240, height: 51 }} priority />
-          <h2 style={{ fontSize: 20, margin: '8px 0 0' }}>Mart Studio</h2>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
+          <Image src="/mart-icon.svg" alt="Mart Studio" width={60} height={60} style={{ width: 60, height: 60 }} priority />
+          <h2 style={{ fontSize: 22, margin: '10px 0 0' }}>Mart Studio</h2>
+          <Image src="/sofinco-logo.svg" alt="Sofinco" width={150} height={32} style={{ width: 150, height: 32, opacity: 0.9 }} />
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: '2px 0 0' }}>
             {mode === 'login' ? 'Connectez-vous pour accéder à l’atelier' : 'Créez votre compte'}
           </p>
         </div>

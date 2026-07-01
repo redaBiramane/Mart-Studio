@@ -43,6 +43,7 @@ export default function Home() {
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showLogin, setShowLogin] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users'>('activity');
   const [showModeModal, setShowModeModal] = useState(false);
@@ -166,7 +167,9 @@ export default function Home() {
     );
   }
   if (isSupabaseConfigured && !user) {
-    return showLogin ? <Login onBack={() => setShowLogin(false)} /> : <Landing onEnter={() => setShowLogin(true)} />;
+    return showLogin
+      ? <Login onBack={() => setShowLogin(false)} initialMode={authMode} />
+      : <Landing onEnter={(mode) => { setAuthMode(mode); setShowLogin(true); }} />;
   }
 
   return (
