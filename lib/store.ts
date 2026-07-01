@@ -245,6 +245,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
             sessions: state.sessions.map((s) => (s.id === updatedSession.id ? updatedSession : s)),
           };
         });
+        scheduleSave(get);
       },
 
       updateSessionData: (data: Partial<WorkshopSession>) => {
