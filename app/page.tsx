@@ -174,7 +174,15 @@ export default function Home() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center' }}>
+          <div
+            className="sidebar-brand"
+            role="button"
+            tabIndex={0}
+            title="Retour à l'accueil"
+            onClick={() => { setCurrentPage('dashboard'); setSidebarOpen(false); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCurrentPage('dashboard'); setSidebarOpen(false); } }}
+            style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center', cursor: 'pointer' }}
+          >
             <Image src="/sofinco-logo.svg" alt="Sofinco" width={240} height={51} style={{ width: 240, height: 51 }} priority />
             <div className="sidebar-title" style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Mart Studio</div>
           </div>

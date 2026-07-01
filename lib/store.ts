@@ -159,6 +159,14 @@ export const useWorkshopStore = create<WorkshopStore>()(
         return 'Compte créé. Vérifiez votre email pour confirmer, puis connectez-vous.';
       },
 
+      resetPassword: async (email) => {
+        if (!supabase) return 'Supabase non configuré.';
+        const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}` : undefined;
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) return error.message;
+        return null;
+      },
+
       signOut: async () => {
         await get().logActivity('logout');
         if (supabase) await supabase.auth.signOut();

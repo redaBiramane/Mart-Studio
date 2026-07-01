@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useWorkshopStore } from '@/lib/store';
 
 export default function Login({ onBack }: { onBack?: () => void }) {
-  const { signIn, signUp, authError } = useWorkshopStore();
+  const { signIn, signUp, resetPassword, authError } = useWorkshopStore();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +26,19 @@ export default function Login({ onBack }: { onBack?: () => void }) {
     setBusy(false);
   }
 
+  async function onForgot() {
+    setInfo(null);
+    const target = email.trim();
+    if (!target) {
+      setInfo('Saisissez votre email ci-dessus, puis cliquez à nouveau sur « Mot de passe oublié ».');
+      return;
+    }
+    setBusy(true);
+    const err = await resetPassword(target);
+    setBusy(false);
+    setInfo(err ? err : `Un email de réinitialisation a été envoyé à ${target}.`);
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f3f4f6)', padding: 24 }}>
       <div className="context-card" style={{ width: 'min(420px, 100%)', padding: 32, position: 'relative' }}>
@@ -35,7 +48,7 @@ export default function Login({ onBack }: { onBack?: () => void }) {
           </button>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <Image src="/sofinco-logo.svg" alt="Sofinco" width={150} height={32} style={{ width: 150, height: 32 }} />
+          <Image src="/sofinco-logo.svg" alt="Sofinco" width={240} height={51} style={{ width: 240, height: 51 }} priority />
           <h2 style={{ fontSize: 20, margin: '8px 0 0' }}>Mart Studio</h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
             {mode === 'login' ? 'Connectez-vous pour accéder à l’atelier' : 'Créez votre compte'}
@@ -56,6 +69,13 @@ export default function Login({ onBack }: { onBack?: () => void }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={{ fontSize: 13, fontWeight: 600 }}>Mot de passe</label>
             <input className="chat-input" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            {mode === 'login' && (
+              <div style={{ textAlign: 'right' }}>
+                <button type="button" onClick={onForgot} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0 }}>
+                  Mot de passe oublié ?
+                </button>
+              </div>
+            )}
           </div>
 
           {authError && <div style={{ fontSize: 13, color: 'var(--accent-red)' }}>{authError}</div>}

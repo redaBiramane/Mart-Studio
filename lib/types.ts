@@ -290,6 +290,7 @@ export interface WorkshopStore {
   initAuth: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<string | null>;
+  resetPassword: (email: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   loadUserSessions: () => Promise<void>;
   loadAdminData: () => Promise<void>;
