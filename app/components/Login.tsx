@@ -50,7 +50,6 @@ export default function Login({ onBack, initialMode = 'login' }: { onBack?: () =
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 24 }}>
           <Image src="/mart-icon.svg" alt="Mart Studio" width={60} height={60} style={{ width: 60, height: 60 }} priority />
           <h2 style={{ fontSize: 22, margin: '10px 0 0' }}>Mart Studio</h2>
-          <Image src="/sofinco-logo.svg" alt="Sofinco" width={150} height={32} style={{ width: 150, height: 32, opacity: 0.9 }} />
           <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: '2px 0 0' }}>
             {mode === 'login' ? 'Connectez-vous pour accéder à l’atelier' : 'Créez votre compte'}
           </p>
@@ -97,6 +96,11 @@ export default function Login({ onBack, initialMode = 'login' }: { onBack?: () =
               <button onClick={() => { setMode('login'); setInfo(null); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>Se connecter</button>
             </>
           )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+          <Image src="/sofinco-logo.svg" alt="Sofinco" width={110} height={23} style={{ width: 110, height: 23, opacity: 0.75 }} />
+          <span style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: 0.3 }}>Personal Finance &amp; Mobility</span>
         </div>
       </div>
     </div>

@@ -24,11 +24,11 @@ const STYLE = `
 .ml-btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
 .ml-btn-sm { padding: 9px 16px; font-size: 13px; }
 
-.ml-hero { position: relative; max-width: 1000px; margin: 0 auto; padding: 76px 24px 40px; text-align: center; }
-.ml-blob { position: absolute; z-index: 0; border-radius: 50%; filter: blur(70px); opacity: 0.4; pointer-events: none; }
-.ml-blob-1 { width: 420px; height: 420px; background: var(--primary); top: -120px; left: -80px; animation: mlFloat 9s ease-in-out infinite; }
-.ml-blob-2 { width: 360px; height: 360px; background: #3EE3D3; bottom: -140px; right: -60px; animation: mlFloat 11s ease-in-out infinite reverse; }
-.ml-hero > * { position: relative; z-index: 1; }
+.ml-hero { position: relative; max-width: 1000px; margin: 0 auto; padding: 64px 24px 32px; text-align: center; }
+.ml-hero .ml-blob { position: absolute; z-index: 0; border-radius: 50%; filter: blur(70px); opacity: 0.35; pointer-events: none; }
+.ml-hero .ml-blob-1 { width: 380px; height: 380px; background: var(--primary); top: -100px; left: -60px; animation: mlFloat 9s ease-in-out infinite; }
+.ml-hero .ml-blob-2 { width: 320px; height: 320px; background: #3EE3D3; bottom: -120px; right: -40px; animation: mlFloat 11s ease-in-out infinite reverse; }
+.ml-chip, .ml-hero h1, .ml-hero-sub, .ml-hero-cta, .ml-kpis { position: relative; z-index: 1; }
 .ml-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.4px; color: var(--primary); background: var(--primary-glow); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; margin-bottom: 22px; animation: mlUp .6s ease both; }
 .ml-hero h1 { font-size: 52px; line-height: 1.06; font-weight: 800; letter-spacing: -1.4px; margin-bottom: 20px; animation: mlUp .7s ease .05s both; }
 .ml-grad { background: linear-gradient(120deg, var(--primary), #009597); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -46,7 +46,7 @@ const STYLE = `
 .ml-head p { font-size: 16px; color: var(--text-secondary); margin-top: 14px; line-height: 1.6; }
 
 .ml-steps { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
-.ml-step { flex: 1; min-width: 170px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; text-align: center; transition: transform .25s ease, box-shadow .25s ease, border-color .25s; }
+.ml-step { flex: 1 1 130px; min-width: 130px; max-width: 200px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px 16px; text-align: center; transition: transform .25s ease, box-shadow .25s ease, border-color .25s; }
 .ml-step:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); border-color: var(--primary); }
 .ml-step-ico { width: 48px; height: 48px; margin: 0 auto 14px; border-radius: 13px; background: var(--primary-glow); color: var(--primary); display: flex; align-items: center; justify-content: center; }
 .ml-step-num { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
@@ -104,6 +104,8 @@ function Icon({ name }: { name: string }) {
     entities: <><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="8.5" y="14" width="7" height="6" rx="1.5" /><path d="M6.5 11v1.5a1.5 1.5 0 0 0 1.5 1.5M17.5 11v1.5a1.5 1.5 0 0 1-1.5 1.5" /></>,
     relations: <><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><circle cx="18" cy="6" r="2.5" /><path d="M8.5 6H15M6 8.5V15a3 3 0 0 0 3 3h6.5" /></>,
     attributes: <><path d="M20 10.5 13.5 4H6a2 2 0 0 0-2 2v7.5L10.5 20a2 2 0 0 0 2.8 0l6.7-6.7a2 2 0 0 0 0-2.8Z" /><circle cx="9" cy="9" r="1.4" /></>,
+    kpi: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    rules: <><path d="M6.5 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M9 8l1.5 1.5L13 7M9 14l1.5 1.5L13 13" /></>,
     validation: <><circle cx="12" cy="12" r="9" /><path d="M8.3 12.4l2.6 2.6 4.8-5.2" /></>,
     erd: <><rect x="3" y="4" width="8" height="6" rx="1" /><rect x="13" y="14" width="8" height="6" rx="1" /><path d="M7 10v2a2 2 0 0 0 2 2h4" /></>,
     dbml: <><path d="M8 8l-4 4 4 4M16 8l4 4-4 4" /></>,
@@ -148,7 +150,7 @@ export default function Landing({ onEnter }: LandingProps) {
     kDeliv: fr ? 'livrables générés' : 'deliverables generated',
     kCode: fr ? 'ligne de code' : 'line of code',
     procTag: fr ? 'Un processus simplifié' : 'A simplified process',
-    procTitle: fr ? '5 étapes guidées, 0 ligne de code' : '5 guided steps, 0 line of code',
+    procTitle: fr ? '7 étapes guidées, 0 ligne de code' : '7 guided steps, 0 line of code',
     procSub: fr
       ? 'Passez du besoin métier au modèle technique (entités, relations, attributs) sans programmation.'
       : 'Go from business need to technical model (entities, relations, attributes) without programming.',
@@ -180,7 +182,9 @@ export default function Landing({ onEnter }: LandingProps) {
     { ico: 'entities', num: fr ? 'Étape 2' : 'Step 2', name: fr ? 'Entités' : 'Entities' },
     { ico: 'relations', num: fr ? 'Étape 3' : 'Step 3', name: fr ? 'Relations' : 'Relations' },
     { ico: 'attributes', num: fr ? 'Étape 4' : 'Step 4', name: fr ? 'Attributs' : 'Attributes' },
-    { ico: 'validation', num: fr ? 'Étape 5' : 'Step 5', name: 'Validation' },
+    { ico: 'kpi', num: fr ? 'Étape 5' : 'Step 5', name: 'KPI' },
+    { ico: 'rules', num: fr ? 'Étape 6' : 'Step 6', name: fr ? 'Règles métier' : 'Business rules' },
+    { ico: 'validation', num: fr ? 'Étape 7' : 'Step 7', name: 'Validation' },
   ];
 
   const deliverables = [
@@ -225,7 +229,7 @@ export default function Landing({ onEnter }: LandingProps) {
           <button className="ml-btn ml-btn-ghost" onClick={() => onEnter('login')}>{L.ctaSecond}</button>
         </div>
         <div className="ml-kpis">
-          <div className="ml-kpi"><div className="v">5</div><div className="l">{L.kSteps}</div></div>
+          <div className="ml-kpi"><div className="v">7</div><div className="l">{L.kSteps}</div></div>
           <div className="ml-kpi"><div className="v">6</div><div className="l">{L.kDeliv}</div></div>
           <div className="ml-kpi"><div className="v">0</div><div className="l">{L.kCode}</div></div>
         </div>

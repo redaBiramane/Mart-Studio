@@ -184,10 +184,10 @@ export default function Home() {
             title="Retour à l'accueil"
             onClick={() => { setCurrentPage('dashboard'); setSidebarOpen(false); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCurrentPage('dashboard'); setSidebarOpen(false); } }}
-            style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center', cursor: 'pointer' }}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', textAlign: 'center', cursor: 'pointer' }}
           >
-            <Image src="/sofinco-logo.svg" alt="Sofinco" width={240} height={51} style={{ width: 240, height: 51 }} priority />
-            <div className="sidebar-title" style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Mart Studio</div>
+            <Image src="/mart-icon.svg" alt="Mart Studio" width={36} height={36} style={{ width: 36, height: 36, borderRadius: 9 }} priority />
+            <div className="sidebar-title" style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: 'var(--text)' }}>Mart Studio</div>
           </div>
         </div>
 
@@ -252,6 +252,11 @@ export default function Home() {
             ))}
           </div>
         </nav>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '10px 12px 4px' }}>
+          <Image src="/sofinco-logo.svg" alt="Sofinco" width={92} height={20} style={{ width: 92, height: 20, opacity: 0.7 }} />
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 0.3 }}>Personal Finance &amp; Mobility</span>
+        </div>
 
         <div className="sidebar-footer" style={{ position: 'relative' }}>
           {userMenuOpen && (
