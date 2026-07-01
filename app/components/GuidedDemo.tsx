@@ -80,7 +80,8 @@ const STYLE = `
 /* Aperçu MCD visuel (résultat) */
 .gd-mcd { border-top: 1px solid var(--border); padding: 18px 22px 22px; background: var(--bg-elevated); animation: gdIn .5s ease both; }
 .gd-mcd-t { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--primary); margin-bottom: 14px; }
-.gd-mcd svg { width: 100%; height: auto; display: block; }
+.gd-mcd > svg { width: 100%; height: auto; display: block; }
+.gd-mcd-t svg { width: 15px; height: 15px; flex-shrink: 0; }
 .gd-erd-line { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 400; stroke-dashoffset: 400; animation: gdDraw 1.2s ease forwards; }
 .gd-erd-box { fill: var(--bg-surface); stroke: #C9CCEC; stroke-width: 1.2; }
 [data-theme="dark"] .gd-erd-box { stroke: #3a3f56; }
