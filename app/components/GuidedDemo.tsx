@@ -77,8 +77,23 @@ const STYLE = `
 .gd-dot.on { background: var(--primary); transform: scale(1.25); }
 .gd-play { margin-left: 0; }
 
+/* Aperçu MCD visuel (résultat) */
+.gd-mcd { border-top: 1px solid var(--border); padding: 18px 22px 22px; background: var(--bg-elevated); animation: gdIn .5s ease both; }
+.gd-mcd-t { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--primary); margin-bottom: 14px; }
+.gd-mcd svg { width: 100%; height: auto; display: block; }
+.gd-erd-line { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 400; stroke-dashoffset: 400; animation: gdDraw 1.2s ease forwards; }
+.gd-erd-box { fill: var(--bg-surface); stroke: #C9CCEC; stroke-width: 1.2; }
+[data-theme="dark"] .gd-erd-box { stroke: #3a3f56; }
+.gd-erd-h { fill: #EDE9FE; }
+[data-theme="dark"] .gd-erd-h { fill: #2a2440; }
+.gd-erd-tx { font: 700 12px Inter, sans-serif; fill: var(--text); }
+.gd-erd-row { font: 500 10.5px Inter, sans-serif; fill: var(--text-secondary); }
+.gd-erd-k { font: 800 9px Inter, sans-serif; fill: var(--primary); }
+.gd-erd-card { font: 700 10px Inter, sans-serif; fill: var(--text-muted); }
+
 @keyframes gdIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes gdBlink { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes gdDraw { to { stroke-dashoffset: 0; } }
 
 @media (max-width: 760px) {
   .gd-body { grid-template-columns: 1fr; }
@@ -87,10 +102,31 @@ const STYLE = `
   .gd-deliv { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .gd-msg, .gd-block { animation: none !important; }
-  .gd-typing i { animation: none !important; }
+  .gd-msg, .gd-block, .gd-mcd { animation: none !important; }
+  .gd-typing i, .gd-erd-line { animation: none !important; stroke-dashoffset: 0 !important; }
 }
 `;
+
+// Table ERD dessinée en SVG
+function ErdTable({ x, y, w, title, rows }: { x: number; y: number; w: number; title: string; rows: { c: string; k?: string }[] }) {
+  const H = 24, R = 18;
+  const h = H + rows.length * R;
+  return (
+    <g>
+      <rect className="gd-erd-box" x={x} y={y} width={w} height={h} rx="6" />
+      <rect className="gd-erd-h" x={x} y={y} width={w} height={H} rx="6" />
+      <rect className="gd-erd-h" x={x} y={y + H - 6} width={w} height="6" />
+      <line x1={x} y1={y + H} x2={x + w} y2={y + H} stroke="#C9CCEC" strokeWidth="1" />
+      <text className="gd-erd-tx" x={x + w / 2} y={y + 16} textAnchor="middle">{title}</text>
+      {rows.map((r, i) => (
+        <g key={r.c}>
+          <text className="gd-erd-row" x={x + 10} y={y + H + i * R + 13}>{r.c}</text>
+          {r.k && <text className="gd-erd-k" x={x + w - 10} y={y + H + i * R + 13} textAnchor="end">{r.k}</text>}
+        </g>
+      ))}
+    </g>
+  );
+}
 
 function I({ d }: { d: string }) {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
@@ -284,6 +320,31 @@ export default function GuidedDemo({ onStart }: Props) {
             )}
           </div>
         </div>
+
+        {/* Aperçu MCD visuel — le résultat concret */}
+        {step >= 6 && (
+          <div className="gd-mcd">
+            <div className="gd-mcd-t"><I d={ICO.check} />{fr ? 'Résultat : un MCD prêt à l’emploi' : 'Result: a ready-to-use ERD'}</div>
+            <svg viewBox="0 0 720 320" role="img" aria-label={fr ? 'Aperçu du modèle conceptuel de données' : 'Conceptual data model preview'}>
+              {/* Relations (tracé animé) */}
+              <path className="gd-erd-line" d="M110,118 C 130,180 210,150 265,175" style={{ animationDelay: '.1s' }} />
+              <path className="gd-erd-line" d="M615,92 C 620,170 500,150 455,175" style={{ animationDelay: '.25s' }} />
+              <path className="gd-erd-line" d="M455,235 C 490,235 500,225 520,222" style={{ animationDelay: '.4s' }} />
+              {/* Cardinalités */}
+              <text className="gd-erd-card" x="118" y="140">1</text>
+              <text className="gd-erd-card" x="250" y="168">N</text>
+              <text className="gd-erd-card" x="600" y="118">1</text>
+              <text className="gd-erd-card" x="470" y="168">N</text>
+              <text className="gd-erd-card" x="465" y="228">1</text>
+              <text className="gd-erd-card" x="512" y="212">N</text>
+              {/* Tables */}
+              <ErdTable x={20} y={20} w={170} title="CLIENT" rows={[{ c: 'client_id', k: 'PK' }, { c: 'nom' }, { c: 'segment_client' }]} />
+              <ErdTable x={530} y={20} w={170} title="AGENCE" rows={[{ c: 'agence_id', k: 'PK' }, { c: 'region_id', k: 'FK' }]} />
+              <ErdTable x={265} y={175} w={190} title="CREDIT" rows={[{ c: 'credit_id', k: 'PK' }, { c: 'client_id', k: 'FK' }, { c: 'agence_id', k: 'FK' }, { c: 'montant' }]} />
+              <ErdTable x={520} y={175} w={170} title="RISQUE" rows={[{ c: 'risque_id', k: 'PK' }, { c: 'credit_id', k: 'FK' }, { c: 'score_risque' }]} />
+            </svg>
+          </div>
+        )}
 
         {/* Contrôles */}
         <div className="gd-controls">
