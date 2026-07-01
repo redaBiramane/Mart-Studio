@@ -287,7 +287,27 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
                   <input style={inp} placeholder="Nom de la source" value={s.name} onChange={(ev) => patch<DataSource>('dataSources', s.id, { name: ev.target.value })} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                     <input style={inp} placeholder="Système" value={s.system} onChange={(ev) => patch<DataSource>('dataSources', s.id, { system: ev.target.value })} />
-                    <input style={inp} placeholder="Fréquence" value={s.loadFrequency} onChange={(ev) => patch<DataSource>('dataSources', s.id, { loadFrequency: ev.target.value })} />
+                    <select style={inp} value={s.loadFrequency} onChange={(ev) => patch<DataSource>('dataSources', s.id, { loadFrequency: ev.target.value })}>
+                      <option value="">Fréquence…</option>
+                      <optgroup label="Temps réel">
+                        <option value="Temps réel">Temps réel</option>
+                        <option value="Quasi temps réel">Quasi temps réel</option>
+                        <option value="Micro-batch">Micro-batch</option>
+                      </optgroup>
+                      <optgroup label="Périodique">
+                        <option value="Horaire">Horaire</option>
+                        <option value="Quotidienne">Quotidienne</option>
+                        <option value="Hebdomadaire">Hebdomadaire</option>
+                        <option value="Mensuelle">Mensuelle</option>
+                        <option value="Trimestrielle">Trimestrielle</option>
+                        <option value="Annuelle">Annuelle</option>
+                      </optgroup>
+                      <optgroup label="À la demande">
+                        <option value="À la demande">À la demande</option>
+                        <option value="Manuelle">Manuelle</option>
+                        <option value="Chargement initial">Chargement initial (one-shot)</option>
+                      </optgroup>
+                    </select>
                   </div>
                   <div style={{ textAlign: 'right', marginTop: 6 }}><button style={delBtn} onClick={() => remove('dataSources', s.id)}>🗑 Supprimer</button></div>
                 </div>

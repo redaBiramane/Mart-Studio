@@ -6,33 +6,14 @@ import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
 import MermaidDiagram from './MermaidDiagram';
 import { transformMany } from '@/lib/naming';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 type Tab = 'overview' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  // Standardisation des noms via Naming Studio (fieldmapper.space)
-  const [naming, setNaming] = useState<Record<string, string> | null>(null);
-  const [translating, setTranslating] = useState(false);
-
-  async function translateNames() {
-    if (!session) return;
-    setTranslating(true);
-    try {
-      const map = await transformMany(collectModelKeywords(session));
-      setNaming(map);
-    } finally {
-      setTranslating(false);
-    }
-  }
-
-  const namingProps = {
-    naming,
-    translating,
-    onTranslate: translateNames,
-    onReset: () => setNaming(null),
-  };
 
   if (!session || session.entities.length === 0) {
     return (
@@ -78,8 +59,8 @@ export default function Deliverables() {
         {activeTab === 'mcd' && <MCDTab session={data} />}
         {activeTab === 'dimensional' && <DimensionalTab session={data} />}
         {activeTab === 'dbml' && <DbmlTab session={data} />}
-        {activeTab === 'sql' && <SQLTab session={data} {...namingProps} />}
-        {activeTab === 'dbt' && <DbtTab session={data} {...namingProps} />}
+        {activeTab === 'sql' && <SQLTab session={data} />}
+        {activeTab === 'dbt' && <DbtTab session={data} />}
         {activeTab === 'dictionary' && <DictionaryTab session={data} />}
         {activeTab === 'dad' && <DADTab session={data} />}
       </div>
@@ -87,45 +68,119 @@ export default function Deliverables() {
   );
 }
 
+function Donut({ pct, label, sub, color }: { pct: number; label: string; sub: string; color: string }) {
+  const r = 34, c = 2 * Math.PI * r;
+  const off = c - (Math.max(0, Math.min(100, pct)) / 100) * c;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <svg width="92" height="92" viewBox="0 0 92 92">
+        <circle cx="46" cy="46" r={r} fill="none" stroke="var(--border)" strokeWidth="9" />
+        <circle cx="46" cy="46" r={r} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 46 46)" />
+        <text x="46" y="51" textAnchor="middle" fontSize="19" fontWeight="800" fill="var(--text)">{Math.round(pct)}%</text>
+      </svg>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', textAlign: 'center' }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sub}</div>
+    </div>
+  );
+}
+
+function BarRow({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+      <div style={{ width: 130, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 16 }}>
+        <div style={{ width: `${pct}%`, background: color, height: '100%', borderRadius: 6, minWidth: value > 0 ? 4 : 0, transition: 'width .3s' }} />
+      </div>
+      <div style={{ width: 26, fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
+    </div>
+  );
+}
+
 function OverviewTab({ session }: { session: WorkshopSession }) {
   const [detail, setDetail] = useState<OverviewDetailKey | null>(null);
 
+  const { facts, dims } = classifyDimensional(session);
+  const nbEnt = session.entities.length;
+  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+  const entWithAttrs = session.entities.filter(e => attrsOf(e).length > 0).length;
+  const entWithPk = session.entities.filter(e => attrsOf(e).some(a => a.isPrimaryKey)).length;
+  const pkCount = session.attributes.filter(a => a.isPrimaryKey).length;
+  const fkCount = session.attributes.filter(a => a.isForeignKey).length;
+  const factRatio = nbEnt > 0 ? (facts.length / nbEnt) * 100 : 0;
+  const avgScore = session.maturityScores ? Math.round(Object.values(session.maturityScores).reduce((a, b) => a + b, 0) / 7) : 0;
+
   const cards: { key: OverviewDetailKey; label: string; value: number; icon: string }[] = [
-    { key: 'entities', label: 'Entités', value: session.entities.length, icon: '🧩' },
+    { key: 'entities', label: 'Entités', value: nbEnt, icon: '🧩' },
     { key: 'relations', label: 'Relations', value: session.relations.length, icon: '🔗' },
     { key: 'attributes', label: 'Attributs', value: session.attributes.length, icon: '📋' },
     { key: 'kpis', label: 'KPIs', value: session.kpis.length, icon: '📊' },
-    { key: 'rules', label: 'Règles métier', value: session.businessRules.length, icon: '⚖️' },
+    { key: 'rules', label: 'Règles', value: session.businessRules.length, icon: '⚖️' },
     { key: 'sources', label: 'Sources', value: session.dataSources.length, icon: '🗄️' },
   ];
 
+  const topEntities = [...session.entities].map(e => ({ name: e.name, n: attrsOf(e).length })).sort((a, b) => b.n - a.n).slice(0, 8);
+  const maxAttr = Math.max(1, ...topEntities.map(e => e.n));
+  const cardBox: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 };
+
   return (
     <div className="fade-in">
-      <h2 style={{ fontSize: 22, marginBottom: 8 }}>
-        {session.productName || 'Data Product'} — Vue d&apos;ensemble
-      </h2>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Cliquez sur une carte pour voir le détail.</p>
+      <h2 style={{ fontSize: 22, marginBottom: 4 }}>{session.productName || 'Data Product'} — Tableau de bord</h2>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Vue synthétique du modèle. Cliquez sur un indicateur pour le détail.</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+      {/* Indicateurs clés */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
         {cards.map(s => (
-          <div
-            key={s.label}
-            className="stat-card"
-            style={{ cursor: s.value > 0 ? 'pointer' : 'default', transition: 'border-color .15s' }}
-            onClick={() => s.value > 0 && setDetail(s.key)}
-          >
-            <div style={{ fontSize: 24, marginBottom: 4 }}>{s.icon}</div>
-            <div className="stat-value" style={{ fontSize: 28 }}>{s.value}</div>
-            <div className="stat-label">{s.label}{s.value > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}> · voir ›</span>}</div>
+          <div key={s.label} className="stat-card" style={{ cursor: s.value > 0 ? 'pointer' : 'default' }} onClick={() => s.value > 0 && setDetail(s.key)}>
+            <div style={{ fontSize: 22, marginBottom: 2 }}>{s.icon}</div>
+            <div className="stat-value" style={{ fontSize: 26 }}>{s.value}</div>
+            <div className="stat-label">{s.label}{s.value > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}> ›</span>}</div>
           </div>
         ))}
       </div>
 
+      {/* Jauges de complétude + faits/dimensions */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 20 }}>
+        <div style={cardBox}>
+          <div style={{ fontWeight: 700, marginBottom: 16 }}>Complétude du modèle</div>
+          <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 12 }}>
+            <Donut pct={nbEnt ? (entWithAttrs / nbEnt) * 100 : 0} label="Entités documentées" sub={`${entWithAttrs}/${nbEnt}`} color="var(--primary)" />
+            <Donut pct={nbEnt ? (entWithPk / nbEnt) * 100 : 0} label="Clés primaires" sub={`${entWithPk}/${nbEnt}`} color="var(--accent-blue)" />
+            <Donut pct={avgScore} label="Maturité globale" sub={`${avgScore}/100`} color={avgScore >= 70 ? 'var(--accent-emerald)' : avgScore >= 40 ? 'var(--accent-amber)' : 'var(--accent-red)'} />
+          </div>
+        </div>
+
+        <div style={cardBox}>
+          <div style={{ fontWeight: 700, marginBottom: 16 }}>Répartition faits / dimensions</div>
+          <div style={{ display: 'flex', height: 26, borderRadius: 8, overflow: 'hidden', marginBottom: 12, background: 'var(--bg-elevated)' }}>
+            {facts.length > 0 && <div style={{ width: `${factRatio}%`, background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{facts.length}</div>}
+            {dims.length > 0 && <div style={{ width: `${100 - factRatio}%`, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{dims.length}</div>}
+          </div>
+          <div style={{ display: 'flex', gap: 16, fontSize: 12.5 }}>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#F59E0B', borderRadius: 2, marginRight: 6 }} />⭐ Faits : <strong>{facts.length}</strong></span>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--primary)', borderRadius: 2, marginRight: 6 }} />🧩 Dimensions : <strong>{dims.length}</strong></span>
+          </div>
+          <div style={{ display: 'flex', gap: 24, marginTop: 16, fontSize: 13 }}>
+            <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary)' }}>{pkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés primaires</div></div>
+            <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent-blue)' }}>{fkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés étrangères</div></div>
+            <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{nbEnt ? Math.round(session.attributes.length / nbEnt) : 0}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>attributs / entité</div></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Attributs par entité */}
+      {topEntities.length > 0 && (
+        <div style={{ ...cardBox, marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, marginBottom: 16 }}>Attributs par entité {session.entities.length > 8 && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>(top 8)</span>}</div>
+          {topEntities.map(e => <BarRow key={e.name} label={e.name} value={e.n} max={maxAttr} color="var(--primary)" />)}
+        </div>
+      )}
+
       {detail && <OverviewDetailModal session={session} detail={detail} onClose={() => setDetail(null)} />}
 
       {session.maturityScores && (
-        <div>
-          <h3 style={{ fontSize: 18, marginBottom: 16 }}>Score de maturité</h3>
+        <div style={cardBox}>
+          <div style={{ fontWeight: 700, marginBottom: 16 }}>Score de maturité par dimension</div>
           <div className="maturity-scores">
             {MATURITY_DIMENSIONS.map(dim => {
               const score = session.maturityScores![dim.key as keyof typeof session.maturityScores];
@@ -419,14 +474,22 @@ function DbmlTab({ session }: { session: WorkshopSession }) {
   );
 }
 
-interface NamingProps {
-  naming: Record<string, string> | null;
-  translating: boolean;
-  onTranslate: () => void;
-  onReset: () => void;
+// Hook de standardisation — indépendant par onglet.
+function useStandardization(session: WorkshopSession) {
+  const [naming, setNaming] = useState<Record<string, string> | null>(null);
+  const [translating, setTranslating] = useState(false);
+  async function translate() {
+    setTranslating(true);
+    try { setNaming(await transformMany(collectModelKeywords(session))); }
+    finally { setTranslating(false); }
+  }
+  return { naming, translating, translate, reset: () => setNaming(null) };
 }
 
-function NamingToolbar({ naming, translating, onTranslate, onReset }: NamingProps) {
+function NamingToolbar({ naming, translating, onTranslate, onReset, alias, onAlias }: {
+  naming: Record<string, string> | null; translating: boolean; onTranslate: () => void; onReset: () => void;
+  alias?: boolean; onAlias?: (v: boolean) => void;
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
       {!naming ? (
@@ -435,36 +498,48 @@ function NamingToolbar({ naming, translating, onTranslate, onReset }: NamingProp
         </button>
       ) : (
         <>
-          <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>✓ Noms standardisés via Naming Studio</span>
-          <button className="suggested-chip" onClick={onReset}>↩ Revenir aux noms d&apos;origine</button>
+          <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>✓ Noms standardisés</span>
+          {onAlias && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              <input type="checkbox" checked={!!alias} onChange={(e) => onAlias(e.target.checked)} />
+              Noms standardisés en ALIAS (AS)
+            </label>
+          )}
+          <button className="suggested-chip" onClick={onReset}>↩ Noms d&apos;origine</button>
         </>
       )}
-      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-        Traduit tables &amp; colonnes selon le dictionnaire fieldmapper.space.
-      </span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>via dictionnaire fieldmapper.space</span>
     </div>
   );
 }
 
-function SQLTab({ session, ...naming }: { session: WorkshopSession } & NamingProps) {
-  const effective = naming.naming ? translateSession(session, naming.naming) : session;
-  const sql = generateSQL(effective);
+function SQLTab({ session }: { session: WorkshopSession }) {
+  const std = useStandardization(session);
+  const [alias, setAlias] = useState(false);
+  let sql: string;
+  if (std.naming && alias) {
+    sql = generateSQL(session) + '\n\n' + generateAliasSelects(session, std.naming);
+  } else if (std.naming) {
+    sql = generateSQL(translateSession(session, std.naming));
+  } else {
+    sql = generateSQL(session);
+  }
   return (
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>SQL — Création des tables</h3>
-      <NamingToolbar {...naming} />
+      <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} alias={alias} onAlias={setAlias} />
       <CodeBlock title="DDL SQL" language="sql" code={sql} />
     </div>
   );
 }
 
-function DbtTab({ session, ...naming }: { session: WorkshopSession } & NamingProps) {
-  const effective = naming.naming ? translateSession(session, naming.naming) : session;
-  const yaml = generateDbtYaml(effective);
+function DbtTab({ session }: { session: WorkshopSession }) {
+  const std = useStandardization(session);
+  const yaml = std.naming ? generateDbtYaml(translateSession(session, std.naming)) : generateDbtYaml(session);
   return (
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>dbt — Schema YAML</h3>
-      <NamingToolbar {...naming} />
+      <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} />
       <CodeBlock title="schema.yml" language="yaml" code={yaml} />
     </div>
   );
@@ -1176,6 +1251,25 @@ function generateSnowflakeSchema(session: WorkshopSession, facts: Entity[], dims
   return buildDimensionalErd(session, [...facts, ...dims], session.relations, factNames);
 }
 
+// Mode "AS alias" : garde les noms d'origine et expose les noms standardisés
+// via des requêtes SELECT (col AS NOM_STANDARDISE).
+function generateAliasSelects(session: WorkshopSession, naming: Record<string, string>): string {
+  const entities = resolveEntitiesToGenerate(session);
+  const fkMap = buildFkMap(session, entities);
+  let out = '-- ============================================\n-- Exposition avec noms standardisés (alias AS)\n-- ============================================\n\n';
+  entities.forEach((e) => {
+    const table = cleanTableName(e.name);
+    const cols = getTableColumns(e, session, entities, fkMap);
+    out += 'SELECT\n';
+    out += cols.map((c) => {
+      const std = naming[toSnake(c.name)] || c.name;
+      return std !== c.name ? `    ${c.name} AS ${std}` : `    ${c.name}`;
+    }).join(',\n');
+    out += `\nFROM ${table};\n\n`;
+  });
+  return out;
+}
+
 function generateSQL(session: WorkshopSession): string {
   let sql = `-- ============================================\n-- ${session.productName || 'Data Product'} — DDL\n-- Généré par Mart Studio\n-- ============================================\n\n`;
   
@@ -1452,7 +1546,14 @@ function CodeBlock({ title, language, code }: { title: string; language: string;
         </div>
       </div>
       <div className="code-preview-body">
-        <pre>{code}</pre>
+        <SyntaxHighlighter
+          language={language === 'yaml' ? 'yaml' : language === 'dbml' ? 'sql' : language === 'mermaid' ? 'text' : 'sql'}
+          style={oneDark}
+          customStyle={{ margin: 0, background: 'transparent', fontSize: 12.5, padding: 0 }}
+          wrapLongLines
+        >
+          {code}
+        </SyntaxHighlighter>
       </div>
     </div>
   );
