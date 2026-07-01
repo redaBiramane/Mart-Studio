@@ -15,6 +15,24 @@ import Image from 'next/image';
 
 type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
 
+// Icônes SVG (line icons) pour la navigation — plus pro que des emojis.
+function NavIcon({ name }: { name: string }) {
+  const paths: Record<string, React.ReactNode> = {
+    dashboard: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M9.5 21v-6h5v6" /></>,
+    workshop: <><path d="M12 6.5 13.7 11l4.5 1.7-4.5 1.7L12 19l-1.7-4.6L5.8 12.7 10.3 11 12 6.5Z" /><path d="M5 4v3M3.5 5.5h3M18 15v3M16.5 16.5h3" /></>,
+    deliverables: <><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></>,
+    docs: <><path d="M6.5 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M8 7h8M8 11h8M8 15h5" /></>,
+    supervision: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
+    admin: <><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1" /></>,
+    session: <><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M14 3v4h4" /></>,
+  };
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      {paths[name] || <circle cx="12" cy="12" r="9" />}
+    </svg>
+  );
+}
+
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -43,15 +61,15 @@ export default function Home() {
   const isAdmin = profile?.role === 'admin';
 
   const navItems = [
-    { key: 'dashboard' as Page, icon: '🏠', label: 'Accueil' },
-    { key: 'workshop' as Page, icon: '🧠', label: 'Atelier IA', badge: session?.status === 'active' ? `${session.currentStep}/5` : undefined },
-    { key: 'deliverables' as Page, icon: '📦', label: 'Livrables' },
-    { key: 'docs' as Page, icon: '📖', label: 'Documentation' },
+    { key: 'dashboard' as Page, label: 'Accueil' },
+    { key: 'workshop' as Page, label: 'DataForge', badge: session?.status === 'active' ? `${session.currentStep}/5` : undefined },
+    { key: 'deliverables' as Page, label: 'Livrables' },
+    { key: 'docs' as Page, label: 'Documentation' },
   ];
 
   const adminItems = [
-    ...(isAdmin ? [{ key: 'supervision' as Page, icon: '🛡️', label: 'Supervision' }] : []),
-    { key: 'admin' as Page, icon: '⚙️', label: 'Configuration LLM' },
+    ...(isAdmin ? [{ key: 'supervision' as Page, label: 'Supervision' }] : []),
+    { key: 'admin' as Page, label: 'Configuration LLM' },
   ];
 
   // Auth gate (only when Supabase is configured)
@@ -73,8 +91,8 @@ export default function Home() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-            <Image src="/sofinco-logo.svg" alt="Sofinco" width={180} height={38} style={{ width: 180, height: 38 }} />
+          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, width: '100%', textAlign: 'center' }}>
+            <Image src="/sofinco-logo.svg" alt="Sofinco" width={210} height={45} style={{ width: 210, height: 45 }} priority />
             <div className="sidebar-title" style={{ textAlign: 'center' }}>Mart Studio</div>
           </div>
         </div>
@@ -97,7 +115,7 @@ export default function Home() {
                 className={`nav-item ${currentPage === item.key ? 'active' : ''}`}
                 onClick={() => { setCurrentPage(item.key); setSidebarOpen(false); }}
               >
-                <span className="nav-item-icon">{item.icon}</span>
+                <span className="nav-item-icon"><NavIcon name={item.key} /></span>
                 <span>{item.label}</span>
                 {item.badge && <span className="nav-item-badge">{item.badge}</span>}
               </div>
@@ -117,7 +135,7 @@ export default function Home() {
                     setSidebarOpen(false);
                   }}
                 >
-                  <span className="nav-item-icon">📄</span>
+                  <span className="nav-item-icon"><NavIcon name="session" /></span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {s.productName || 'Nouveau produit'}
                   </span>
@@ -134,7 +152,7 @@ export default function Home() {
                 className={`nav-item ${currentPage === item.key ? 'active' : ''}`}
                 onClick={() => { setCurrentPage(item.key); setSidebarOpen(false); }}
               >
-                <span className="nav-item-icon">{item.icon}</span>
+                <span className="nav-item-icon"><NavIcon name={item.key} /></span>
                 <span>{item.label}</span>
               </div>
             ))}
@@ -189,7 +207,7 @@ export default function Home() {
             </button>
             <h1>
               {currentPage === 'dashboard' && 'Tableau de bord'}
-              {currentPage === 'workshop' && 'Atelier de conception'}
+              {currentPage === 'workshop' && 'DataForge — Conception assistée par IA'}
               {currentPage === 'deliverables' && 'Livrables'}
               {currentPage === 'admin' && 'Configuration LLM'}
               {currentPage === 'docs' && 'Documentation'}
