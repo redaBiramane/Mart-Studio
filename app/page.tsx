@@ -207,16 +207,19 @@ export default function Home() {
         </div>
       </aside>
 
+      {/* Backdrop mobile (ferme le drawer au tap) */}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+
       {/* Main Content */}
       <div className={`main-content${collapsed ? ' with-rail' : ''}`}>
         <header className="main-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
-              className="nav-item"
-              style={{ display: 'none', padding: 8 }}
+              className="mobile-menu-btn"
+              aria-label="Ouvrir le menu"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              ☰
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <h1>
               {currentPage === 'dashboard' && 'Tableau de bord'}

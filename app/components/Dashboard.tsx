@@ -2,6 +2,19 @@
 
 import { useWorkshopStore } from '@/lib/store';
 
+function HowIcon({ name }: { name: string }) {
+  const p: Record<string, React.ReactNode> = {
+    describe: <><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2Z" /><path d="M8 8.5h8" /><path d="M8 12h5" /></>,
+    model: <><path d="M12 4.5a3 3 0 0 0-3 3 3 3 0 0 0-1.5 5.6A2.6 2.6 0 0 0 9 18a2.5 2.5 0 0 0 3 .5 2.5 2.5 0 0 0 3-.5 2.6 2.6 0 0 0 1.5-4.9A3 3 0 0 0 15 7.5a3 3 0 0 0-3-3Z" /><path d="M12 5v14" /></>,
+    export: <><path d="M21 8l-9-5-9 5 9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></>,
+  };
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      {p[name]}
+    </svg>
+  );
+}
+
 interface DashboardProps {
   onStartWorkshop: () => void;
   onOpenSession: (id: string) => void;
@@ -55,12 +68,12 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
         <div className="transform-card-title">Comment ça marche</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
           {[
-            { icon: '💬', title: '1. Décrivez', text: 'Expliquez votre besoin métier en langage simple à Marty, votre Data Architect IA.' },
-            { icon: '🧠', title: '2. Marty modélise', text: 'En 5 étapes guidées, il conçoit entités, relations, attributs, clés, règles et sources.' },
-            { icon: '📦', title: '3. Exportez', text: 'Récupérez le MCD, le SQL, le DBML, le schéma dbt, le dictionnaire et le rapport DAD.' },
+            { icon: 'describe', title: '1. Décrivez', text: 'Expliquez votre besoin métier en langage simple à Marty, votre Data Architect IA.' },
+            { icon: 'model', title: '2. Marty modélise', text: 'En étapes guidées, il conçoit entités, relations, attributs, clés, règles et sources.' },
+            { icon: 'export', title: '3. Exportez', text: 'Récupérez le MCD, le SQL, le DBML, le schéma dbt, le dictionnaire et le rapport DAD.' },
           ].map(s => (
             <div key={s.title} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-              <div style={{ fontSize: 26, marginBottom: 6 }}>{s.icon}</div>
+              <div style={{ marginBottom: 8 }}><HowIcon name={s.icon} /></div>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>{s.title}</div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{s.text}</div>
             </div>
