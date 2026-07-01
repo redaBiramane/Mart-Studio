@@ -34,7 +34,7 @@ export default function Deliverables() {
     { key: 'mcd', label: 'MCD / ERD', icon: '🗺️' },
     { key: 'dimensional', label: 'Étoile / Flocon', icon: '❄️' },
     { key: 'dbml', label: 'DBML (dbdiagram.io)', icon: '🧬' },
-    { key: 'sql', label: 'SQL DDL', icon: '💾' },
+    { key: 'sql', label: 'SQL DDL', icon: '🛢️' },
     { key: 'dbt', label: 'dbt YAML', icon: '🔧' },
     { key: 'dictionary', label: 'Dictionnaire', icon: '📖' },
     { key: 'dad', label: 'Rapport DAD', icon: '📋' },
@@ -515,7 +515,7 @@ function NamingToolbar({ naming, translating, onTranslate, onReset, alias, onAli
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
       {!naming ? (
-        <button className="cta-btn cta-btn-secondary" onClick={onTranslate} disabled={translating}>
+        <button className="cta-btn" onClick={onTranslate} disabled={translating}>
           {translating ? '⏳ Standardisation…' : '🔤 Standardiser les noms (dictionnaire)'}
         </button>
       ) : (
@@ -556,7 +556,7 @@ function SQLTab({ session }: { session: WorkshopSession }) {
           ℹ️ Mode ALIAS : les colonnes gardent leur nom d&apos;origine, annotées inline avec leur nom standardisé <code>[AS NOM_STD]</code>.
         </div>
       )}
-      <CodeBlock title="DDL SQL" language="sql" code={sql} />
+      <CodeBlock title="DDL SQL" language="sql" code={sql} hideActions />
     </div>
   );
 }
@@ -569,7 +569,7 @@ function DbtTab({ session }: { session: WorkshopSession }) {
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>dbt — Schema YAML</h3>
       <DeliverableActions code={yaml} filename="schema.yml" copyLabel="Copier le YAML" />
       <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} />
-      <CodeBlock title="schema.yml" language="yaml" code={yaml} />
+      <CodeBlock title="schema.yml" language="yaml" code={yaml} hideActions />
     </div>
   );
 }
@@ -1542,7 +1542,7 @@ function generateDbtYaml(session: WorkshopSession): string {
 
 // ---- Code Block ----
 
-function CodeBlock({ title, language, code }: { title: string; language: string; code: string }) {
+function CodeBlock({ title, language, code, hideActions }: { title: string; language: string; code: string; hideActions?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   function copyCode() {
@@ -1564,10 +1564,12 @@ function CodeBlock({ title, language, code }: { title: string; language: string;
     <div className="code-preview">
       <div className="code-preview-header">
         <span className="code-preview-title">{title}</span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="copy-btn" onClick={copyCode}>{copied ? '✓ Copié' : '📋 Copier'}</button>
-          <button className="copy-btn" onClick={downloadCode}>⬇ Télécharger</button>
-        </div>
+        {!hideActions && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="copy-btn" onClick={copyCode}>{copied ? '✓ Copié' : '📋 Copier'}</button>
+            <button className="copy-btn" onClick={downloadCode}>⬇ Télécharger</button>
+          </div>
+        )}
       </div>
       <div className="code-preview-body">
         <SyntaxHighlighter

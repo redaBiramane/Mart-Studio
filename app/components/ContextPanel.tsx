@@ -177,6 +177,15 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
   const add = (key: keyof WorkshopSession, item: unknown) => {
     setArr(key, [...(session[key] as unknown as unknown[]), item] as never);
   };
+  // Supprimer une entité EN CASCADE : ses relations et ses attributs aussi,
+  // sinon elle réapparaît dans les schémas générés (entité implicite).
+  function removeEntityCascade(e: Entity) {
+    updateSessionData({
+      entities: session.entities.filter((x) => x.id !== e.id),
+      relations: session.relations.filter((r) => r.sourceEntityName !== e.name && r.targetEntityName !== e.name),
+      attributes: session.attributes.filter((a) => a.entityId !== e.id && a.entityId !== e.name),
+    });
+  }
 
   const addBtnStyle: React.CSSProperties = { marginTop: 4, padding: '8px 14px', border: '1px dashed var(--border-active)', borderRadius: 8, background: 'var(--primary-glow)', color: 'var(--primary-light)', cursor: 'pointer', fontSize: 13, fontWeight: 600, width: '100%' };
   const label = (t: string) => <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '8px 0 3px' }}>{t}</div>;
@@ -252,7 +261,7 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
                     </select>
                   </div>
                   <input style={{ ...inp, marginTop: 6 }} placeholder="Définition" value={e.definition} onChange={(ev) => patch<Entity>('entities', e.id, { definition: ev.target.value })} />
-                  <div style={{ textAlign: 'right', marginTop: 6 }}><button style={delBtn} onClick={() => remove('entities', e.id)}>🗑 Supprimer</button></div>
+                  <div style={{ textAlign: 'right', marginTop: 6 }}><button style={delBtn} onClick={() => removeEntityCascade(e)}>🗑 Supprimer (+ relations & attributs)</button></div>
                 </div>
               ))}
               <button style={addBtnStyle} onClick={() => add('entities', { id: genId('entity'), name: 'NouvelleEntite', definition: '', description: '', example: '', responsible: '', type: 'reference', lifecycle: 'created' })}>+ Ajouter une entité</button>
