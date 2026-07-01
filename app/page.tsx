@@ -102,9 +102,9 @@ export default function Home() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, width: '100%', textAlign: 'center' }}>
-            <Image src="/sofinco-logo.svg" alt="Sofinco" width={210} height={45} style={{ width: 210, height: 45 }} priority />
-            <div className="sidebar-title" style={{ textAlign: 'center' }}>Mart Studio</div>
+          <div className="sidebar-brand" style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center' }}>
+            <Image src="/sofinco-logo.svg" alt="Sofinco" width={240} height={51} style={{ width: 240, height: 51 }} priority />
+            <div className="sidebar-title" style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Mart Studio</div>
           </div>
         </div>
 
@@ -206,7 +206,7 @@ export default function Home() {
       </aside>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className={`main-content${collapsed ? ' with-rail' : ''}`}>
         <header className="main-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
