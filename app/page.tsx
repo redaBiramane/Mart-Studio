@@ -27,6 +27,8 @@ function NavIcon({ name }: { name: string }) {
     supervision: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
     admin: <><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1" /></>,
     session: <><ellipse cx="12" cy="5" rx="7" ry="2.6" /><path d="M5 5v6c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V5" /><path d="M5 11v6c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6v-6" /></>,
+    users: <><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6" /><path d="M18.5 20a5.5 5.5 0 0 0-3.2-5" /></>,
+    logout: <><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l-5-5 5-5" /><path d="M15 12H5" /></>,
   };
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
@@ -177,14 +179,14 @@ export default function Home() {
               <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 12, right: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 41 }}>
                 {isAdmin && (
                   <>
-                    <button className="user-menu-item" onClick={() => { setSupervisionTab('activity'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}>🛡️ Supervision</button>
-                    <button className="user-menu-item" onClick={() => { setSupervisionTab('users'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}>👥 Utilisateurs</button>
-                    <button className="user-menu-item" onClick={() => { setCurrentPage('admin'); setSidebarOpen(false); setUserMenuOpen(false); }}>⚙️ Configuration LLM</button>
+                    <button className="user-menu-item" onClick={() => { setSupervisionTab('activity'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="supervision" /> Supervision</button>
+                    <button className="user-menu-item" onClick={() => { setSupervisionTab('users'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="users" /> Utilisateurs</button>
+                    <button className="user-menu-item" onClick={() => { setCurrentPage('admin'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="admin" /> Configuration LLM</button>
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                   </>
                 )}
                 {user && (
-                  <button className="user-menu-item" style={{ color: 'var(--accent-red)' }} onClick={() => { signOut(); setUserMenuOpen(false); }}>↩ Se déconnecter</button>
+                  <button className="user-menu-item" style={{ color: 'var(--accent-red)' }} onClick={() => { signOut(); setUserMenuOpen(false); }}><NavIcon name="logout" /> Se déconnecter</button>
                 )}
               </div>
             </>

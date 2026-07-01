@@ -11,6 +11,20 @@ interface Props {
 
 type SortKey = 'recent' | 'oldest' | 'name' | 'entities' | 'progress';
 
+function StatIcon({ name }: { name: string }) {
+  const p: Record<string, React.ReactNode> = {
+    total: <><ellipse cx="12" cy="5" rx="7" ry="2.6" /><path d="M5 5v14c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V5" /><path d="M5 12c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6" /></>,
+    active: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5l3.2 2" /></>,
+    done: <><circle cx="12" cy="12" r="9" /><path d="M8.3 12.4l2.6 2.6 4.8-5.2" /></>,
+    domains: <><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></>,
+  };
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      {p[name] || <circle cx="12" cy="12" r="9" />}
+    </svg>
+  );
+}
+
 export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables }: Props) {
   const { sessions, deleteSession, loadSession, updateSessionData } = useWorkshopStore();
   const [q, setQ] = useState('');
@@ -80,13 +94,13 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
       {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
-          { label: 'Total', value: sessions.length, icon: '🛢️' },
-          { label: 'En cours', value: active, icon: '⏳' },
-          { label: 'Terminés', value: completed, icon: '✅' },
-          { label: 'Domaines', value: domains.length, icon: '🗂️' },
+          { label: 'Total', value: sessions.length, icon: 'total' },
+          { label: 'En cours', value: active, icon: 'active' },
+          { label: 'Terminés', value: completed, icon: 'done' },
+          { label: 'Domaines', value: domains.length, icon: 'domains' },
         ].map(s => (
           <div key={s.label} className="stat-card" style={{ flex: 1, minWidth: 120 }}>
-            <div style={{ fontSize: 20 }}>{s.icon}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><StatIcon name={s.icon} /></div>
             <div className="stat-value" style={{ fontSize: 24 }}>{s.value}</div>
             <div className="stat-label">{s.label}</div>
           </div>
