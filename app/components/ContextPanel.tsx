@@ -128,7 +128,7 @@ export default function ContextPanel({ session, onClose }: ContextPanelProps) {
 
       {session.maturityScores && (
         <div className="context-card" style={{ ...cardStyle, background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.3)' }} onClick={() => setDetail('maturity')}>
-          <div className="context-card-title">🏁 Score de maturité {clickHint}</div>
+          <div className="context-card-title">🏁 Score de maturité <span style={{ float: 'right', fontSize: 10, color: 'var(--text-muted)', fontWeight: 400 }}>détails ›</span></div>
           <div className="context-card-content">
             {Object.entries(session.maturityScores).map(([key, value]) => (
               <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 5 }}>

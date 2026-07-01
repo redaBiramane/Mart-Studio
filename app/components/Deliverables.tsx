@@ -7,7 +7,7 @@ import { MATURITY_DIMENSIONS } from '@/lib/constants';
 import MermaidDiagram from './MermaidDiagram';
 import { transformMany } from '@/lib/naming';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 type Tab = 'overview' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
@@ -518,7 +518,7 @@ function SQLTab({ session }: { session: WorkshopSession }) {
   const [alias, setAlias] = useState(false);
   let sql: string;
   if (std.naming && alias) {
-    sql = generateSQL(session) + '\n\n' + generateAliasSelects(session, std.naming);
+    sql = generateSQL(applyAliasComments(session, std.naming));
   } else if (std.naming) {
     sql = generateSQL(translateSession(session, std.naming));
   } else {
@@ -530,7 +530,7 @@ function SQLTab({ session }: { session: WorkshopSession }) {
       <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} alias={alias} onAlias={setAlias} />
       {std.naming && alias && (
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-          ℹ️ Mode ALIAS : le DDL conserve les noms d&apos;origine, et des requêtes <code>SELECT col AS NOM_STANDARDISÉ</code> sont ajoutées à la fin pour exposer les noms normalisés.
+          ℹ️ Mode ALIAS : les colonnes gardent leur nom d&apos;origine, annotées inline avec leur nom standardisé <code>[AS NOM_STD]</code>.
         </div>
       )}
       <CodeBlock title="DDL SQL" language="sql" code={sql} />
@@ -1256,23 +1256,18 @@ function generateSnowflakeSchema(session: WorkshopSession, facts: Entity[], dims
   return buildDimensionalErd(session, [...facts, ...dims], session.relations, factNames);
 }
 
-// Mode "AS alias" : garde les noms d'origine et expose les noms standardisés
-// via des requêtes SELECT (col AS NOM_STANDARDISE).
-function generateAliasSelects(session: WorkshopSession, naming: Record<string, string>): string {
-  const entities = resolveEntitiesToGenerate(session);
-  const fkMap = buildFkMap(session, entities);
-  let out = '-- ============================================\n-- Exposition avec noms standardisés (alias AS)\n-- ============================================\n\n';
-  entities.forEach((e) => {
-    const table = cleanTableName(e.name);
-    const cols = getTableColumns(e, session, entities, fkMap);
-    out += 'SELECT\n';
-    out += cols.map((c) => {
-      const std = naming[toSnake(c.name)] || c.name;
-      return std !== c.name ? `    ${c.name} AS ${std}` : `    ${c.name}`;
-    }).join(',\n');
-    out += `\nFROM ${table};\n\n`;
+// Mode "AS alias" : garde les noms de colonnes d'origine dans le DDL et annote
+// chaque colonne, inline dans le code, avec son nom standardisé (AS NOM_STD).
+function applyAliasComments(session: WorkshopSession, naming: Record<string, string>): WorkshopSession {
+  const attributes = session.attributes.map((a) => {
+    const std = naming[toSnake(a.name)];
+    if (std && std.toLowerCase() !== a.name.toLowerCase()) {
+      const base = a.description ? `${a.description} ` : '';
+      return { ...a, description: `${base}[AS ${std}]` };
+    }
+    return a;
   });
-  return out;
+  return { ...session, attributes };
 }
 
 function generateSQL(session: WorkshopSession): string {
@@ -1553,8 +1548,8 @@ function CodeBlock({ title, language, code }: { title: string; language: string;
       <div className="code-preview-body">
         <SyntaxHighlighter
           language={language === 'yaml' ? 'yaml' : language === 'dbml' ? 'sql' : language === 'mermaid' ? 'text' : 'sql'}
-          style={oneDark}
-          customStyle={{ margin: 0, background: '#282c34', color: '#e6e6e6', fontSize: 12.5, padding: 16, borderRadius: 8 }}
+          style={oneLight}
+          customStyle={{ margin: 0, background: '#F8FAFC', color: '#1f2937', fontSize: 12.5, padding: 16, borderRadius: 8, border: '1px solid #E5E7EB' }}
           codeTagProps={{ style: { background: 'transparent', fontFamily: "'Fira Code','Cascadia Code',monospace" } }}
           wrapLongLines
         >
