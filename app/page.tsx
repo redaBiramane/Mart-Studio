@@ -76,9 +76,9 @@ export default function Home() {
   if (isSupabaseConfigured && !authReady) {
     return (
       <div className="app-loading">
-        <Image className="app-loading-logo" src="/sofinco-logo.svg" alt="Sofinco" width={200} height={42} style={{ width: 200, height: 42 }} priority />
-        <div className="app-spinner" />
-        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chargement…</div>
+        <Image className="app-loading-logo" src="/sofinco-logo.svg" alt="Sofinco" width={230} height={49} style={{ width: 230, height: 49 }} priority />
+        <div className="app-progress" />
+        <div style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: 0.3 }}>Chargement de Mart Studio…</div>
       </div>
     );
   }

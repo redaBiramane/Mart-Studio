@@ -6,9 +6,15 @@ let initialized = false;
 
 export default function MermaidDiagram({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const baseWidth = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.6);
+
+  function centerScroll() {
+    const c = containerRef.current;
+    if (c) c.scrollLeft = Math.max(0, (c.scrollWidth - c.clientWidth) / 2);
+  }
 
   // Render the diagram whenever the code changes
   useEffect(() => {
@@ -32,6 +38,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
           el.style.maxWidth = 'none';
           el.style.height = 'auto';
           el.style.width = baseWidth.current * scale + 'px';
+          requestAnimationFrame(centerScroll);
         }
         setError(null);
       } catch (e) {
@@ -105,10 +112,10 @@ export default function MermaidDiagram({ code }: { code: string }) {
         <button style={btn} onClick={() => setScale(s => Math.max(0.3, +(s - 0.2).toFixed(2)))} title="Dézoomer">➖</button>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 44, textAlign: 'center' }}>{Math.round(scale * 100)}%</span>
         <button style={btn} onClick={() => setScale(s => Math.min(3, +(s + 0.2).toFixed(2)))} title="Zoomer">➕</button>
-        <button style={btn} onClick={() => setScale(1)} title="Réinitialiser le zoom">⤢ 100%</button>
+        <button style={btn} onClick={() => { setScale(0.6); requestAnimationFrame(centerScroll); }} title="Ajuster et centrer">⤢ Ajuster</button>
         <button style={{ ...btn, marginLeft: 'auto' }} onClick={downloadPng} title="Télécharger en PNG">⬇ Télécharger PNG</button>
       </div>
-      <div style={{ overflow: 'auto', maxHeight: 620, background: '#ffffff', borderRadius: 8, padding: 16, border: '1px solid var(--border)' }}>
+      <div ref={containerRef} style={{ overflow: 'auto', maxHeight: 620, background: '#ffffff', borderRadius: 8, padding: 16, border: '1px solid var(--border)', textAlign: 'center' }}>
         <div ref={ref} style={{ display: 'inline-block' }} />
       </div>
     </div>
