@@ -66,7 +66,7 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
       {/* How it works */}
       <div className="transform-card">
         <div className="transform-card-title">Comment ça marche</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
+        <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 20 }}>
           {[
             { icon: 'describe', title: '1. Décrivez', text: 'Expliquez votre besoin métier en langage simple à Marty, votre Data Architect IA.' },
             { icon: 'model', title: '2. Marty modélise', text: 'En étapes guidées, il conçoit entités, relations, attributs, clés, règles et sources.' },
