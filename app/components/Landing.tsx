@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useI18n } from '@/lib/i18n';
 
@@ -37,6 +37,13 @@ const STYLE = `
 .ml-kpis { display: flex; gap: 48px; justify-content: center; flex-wrap: wrap; margin-top: 54px; animation: mlUp .7s ease .28s both; }
 .ml-kpi .v { font-size: 42px; font-weight: 800; color: var(--primary); line-height: 1; }
 .ml-kpi .l { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-top: 8px; }
+
+.ml-showcase { max-width: 1200px; margin: 0 auto; padding: 20px 24px 40px; }
+.ml-shot { position: relative; border-radius: 20px; padding: 14px; background: linear-gradient(135deg, #0a1420, #06263a); box-shadow: 0 30px 80px rgba(0,0,0,0.35); animation: mlFloatY 7s ease-in-out infinite; }
+.ml-shot::before { content: ''; position: absolute; inset: -2px; border-radius: 22px; padding: 2px; background: linear-gradient(120deg, var(--primary), #3EE3D3, #009597); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0.9; animation: mlGlow 5s ease-in-out infinite; }
+.ml-shot::after { content: ''; position: absolute; z-index: -1; inset: 8% 6%; border-radius: 40px; background: radial-gradient(closest-side, rgba(62,227,211,0.35), transparent 70%); filter: blur(50px); animation: mlGlow 5s ease-in-out infinite; }
+.ml-shot img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.ml-showcase.ml-reveal { transition: opacity .7s ease, transform .7s ease; }
 
 .ml-sec { max-width: 1160px; margin: 0 auto; padding: 64px 24px; }
 .ml-sec-alt { background: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -84,6 +91,8 @@ const STYLE = `
 
 @keyframes mlUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 @keyframes mlFloat { 0%,100% { transform: translate(0,0); } 50% { transform: translate(20px,-24px); } }
+@keyframes mlFloatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes mlGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 
 @media (max-width: 920px) {
   .ml-hero h1 { font-size: 36px; }
@@ -94,7 +103,7 @@ const STYLE = `
 }
 @media (prefers-reduced-motion: reduce) {
   .ml-reveal, .ml-chip, .ml-hero h1, .ml-hero-sub, .ml-hero-cta, .ml-kpis { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
-  .ml-blob { animation: none !important; }
+  .ml-blob, .ml-shot, .ml-shot::before, .ml-shot::after { animation: none !important; }
 }
 `;
 
@@ -123,6 +132,7 @@ function Icon({ name }: { name: string }) {
 export default function Landing({ onEnter }: LandingProps) {
   const { lang, toggle } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
+  const [shotOk, setShotOk] = useState(true);
 
   useEffect(() => {
     const els = rootRef.current?.querySelectorAll('.ml-reveal');
@@ -175,6 +185,7 @@ export default function Landing({ onEnter }: LandingProps) {
       ? 'Générez un Data Product complet et standardisé en seulement quelques minutes.'
       : 'Generate a complete, standardized Data Product in just a few minutes.',
     finalBtn: fr ? 'Démarrer maintenant' : 'Get started now',
+    showCaption: fr ? "De l'idée métier au Data Product prêt à l'emploi" : 'From business idea to a ready-to-use Data Product',
   };
 
   const steps = [
@@ -234,6 +245,17 @@ export default function Landing({ onEnter }: LandingProps) {
           <div className="ml-kpi"><div className="v">0</div><div className="l">{L.kCode}</div></div>
         </div>
       </header>
+
+      {/* SHOWCASE — infographie produit */}
+      {shotOk && (
+        <section className="ml-showcase ml-reveal">
+          <div className="ml-shot">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/mart-infographic.png" alt={L.showCaption} onError={() => setShotOk(false)} loading="lazy" />
+          </div>
+          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{L.showCaption}</p>
+        </section>
+      )}
 
       {/* PROCESS */}
       <section className="ml-sec">
