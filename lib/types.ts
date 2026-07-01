@@ -12,6 +12,7 @@ export interface StepDefinition {
   icon: string;
   description: string;
   questions: string[];
+  optional?: boolean;
 }
 
 // ---- Workshop Session Data ----

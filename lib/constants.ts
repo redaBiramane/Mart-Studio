@@ -61,6 +61,33 @@ import { StepDefinition } from './types';export const STEPS: StepDefinition[] = 
   },
   {
     id: 5,
+    key: 'kpis',
+    title: 'Indicateurs (KPI) — optionnel',
+    titleShort: 'KPI',
+    icon: '📊',
+    description: 'Saisir vos KPI réels (nom, formule, axes). Facultatif — améliore la qualité si vous avez de vraies données.',
+    optional: true,
+    questions: [
+      'Quels KPI souhaitez-vous suivre ?',
+      'Comment sont-ils calculés (formule) ?',
+      'Quels sont leurs axes d\'analyse ?',
+    ],
+  },
+  {
+    id: 6,
+    key: 'rules',
+    title: 'Règles métier — optionnel',
+    titleShort: 'Règles',
+    icon: '⚖️',
+    description: 'Saisir vos règles de gestion réelles. Facultatif — à remplir si vous en avez de concrètes.',
+    optional: true,
+    questions: [
+      'Quelles règles de gestion ou de calcul s\'appliquent ?',
+      'Existe-t-il des contraintes ou valeurs interdites ?',
+    ],
+  },
+  {
+    id: 7,
     key: 'validation',
     title: 'Validation & Rapport DAD',
     titleShort: 'Validation',

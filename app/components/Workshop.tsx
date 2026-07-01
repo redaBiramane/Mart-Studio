@@ -89,7 +89,7 @@ export default function Workshop() {
         const modeInstr = session.mode === 'guided'
           ? 'pose UNE SEULE question à la fois (mode guidé) : commence par la première question de cette étape et attends la réponse.'
           : 'affiche directement toutes les questions de cette étape en une seule fois.';
-        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur 5 : "${stepDef.title}". ${intro} ${modeInstr}` });
+        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur ${STEPS.length} : "${stepDef.title}". ${intro} ${modeInstr}` });
       }
     }
   }, [session, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -347,7 +347,9 @@ export default function Workshop() {
       case 2: return session.entities.length > 0;
       case 3: return session.relations.length > 0;
       case 4: return session.attributes.length > 0;
-      case 5: return session.maturityScores !== null;
+      case 5: return session.kpis.length > 0;      // optionnel
+      case 6: return session.businessRules.length > 0; // optionnel
+      case 7: return session.maturityScores !== null;
       default: return false;
     }
   }
@@ -448,7 +450,10 @@ ${truncated}
   // step. Data may already exist (deduced earlier), but we don't want the banner
   // to appear before the user has had a chance to type.
   const userHasMessagedThisStep = displayMessages.some(m => m.role === 'user');
-  const showStepBanner = hasStepData(currentStep) && userHasMessagedThisStep;
+  const isValidation = currentStep === STEPS.length;
+  // Validation : bouton toujours dispo. Étape optionnelle : on peut passer.
+  // Étape requise : bandeau après que l'utilisateur a répondu et que des données existent.
+  const showStepBanner = isValidation || stepDef.optional || (hasStepData(currentStep) && userHasMessagedThisStep);
 
   return (
     <div className="workshop-layout">
@@ -557,15 +562,17 @@ ${truncated}
               gap: '16px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '20px' }}>✓</span>
+                <span style={{ fontSize: '20px' }}>{isValidation ? '🏁' : stepDef.optional && !hasStepData(currentStep) ? 'ℹ️' : '✓'}</span>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>
-                    Données collectées pour l&apos;étape {currentStep} !
+                    {isValidation ? 'Prêt à clôturer l\'atelier' : stepDef.optional && !hasStepData(currentStep) ? `Étape optionnelle — ${stepDef.titleShort}` : `Données collectées pour l'étape ${currentStep} !`}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {currentStep < 5 
-                      ? 'Les informations requises ont été extraites. Vous pouvez valider ou affiner la réponse.' 
-                      : 'Toutes les informations ont été validées. Vous pouvez maintenant clore l\'atelier.'}
+                    {isValidation
+                      ? 'Vous pouvez clore l\'atelier et générer les livrables.'
+                      : stepDef.optional && !hasStepData(currentStep)
+                        ? 'Renseignez vos données réelles, ou passez cette étape.'
+                        : 'Les informations ont été extraites. Vous pouvez valider ou affiner la réponse.'}
                   </div>
                 </div>
               </div>
@@ -581,14 +588,14 @@ ${truncated}
                 >
                   Donner plus d&apos;infos 💬
                 </button>
-                {currentStep < 5 ? (
+                {!isValidation ? (
                   <button
                     type="button"
                     className="cta-btn"
                     style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}
                     onClick={() => handleStepChange(currentStep + 1)}
                   >
-                    Valider la réponse ➔
+                    {stepDef.optional && !hasStepData(currentStep) ? 'Passer ➔' : 'Valider la réponse ➔'}
                   </button>
                 ) : (
                   <button

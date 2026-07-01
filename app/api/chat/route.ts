@@ -42,14 +42,24 @@ export async function POST(req: Request) {
       parts.push(`**Relations**: ${sessionData.relations.map((r: { sourceEntityName: string; targetEntityName: string; type: string }) => `${r.sourceEntityName} → ${r.targetEntityName} (${r.type})`).join(', ')}`);
     }
     if (sessionData.attributes?.length > 0) {
-      parts.push(`**Attributs déjà définis**: ${sessionData.attributes.length} (n'extrais que les colonnes manquantes pour éviter les doublons)`);
+      // Détail des attributs par entité pour que le modèle tienne compte des
+      // éditions manuelles de l'utilisateur (ajouts/suppressions/renommages).
+      const byEntity: Record<string, string[]> = {};
+      const entityById: Record<string, string> = {};
+      (sessionData.entities || []).forEach((e: { id: string; name: string }) => { entityById[e.id] = e.name; });
+      sessionData.attributes.forEach((a: { name: string; type: string; entityId: string; isPrimaryKey?: boolean }) => {
+        const ent = entityById[a.entityId] || a.entityId || '—';
+        (byEntity[ent] = byEntity[ent] || []).push(`${a.name}${a.isPrimaryKey ? ' (PK)' : ''}:${a.type}`);
+      });
+      const attrLines = Object.entries(byEntity).map(([ent, cols]) => `  - ${ent} : ${cols.join(', ')}`).join('\n');
+      parts.push(`**Attributs actuels par entité** (source de vérité — respecte ces éditions, n'écrase pas) :\n${attrLines}`);
     }
     if (sessionData.kpis?.length > 0) {
       parts.push(`**KPIs**: ${sessionData.kpis.map((k: { name: string }) => k.name).join(', ')}`);
     }
 
     if (parts.length > 0) {
-      collectedContext = `\n\n## Données déjà collectées\n\n${parts.join('\n')}`;
+      collectedContext = `\n\n## Données déjà collectées (état ACTUEL, tient compte des éditions manuelles)\n\n${parts.join('\n')}`;
     }
   }
 

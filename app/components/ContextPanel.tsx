@@ -336,11 +336,29 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
 
           {detail === 'sources' && (
             <>
+              <datalist id="systemes-suggestions">
+                <option value="Snowflake" />
+                <option value="ERP" />
+                <option value="CRM" />
+                <option value="Plateforme E-commerce" />
+                <option value="Référentiel / Master Data" />
+                <option value="Datalake" />
+                <option value="API interne" />
+              </datalist>
               {session.dataSources.map((s: DataSource) => (
                 <div key={s.id} style={rowBox}>
                   <input style={inp} placeholder="Nom de la source" value={s.name} onChange={(ev) => patch<DataSource>('dataSources', s.id, { name: ev.target.value })} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <input style={inp} placeholder="Système" value={s.system} onChange={(ev) => patch<DataSource>('dataSources', s.id, { system: ev.target.value })} />
+                    <input style={inp} placeholder="Système (ex: Snowflake, ERP…)" list="systemes-suggestions" value={s.system} onChange={(ev) => patch<DataSource>('dataSources', s.id, { system: ev.target.value })} />
+                    <select style={inp} value={s.type} onChange={(ev) => patch<DataSource>('dataSources', s.id, { type: ev.target.value as DataSource['type'] })}>
+                      <option value="database">Entrepôt / Base (Snowflake…)</option>
+                      <option value="api">API</option>
+                      <option value="file">Fichier (CSV, Excel…)</option>
+                      <option value="stream">Flux (Kafka, Kinesis…)</option>
+                      <option value="manual">Saisie manuelle</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                     <select style={inp} value={s.loadFrequency} onChange={(ev) => patch<DataSource>('dataSources', s.id, { loadFrequency: ev.target.value })}>
                       <option value="">Fréquence…</option>
                       <optgroup label="Temps réel">

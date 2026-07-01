@@ -22,14 +22,17 @@ export default function StepSidebar({ currentStep, onStepChange, session }: Step
       case 2: return session.entities.length > 0;
       case 3: return session.relations.length > 0;
       case 4: return session.attributes.length > 0;
-      case 5: return session.maturityScores !== null;
+      case 5: return session.kpis.length > 0;
+      case 6: return session.businessRules.length > 0;
+      case 7: return session.maturityScores !== null;
       default: return false;
     }
   }
 
-  // Progression = étapes réellement complétées (atteint 100% une fois l'étape 5 validée).
-  const completedSteps = STEPS.filter((s) => hasStepData(s.id)).length;
-  const progress = Math.round((completedSteps / STEPS.length) * 100);
+  // Progression : les étapes avant l'étape courante sont validées/passées ;
+  // l'étape courante compte quand ses données existent. Atteint 100% à la fin.
+  const done = (currentStep - 1) + (hasStepData(currentStep) ? 1 : 0);
+  const progress = Math.round((Math.min(done, STEPS.length) / STEPS.length) * 100);
 
   return (
     <div className="step-sidebar">

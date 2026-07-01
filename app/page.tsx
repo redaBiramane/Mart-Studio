@@ -70,7 +70,7 @@ export default function Home() {
 
   const navItems = [
     { key: 'dashboard' as Page, label: 'Accueil' },
-    { key: 'workshop' as Page, label: 'DataForge', badge: session?.status === 'active' ? `${session.currentStep}/5` : undefined },
+    { key: 'workshop' as Page, label: 'DataForge', badge: session?.status === 'active' ? `${session.currentStep}/7` : undefined },
     { key: 'deliverables' as Page, label: 'Livrables' },
     { key: 'docs' as Page, label: 'Documentation' },
   ];
