@@ -474,28 +474,6 @@ function DbmlTab({ session }: { session: WorkshopSession }) {
   );
 }
 
-function downloadTextFile(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Boutons d'action proéminents (comme l'onglet DBML) : Copier + Télécharger.
-function DeliverableActions({ code, filename, copyLabel }: { code: string; filename: string; copyLabel: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-      <button className="cta-btn" onClick={() => { navigator.clipboard.writeText(code).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
-        📋 {copyLabel}
-      </button>
-      <button className="cta-btn cta-btn-secondary" onClick={() => downloadTextFile(code, filename)}>⬇ Télécharger {filename}</button>
-      {copied && <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>✓ Copié dans le presse-papier</span>}
-    </div>
-  );
-}
-
 // Hook de standardisation — indépendant par onglet.
 function useStandardization(session: WorkshopSession) {
   const [naming, setNaming] = useState<Record<string, string> | null>(null);
@@ -549,14 +527,13 @@ function SQLTab({ session }: { session: WorkshopSession }) {
   return (
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>SQL — Création des tables</h3>
-      <DeliverableActions code={sql} filename="schema.sql" copyLabel="Copier le DDL SQL" />
       <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} alias={alias} onAlias={setAlias} />
       {std.naming && alias && (
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
           ℹ️ Mode ALIAS : les colonnes gardent leur nom d&apos;origine, annotées inline avec leur nom standardisé <code>[AS NOM_STD]</code>.
         </div>
       )}
-      <CodeBlock title="DDL SQL" language="sql" code={sql} hideActions />
+      <CodeBlock title="DDL SQL" language="sql" code={sql} />
     </div>
   );
 }
@@ -567,9 +544,8 @@ function DbtTab({ session }: { session: WorkshopSession }) {
   return (
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>dbt — Schema YAML</h3>
-      <DeliverableActions code={yaml} filename="schema.yml" copyLabel="Copier le YAML" />
       <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} />
-      <CodeBlock title="schema.yml" language="yaml" code={yaml} hideActions />
+      <CodeBlock title="schema.yml" language="yaml" code={yaml} />
     </div>
   );
 }
