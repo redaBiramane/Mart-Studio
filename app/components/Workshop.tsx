@@ -37,6 +37,7 @@ export default function Workshop() {
       const llmSettings = useWorkshopStore.getState().llmSettings;
       return {
         currentStep: currentSession?.currentStep || 1,
+        mode: currentSession?.mode || 'batch',
         llmSettings,
         sessionData: currentSession ? {
           productName: currentSession.productName,
@@ -83,8 +84,12 @@ export default function Workshop() {
           parts: [{ type: 'text', text: m.content }],
         })));
       } else {
-        // Trigger initial AI message
-        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur 5 : "${stepDef.title}". ${currentStep === 1 ? 'Présente-toi en une phrase, puis' : 'Sans te re-présenter,'} affiche directement les questions de cette étape en une seule fois.` });
+        // Trigger initial AI message (adapté au mode choisi)
+        const intro = currentStep === 1 ? 'Présente-toi en une phrase, puis' : 'Sans te re-présenter,';
+        const modeInstr = session.mode === 'guided'
+          ? 'pose UNE SEULE question à la fois (mode guidé) : commence par la première question de cette étape et attends la réponse.'
+          : 'affiche directement toutes les questions de cette étape en une seule fois.';
+        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur 5 : "${stepDef.title}". ${intro} ${modeInstr}` });
       }
     }
   }, [session, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps

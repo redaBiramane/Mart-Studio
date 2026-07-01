@@ -40,6 +40,14 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users'>('activity');
+  const [showModeModal, setShowModeModal] = useState(false);
+
+  const startNewSession = () => setShowModeModal(true);
+  function createWithMode(mode: 'batch' | 'guided') {
+    useWorkshopStore.getState().createSession(mode);
+    setShowModeModal(false);
+    setCurrentPage('workshop');
+  }
 
   useEffect(() => {
     const saved = (typeof window !== 'undefined' ? localStorage.getItem('mart-theme') : null) as 'light' | 'dark' | null;
@@ -216,13 +224,7 @@ export default function Home() {
           </div>
           <div className="header-actions">
             {currentPage === 'dashboard' && (
-              <button
-                className="cta-btn"
-                onClick={() => {
-                  useWorkshopStore.getState().createSession();
-                  setCurrentPage('workshop');
-                }}
-              >
+              <button className="cta-btn" onClick={startNewSession}>
                 ✨ Nouvel Atelier
               </button>
             )}
@@ -244,10 +246,7 @@ export default function Home() {
         </header>
 
         <div className="main-body">
-          {currentPage === 'dashboard' && <Dashboard onStartWorkshop={() => {
-            useWorkshopStore.getState().createSession();
-            setCurrentPage('workshop');
-          }} onOpenSession={(id) => {
+          {currentPage === 'dashboard' && <Dashboard onStartWorkshop={startNewSession} onOpenSession={(id) => {
             useWorkshopStore.getState().loadSession(id);
             setCurrentPage('workshop');
           }} onViewDeliverables={() => setCurrentPage('deliverables')} onViewDocs={() => setCurrentPage('docs')} onOpenDeliverables={(id) => {
@@ -258,12 +257,33 @@ export default function Home() {
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}
           {currentPage === 'supervision' && <Supervision initialTab={supervisionTab} />}
-          {currentPage === 'docs' && <Documentation onStartWorkshop={() => {
-            useWorkshopStore.getState().createSession();
-            setCurrentPage('workshop');
-          }} />}
+          {currentPage === 'docs' && <Documentation onStartWorkshop={startNewSession} />}
         </div>
       </div>
+
+      {showModeModal && (
+        <div onClick={() => setShowModeModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(640px, 100%)', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+            <h2 style={{ fontSize: 20, marginBottom: 6 }}>Comment souhaitez-vous être accompagné ?</h2>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Choisissez le rythme de l&apos;atelier. Vous pourrez répondre librement dans les deux cas.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+              <button onClick={() => createWithMode('batch')} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--bg-elevated)', border: '2px solid var(--border)', borderRadius: 12, padding: 20 }}>
+                <div style={{ fontSize: 26, marginBottom: 8 }}>📋</div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Par étape (rapide)</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>Marty affiche toutes les questions d&apos;une étape d&apos;un coup. Idéal pour aller vite et répondre globalement.</div>
+              </button>
+              <button onClick={() => createWithMode('guided')} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--primary-glow)', border: '2px solid var(--border-active)', borderRadius: 12, padding: 20 }}>
+                <div style={{ fontSize: 26, marginBottom: 8 }}>💬</div>
+                <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--primary-light)' }}>Guidé (pas à pas)</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>Marty pose une seule question à la fois et attend votre réponse. Idéal pour être accompagné en douceur.</div>
+              </button>
+            </div>
+            <div style={{ textAlign: 'right', marginTop: 16 }}>
+              <button className="suggested-chip" onClick={() => setShowModeModal(false)}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

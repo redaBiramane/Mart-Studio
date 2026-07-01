@@ -19,6 +19,7 @@ function createEmptySession(): WorkshopSession {
     updatedAt: now,
     currentStep: 1,
     status: 'active',
+    mode: 'batch',
     productName: '',
     businessProblem: '',
     objective: '',
@@ -203,8 +204,8 @@ export const useWorkshopStore = create<WorkshopStore>()(
 
       // ---- Sessions --------------------------------------------------------
 
-      createSession: () => {
-        const newSession = createEmptySession();
+      createSession: (mode: 'batch' | 'guided' = 'batch') => {
+        const newSession = { ...createEmptySession(), mode };
         set((state) => ({
           session: newSession,
           sessions: [newSession, ...state.sessions],

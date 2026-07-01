@@ -11,10 +11,15 @@ import { SYSTEM_PROMPT, getStepInstruction } from '@/lib/prompts/system-prompt';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const { messages, currentStep, sessionData, llmSettings } = await req.json();
+  const { messages, currentStep, sessionData, llmSettings, mode } = await req.json();
 
   // Build the full system prompt with step-specific instructions
   const stepInstruction = getStepInstruction(currentStep || 1);
+
+  // Mode guidé : une seule question à la fois
+  const modeInstruction = mode === 'guided'
+    ? `\n\n## MODE GUIDÉ (prioritaire)\nPose UNE SEULE question à la fois. Attends la réponse de l'utilisateur avant de poser la suivante. N'affiche JAMAIS toutes les questions de l'étape d'un coup. Quand tu as couvert toutes les questions de l'étape, produis les blocs json:extract et une courte synthèse. Reste bref et conversationnel.`
+    : '';
   
   // Build context from collected session data
   let collectedContext = '';
@@ -48,7 +53,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${stepInstruction}${collectedContext}`;
+  const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${stepInstruction}${modeInstruction}${collectedContext}`;
 
   // Convert incoming messages to the format expected by streamText.
   // On filtre les messages vides : Anthropic (Claude) rejette tout bloc de
