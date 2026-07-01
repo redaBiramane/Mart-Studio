@@ -8,17 +8,19 @@ import Workshop from './components/Workshop';
 import Deliverables from './components/Deliverables';
 import AdminPanel from './components/AdminPanel';
 import Documentation from './components/Documentation';
+import DataProducts from './components/DataProducts';
 import Supervision from './components/Supervision';
 import Login from './components/Login';
 import Landing from './components/Landing';
 import Image from 'next/image';
 
-type Page = 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
+type Page = 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
 
 // Icônes SVG (line icons) pour la navigation — plus pro que des emojis.
 function NavIcon({ name }: { name: string }) {
   const paths: Record<string, React.ReactNode> = {
     dashboard: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M9.5 21v-6h5v6" /></>,
+    products: <><rect x="3" y="4" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="4" width="7.5" height="7.5" rx="1.5" /><rect x="3" y="14.5" width="7.5" height="5.5" rx="1.5" /><rect x="13.5" y="14.5" width="7.5" height="5.5" rx="1.5" /></>,
     workshop: <><path d="M12 6.5 13.7 11l4.5 1.7-4.5 1.7L12 19l-1.7-4.6L5.8 12.7 10.3 11 12 6.5Z" /><path d="M5 4v3M3.5 5.5h3M18 15v3M16.5 16.5h3" /></>,
     deliverables: <><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></>,
     docs: <><path d="M6.5 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M8 7h8M8 11h8M8 15h5" /></>,
@@ -70,6 +72,7 @@ export default function Home() {
 
   const navItems = [
     { key: 'dashboard' as Page, label: 'Accueil' },
+    { key: 'products' as Page, label: 'Data Products' },
     { key: 'workshop' as Page, label: 'DataForge', badge: session?.status === 'active' ? `${session.currentStep}/7` : undefined },
     { key: 'deliverables' as Page, label: 'Livrables' },
     { key: 'docs' as Page, label: 'Documentation' },
@@ -215,6 +218,7 @@ export default function Home() {
             </button>
             <h1>
               {currentPage === 'dashboard' && 'Tableau de bord'}
+              {currentPage === 'products' && 'Data Products'}
               {currentPage === 'workshop' && 'DataForge — Conception assistée par IA'}
               {currentPage === 'deliverables' && 'Livrables'}
               {currentPage === 'admin' && 'Configuration LLM'}
@@ -253,6 +257,11 @@ export default function Home() {
             useWorkshopStore.getState().loadSession(id);
             setCurrentPage('deliverables');
           }} />}
+          {currentPage === 'products' && <DataProducts
+            onNew={startNewSession}
+            onOpenWorkshop={(id) => { useWorkshopStore.getState().loadSession(id); setCurrentPage('workshop'); }}
+            onOpenDeliverables={(id) => { useWorkshopStore.getState().loadSession(id); setCurrentPage('deliverables'); }}
+          />}
           {currentPage === 'workshop' && <Workshop />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}

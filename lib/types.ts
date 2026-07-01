@@ -262,7 +262,7 @@ export interface WorkshopStore {
   llmSettings: LLMSettings;
   isLoading: boolean;
   isSending: boolean;
-  currentPage: 'dashboard' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
+  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
 
   // Auth / admin state
   authReady: boolean;
