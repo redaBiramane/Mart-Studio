@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useWorkshopStore } from '@/lib/store';
+import { useI18n, localeCode } from '@/lib/i18n';
 
 interface Props {
   onNew: () => void;
@@ -10,6 +11,18 @@ interface Props {
 }
 
 type SortKey = 'recent' | 'oldest' | 'name' | 'entities' | 'progress';
+
+function Ico({ name, size = 15 }: { name: string; size?: number }) {
+  const p: Record<string, React.ReactNode> = {
+    plus: <><path d="M12 5v14M5 12h14" /></>,
+    search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>,
+    open: <><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /></>,
+    deliverables: <><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /></>,
+    edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="M13.5 6.5l4 4" /></>,
+    trash: <><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>{p[name]}</svg>;
+}
 
 function StatIcon({ name }: { name: string }) {
   const p: Record<string, React.ReactNode> = {
@@ -27,6 +40,7 @@ function StatIcon({ name }: { name: string }) {
 
 export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables }: Props) {
   const { sessions, deleteSession, loadSession, updateSessionData } = useWorkshopStore();
+  const { t, lang } = useI18n();
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [domainFilter, setDomainFilter] = useState('all');
@@ -59,17 +73,17 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
   }, [sessions, q, statusFilter, domainFilter, sort]);
 
   function fmt(ts: number) {
-    return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(ts).toLocaleDateString(localeCode(lang), { day: '2-digit', month: 'short', year: 'numeric' });
   }
   function rename(id: string, current: string) {
-    const name = window.prompt('Nouveau nom du Data Product :', current);
+    const name = window.prompt(t('dp.renamePrompt'), current);
     if (name && name.trim()) {
       loadSession(id);
       updateSessionData({ productName: name.trim() });
     }
   }
   function confirmDelete(id: string, name: string) {
-    if (window.confirm(`Supprimer définitivement « ${name || 'ce produit'} » ? Cette action est irréversible.`)) {
+    if (window.confirm(t('dp.deleteConfirm', { name: name || t('dp.thisProduct') }))) {
       deleteSession(id);
     }
   }
@@ -85,19 +99,19 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
     <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 22, margin: 0 }}>Data Products</h2>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Gérez, filtrez et ouvrez vos produits data.</p>
+          <h2 style={{ fontSize: 22, margin: 0 }}>{t('dp.title')}</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>{t('dp.subtitle')}</p>
         </div>
-        <button className="cta-btn" onClick={onNew}>✨ Nouveau Data Product</button>
+        <button className="cta-btn" onClick={onNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Ico name="plus" size={17} /> {t('dp.new')}</button>
       </div>
 
       {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
-          { label: 'Total', value: sessions.length, icon: 'total' },
-          { label: 'En cours', value: active, icon: 'active' },
-          { label: 'Terminés', value: completed, icon: 'done' },
-          { label: 'Domaines', value: domains.length, icon: 'domains' },
+          { label: t('dp.total'), value: sessions.length, icon: 'total' },
+          { label: t('dp.active'), value: active, icon: 'active' },
+          { label: t('dp.completed'), value: completed, icon: 'done' },
+          { label: t('dp.domains'), value: domains.length, icon: 'domains' },
         ].map(s => (
           <div key={s.label} className="stat-card" style={{ flex: 1, minWidth: 120 }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><StatIcon name={s.icon} /></div>
@@ -109,53 +123,58 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
 
       {/* Filtres */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input
-          className="chat-input"
-          placeholder="🔎 Rechercher (nom, domaine, PO)…"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          style={{ flex: 1, minWidth: 220, height: 40 }}
-        />
+        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex' }}><Ico name="search" size={16} /></span>
+          <input
+            className="chat-input"
+            placeholder={t('dp.search')}
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            style={{ width: '100%', height: 40, paddingLeft: 34 }}
+          />
+        </div>
         <select className="chat-input" style={{ height: 40, width: 160 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | 'active' | 'completed')}>
-          <option value="all">Tous les statuts</option>
-          <option value="active">En cours</option>
-          <option value="completed">Terminés</option>
+          <option value="all">{t('dp.allStatuses')}</option>
+          <option value="active">{t('dp.statusActive')}</option>
+          <option value="completed">{t('dp.statusCompleted')}</option>
         </select>
         <select className="chat-input" style={{ height: 40, width: 180 }} value={domainFilter} onChange={e => setDomainFilter(e.target.value)}>
-          <option value="all">Tous les domaines</option>
+          <option value="all">{t('dp.allDomains')}</option>
           {domains.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
         <select className="chat-input" style={{ height: 40, width: 170 }} value={sort} onChange={e => setSort(e.target.value as SortKey)}>
-          <option value="recent">Tri : récent</option>
-          <option value="oldest">Tri : ancien</option>
-          <option value="name">Tri : nom (A→Z)</option>
-          <option value="entities">Tri : nb entités</option>
-          <option value="progress">Tri : avancement</option>
+          <option value="recent">{t('dp.sortRecent')}</option>
+          <option value="oldest">{t('dp.sortOldest')}</option>
+          <option value="name">{t('dp.sortName')}</option>
+          <option value="entities">{t('dp.sortEntities')}</option>
+          <option value="progress">{t('dp.sortProgress')}</option>
         </select>
       </div>
 
       {list.length === 0 ? (
         <div className="empty-state" style={{ padding: 48 }}>
-          <div className="empty-state-icon">🛢️</div>
+          <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>
+          </div>
           <div className="empty-state-text">
-            {sessions.length === 0 ? 'Aucun Data Product. Créez le premier.' : 'Aucun résultat pour ces filtres.'}
+            {sessions.length === 0 ? t('dp.emptyNone') : t('dp.emptyFilter')}
           </div>
         </div>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>
-              <th style={th}>Produit</th><th style={th}>Domaine</th><th style={th}>Statut</th>
-              <th style={th}>Avancement</th><th style={th}>Entités</th><th style={th}>Mis à jour</th><th style={{ ...th, textAlign: 'right' }}>Actions</th>
+              <th style={th}>{t('dp.colProduct')}</th><th style={th}>{t('dp.colDomain')}</th><th style={th}>{t('dp.colStatus')}</th>
+              <th style={th}>{t('dp.colProgress')}</th><th style={th}>{t('dp.colEntities')}</th><th style={th}>{t('dp.colUpdated')}</th><th style={{ ...th, textAlign: 'right' }}>{t('dp.colActions')}</th>
             </tr></thead>
             <tbody>
               {list.map(s => (
                 <tr key={s.id}>
-                  <td style={{ ...td, fontWeight: 600 }}>{s.productName || 'Sans nom'}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>{s.productName || t('dp.noName')}</td>
                   <td style={{ ...td, color: 'var(--text-secondary)' }}>{s.domain || '—'}</td>
                   <td style={td}>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: s.status === 'completed' ? 'var(--primary-glow)' : 'var(--bg-elevated)', color: s.status === 'completed' ? 'var(--primary-light)' : 'var(--text-secondary)' }}>
-                      {s.status === 'completed' ? 'Terminé' : 'En cours'}
+                      {s.status === 'completed' ? t('dp.rowDone') : t('dp.rowActive')}
                     </span>
                   </td>
                   <td style={td}>
@@ -170,10 +189,10 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
                   <td style={{ ...td, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{fmt(s.updatedAt)}</td>
                   <td style={{ ...td, textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: 6 }}>
-                      <button style={iconBtn} title="Ouvrir l'atelier" onClick={() => onOpenWorkshop(s.id)}>🧠 Ouvrir</button>
-                      {s.entities.length > 0 && <button style={iconBtn} title="Voir les livrables" onClick={() => onOpenDeliverables(s.id)}>📦 Livrables</button>}
-                      <button style={iconBtn} title="Renommer" onClick={() => rename(s.id, s.productName)}>✏️</button>
-                      <button style={{ ...iconBtn, color: 'var(--accent-red)' }} title="Supprimer" onClick={() => confirmDelete(s.id, s.productName)}>🗑</button>
+                      <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title={t('dp.open')} onClick={() => onOpenWorkshop(s.id)}><Ico name="open" /> {t('dp.open')}</button>
+                      {s.entities.length > 0 && <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title={t('dp.deliverables')} onClick={() => onOpenDeliverables(s.id)}><Ico name="deliverables" /> {t('dp.deliverables')}</button>}
+                      <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title={t('dp.renameTitle')} onClick={() => rename(s.id, s.productName)}><Ico name="edit" /></button>
+                      <button style={{ ...iconBtn, color: 'var(--accent-red)', display: 'inline-flex', alignItems: 'center' }} title={t('dp.deleteTitle')} onClick={() => confirmDelete(s.id, s.productName)}><Ico name="trash" /></button>
                     </div>
                   </td>
                 </tr>

@@ -360,8 +360,10 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-secondary);
   font-weight: 500;
   cursor: pointer;
+  font-family: inherit;
   transition: all var(--transition);
 }
+.header-lang:hover { background: var(--bg-elevated); border-color: var(--border); }
 
 .header-lang:hover {
   background: var(--bg-elevated);
