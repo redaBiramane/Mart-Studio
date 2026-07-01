@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useI18n } from '@/lib/i18n';
+import GuidedDemo from './GuidedDemo';
 
 interface LandingProps {
   onEnter: (mode: 'login' | 'signup') => void;
@@ -422,6 +423,13 @@ export default function Landing({ onEnter }: LandingProps) {
           </div>
         </div>
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{L.showCaption}</p>
+      </section>
+
+      {/* DÉMO INTERACTIVE GUIDÉE */}
+      <section className="ml-sec-alt">
+        <div className="ml-reveal">
+          <GuidedDemo onStart={() => onEnter('signup')} />
+        </div>
       </section>
 
       {/* PROCESS */}
