@@ -62,14 +62,36 @@ const STYLE = `
 .mld-row svg { color: #3EE3D3; flex-shrink: 0; }
 .mld-row .mld-tag { margin-left: auto; font-size: 8.5px; font-weight: 800; letter-spacing: 0.5px; color: #04303a; background: #3EE3D3; border-radius: 5px; padding: 2px 7px; }
 
-.mld-core { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-.mld-ai { width: 94px; height: 94px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 25px; letter-spacing: 1px; color: #04303a; background: radial-gradient(circle at 35% 30%, #8ff5e6, #16cbb6 58%, #0a9e97); animation: mldGlow2 3s ease-in-out infinite; }
-.mld-erd { width: 100%; background: #f6fafc; border-radius: 12px; padding: 12px; }
+.mld-core { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.mld-ai { width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; letter-spacing: 0.6px; color: #04303a; background: radial-gradient(circle at 35% 30%, #8ff5e6, #16cbb6 58%, #0a9e97); animation: mldGlow2 3s ease-in-out infinite; cursor: default; transition: transform .25s ease; }
+.mld-ai:hover { transform: scale(1.06); }
+.mld-ai-l { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #9fc7c4; margin-bottom: 8px; }
+.mld-erd { width: 100%; background: #f6fafc; border-radius: 12px; padding: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
 .mld-erd-t { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: #0a9e97; text-align: center; margin-bottom: 10px; }
 .mld-erd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.mld-tbl { background: #fff; border: 1px solid #d8e6ee; border-radius: 8px; overflow: hidden; }
+.mld-tbl { background: #fff; border: 1px solid #d8e6ee; border-radius: 8px; overflow: hidden; transition: transform .2s ease, box-shadow .2s ease, border-color .2s; }
+.mld-tbl:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(10,158,151,0.25); border-color: #16cbb6; }
 .mld-tbl-h { background: #0a2a3a; color: #a9eee6; font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 4px 8px; }
 .mld-tbl-b { padding: 6px 8px; font-size: 8.5px; color: #4a5b68; line-height: 1.55; }
+.mld-rel { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.mld-rel span { font-size: 8px; font-weight: 700; color: #0a7d78; background: #dff5f2; border: 1px solid #b6e6e0; border-radius: 5px; padding: 2px 6px; }
+
+/* Lineage animé ERD -> livrables */
+.mld-lineage { display: flex; align-items: center; justify-content: center; }
+.mld-lineage svg { width: 54px; height: 300px; overflow: visible; }
+.mld-wire { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 7; animation: mldDash 0.9s linear infinite; filter: drop-shadow(0 0 3px currentColor); }
+
+/* Livrables color-codés + hover */
+.mld-row-out { position: relative; border-left: 3px solid var(--c, #3EE3D3); transition: transform .2s ease, background .2s ease, box-shadow .2s ease; cursor: pointer; }
+.mld-row-out:hover { transform: translateX(4px); background: rgba(62,227,211,0.08); box-shadow: -6px 0 16px -8px var(--c, #3EE3D3); }
+.mld-row-out:hover .mld-tag { filter: brightness(1.1); }
+.mld-row-in { transition: transform .2s ease, background .2s ease; }
+.mld-row-in:hover { transform: translateX(4px); background: rgba(62,227,211,0.07); }
+.mld-step { transition: transform .2s ease; }
+.mld-step:hover { transform: translateY(-3px); }
+.mld-step:hover .mld-step-ico { background: rgba(62,227,211,0.18); }
+.mld-feats > div { transition: transform .2s ease; }
+.mld-feats > div:hover { transform: translateY(-3px); }
 
 .mld-feats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.08); }
 .mld-feat-t { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; color: #3EE3D3; margin-bottom: 7px; }
@@ -129,6 +151,7 @@ const STYLE = `
 @keyframes mldPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(62,227,211,0.35); } 50% { box-shadow: 0 0 0 6px rgba(62,227,211,0); } }
 @keyframes mldArrow { 0%,100% { transform: translateX(0); opacity: 0.5; } 50% { transform: translateX(5px); opacity: 1; } }
 @keyframes mldBar { from { width: 0; } to { width: var(--w, 80%); } }
+@keyframes mldDash { to { stroke-dashoffset: -12; } }
 
 @media (max-width: 920px) {
   .ml-hero h1 { font-size: 36px; }
@@ -138,6 +161,7 @@ const STYLE = `
   .ml-nav-hide { display: none; }
   .mld-flow { grid-template-columns: 1fr; }
   .mld-arrow { transform: rotate(90deg); justify-self: center; }
+  .mld-lineage { display: none; }
   .mld-feats { grid-template-columns: 1fr 1fr; }
   .mld-steps { flex-wrap: wrap; justify-content: center; gap: 14px; }
   .mld-steps::before { display: none; }
@@ -145,7 +169,7 @@ const STYLE = `
 }
 @media (prefers-reduced-motion: reduce) {
   .ml-reveal, .ml-chip, .ml-hero h1, .ml-hero-sub, .ml-hero-cta, .ml-kpis { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
-  .ml-blob, .mld-ai, .mld-step-ico, .mld-arrow, .mld-bar span { animation: none !important; }
+  .ml-blob, .mld-ai, .mld-step-ico, .mld-arrow, .mld-bar span, .mld-wire { animation: none !important; }
   .mld-bar span { width: var(--w, 80%) !important; }
 }
 `;
@@ -238,6 +262,8 @@ export default function Landing({ onEnter }: LandingProps) {
     diagOut6: fr ? '6 livrables techniques' : '6 technical deliverables',
     export: fr ? 'Exporter' : 'Export',
   };
+
+  const delivColors = ['#3EE3D3', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#38BDF8'];
 
   const inputs = [
     fr ? 'Fichiers SAS' : 'SAS files', 'Excel',
@@ -334,34 +360,51 @@ export default function Landing({ onEnter }: LandingProps) {
                 <div className="mld-bubble">{L.diagNeedEx}</div>
                 <div className="mld-sub">{L.diagSources}</div>
                 {inputs.map((src) => (
-                  <div key={src} className="mld-row"><Icon name="import" />{src}</div>
+                  <div key={src} className="mld-row mld-row-in"><Icon name="import" />{src}</div>
                 ))}
               </div>
 
               <div className="mld-arrow"><Icon name="arrow" /></div>
 
-              {/* CORE IA + ERD */}
+              {/* CORE MARTY + ERD */}
               <div className="mld-core">
-                <div className="mld-ai">AI</div>
+                <div className="mld-ai">MARTY</div>
+                <div className="mld-ai-l">{fr ? 'Chatbot IA · Data Architect' : 'AI Chatbot · Data Architect'}</div>
                 <div className="mld-erd">
                   <div className="mld-erd-t">{L.diagCore}</div>
                   <div className="mld-erd-grid">
                     <div className="mld-tbl"><div className="mld-tbl-h">CLIENT</div><div className="mld-tbl-b">client_id (PK)<br />nom · segment</div></div>
                     <div className="mld-tbl"><div className="mld-tbl-h">AGENCE</div><div className="mld-tbl-b">agence_id (PK)<br />region</div></div>
-                    <div className="mld-tbl"><div className="mld-tbl-h">CREDIT</div><div className="mld-tbl-b">credit_id (PK)<br />client_id (FK)<br />montant</div></div>
-                    <div className="mld-tbl"><div className="mld-tbl-h">RISQUE</div><div className="mld-tbl-b">risque_id (PK)<br />score_risque</div></div>
+                    <div className="mld-tbl"><div className="mld-tbl-h">CREDIT</div><div className="mld-tbl-b">credit_id (PK)<br />client_id (FK)<br />agence_id (FK)</div></div>
+                    <div className="mld-tbl"><div className="mld-tbl-h">RISQUE</div><div className="mld-tbl-b">risque_id (PK)<br />credit_id (FK)</div></div>
+                  </div>
+                  <div className="mld-rel">
+                    <span>CLIENT 1—N CREDIT</span>
+                    <span>AGENCE 1—N CREDIT</span>
+                    <span>CREDIT 1—N RISQUE</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mld-arrow"><Icon name="arrow" /></div>
+              {/* Lineage animé ERD -> livrables */}
+              <div className="mld-lineage" aria-hidden="true">
+                <svg viewBox="0 0 54 300" preserveAspectRatio="none">
+                  {delivColors.map((c, i) => {
+                    const y = 25 + i * 50;
+                    return <path key={c} className="mld-wire" d={`M0,150 C 27,150 27,${y} 54,${y}`} stroke={c} style={{ animationDelay: `${i * 0.12}s` }} />;
+                  })}
+                </svg>
+              </div>
 
               {/* OUTPUT */}
               <div className="mld-panel">
                 <div className="mld-panel-t">{L.diagOutput}</div>
                 <div className="mld-sub">{L.diagOut6}</div>
-                {deliverables.map((d) => (
-                  <div key={d.name} className="mld-row"><Icon name={d.ico} />{d.name}<span className="mld-tag">{L.export}</span></div>
+                {deliverables.map((d, i) => (
+                  <div key={d.name} className="mld-row mld-row-out" style={{ '--c': delivColors[i] } as React.CSSProperties}>
+                    <span style={{ color: delivColors[i], display: 'flex' }}><Icon name={d.ico} /></span>
+                    {d.name}<span className="mld-tag" style={{ background: delivColors[i] }}>{L.export}</span>
+                  </div>
                 ))}
               </div>
             </div>
