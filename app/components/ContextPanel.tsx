@@ -9,10 +9,39 @@ interface ContextPanelProps {
   onClose: () => void;
 }
 
-type DetailKey = 'product' | 'context' | 'entities' | 'relations' | 'attributes' | 'kpis' | 'rules' | 'sources' | null;
+type DetailKey = 'product' | 'context' | 'entities' | 'relations' | 'attributes' | 'kpis' | 'rules' | 'sources' | 'maturity' | null;
 
 function genId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+const MATURITY_LABELS: Record<string, string> = {
+  businessUnderstanding: 'Compréhension métier', modeling: 'Modélisation', documentation: 'Documentation',
+  governance: 'Gouvernance', dataQuality: 'Qualité des données', architecture: 'Architecture', dadReadiness: 'Préparation DAD',
+};
+
+// Explication + plan d'amélioration par dimension, en partie basé sur les données réelles.
+function maturityAdvice(session: WorkshopSession, key: string): { why: string; plan: string } {
+  const noDef = session.entities.filter((e) => !e.definition).length;
+  const noDesc = session.attributes.filter((a) => !a.description).length;
+  switch (key) {
+    case 'businessUnderstanding':
+      return { why: session.contextSummary ? 'Le contexte métier est renseigné.' : 'Le contexte métier est incomplet.', plan: 'Clarifiez le problème métier, l’objectif, les utilisateurs, le Product Owner et le Data Steward dans l’étape Contexte.' };
+    case 'modeling':
+      return { why: `${session.entities.length} entités, ${session.relations.length} relations, ${session.attributes.length} attributs.`, plan: 'Ajoutez les entités manquantes, complétez toutes les relations (cardinalités) et les attributs clés (PK/FK).' };
+    case 'documentation':
+      return { why: `${noDef} entité(s) sans définition, ${noDesc} attribut(s) sans description.`, plan: 'Renseignez une définition pour chaque entité et une description pour chaque attribut.' };
+    case 'governance':
+      return { why: session.governance ? 'Gouvernance partiellement documentée.' : 'Gouvernance non documentée.', plan: 'Documentez le propriétaire des données, le niveau de confidentialité, les contraintes RGPD et la durée de rétention.' };
+    case 'dataQuality':
+      return { why: session.qualityRules.length ? `${session.qualityRules.length} règle(s) qualité définie(s).` : 'Aucune règle qualité définie.', plan: 'Définissez des contrôles qualité (unicité, complétude, seuils) sur les colonnes clés.' };
+    case 'architecture':
+      return { why: session.architecture ? 'Architecture partiellement définie.' : 'Architecture cible non précisée.', plan: 'Précisez la répartition des objets : datamart, modèle sémantique, rapports, objets techniques.' };
+    case 'dadReadiness':
+      return { why: 'Synthèse globale de la préparation à la Design Authority.', plan: 'Complétez les dimensions ci-dessus : un modèle complet, documenté et gouverné augmente la préparation DAD.' };
+    default:
+      return { why: '', plan: '' };
+  }
 }
 
 export default function ContextPanel({ session, onClose }: ContextPanelProps) {
@@ -98,13 +127,13 @@ export default function ContextPanel({ session, onClose }: ContextPanelProps) {
       </div>
 
       {session.maturityScores && (
-        <div className="context-card">
-          <div className="context-card-title">🏁 Score de maturité</div>
+        <div className="context-card" style={{ ...cardStyle, background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.3)' }} onClick={() => setDetail('maturity')}>
+          <div className="context-card-title">🏁 Score de maturité {clickHint}</div>
           <div className="context-card-content">
             {Object.entries(session.maturityScores).map(([key, value]) => (
-              <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                <span>{key}</span>
-                <span style={{ fontWeight: 700, color: value >= 70 ? 'var(--accent-emerald)' : value >= 40 ? 'var(--accent-amber)' : 'var(--accent-red)' }}>{value}/100</span>
+              <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 5 }}>
+                <span>{MATURITY_LABELS[key] || key}</span>
+                <span style={{ fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', color: '#059669' }}>{value}/100</span>
               </div>
             ))}
           </div>
@@ -130,6 +159,7 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
   const titles: Record<string, string> = {
     product: '🎯 Produit', context: '📝 Contexte', entities: '🧩 Entités', relations: '🔗 Relations',
     attributes: '📋 Attributs', kpis: '📊 KPIs', rules: '⚖️ Règles métier', sources: '🗄️ Sources de données',
+    maturity: '🏁 Score de maturité',
   };
 
   // Helpers génériques sur les tableaux (persistés via updateSessionData -> DB)
@@ -155,10 +185,34 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(680px, 100%)', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
         <div style={{ position: 'sticky', top: 0, background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: 16, margin: 0 }}>Modifier — {titles[detail]}</h3>
+          <h3 style={{ fontSize: 16, margin: 0 }}>{detail === 'maturity' ? 'Analyse' : 'Modifier'} — {titles[detail]}</h3>
           <button onClick={onClose} className="cta-btn" style={{ padding: '6px 14px', fontSize: 13 }}>✓ Terminé</button>
         </div>
         <div style={{ padding: 20 }}>
+
+          {detail === 'maturity' && session.maturityScores && (
+            <>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Score global : <strong style={{ color: '#059669' }}>{Math.round(Object.values(session.maturityScores).reduce((a, b) => a + b, 0) / 7)}/100</strong>. Voici, pour chaque dimension, l’état actuel et comment progresser.
+              </div>
+              {Object.entries(session.maturityScores).map(([key, value]) => {
+                const adv = maturityAdvice(session, key);
+                return (
+                  <div key={key} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <strong style={{ fontSize: 14 }}>{MATURITY_LABELS[key] || key}</strong>
+                      <span style={{ fontWeight: 700, fontSize: 12, padding: '3px 10px', borderRadius: 999, background: value >= 70 ? 'rgba(16,185,129,0.15)' : value >= 40 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)', color: value >= 70 ? '#059669' : value >= 40 ? '#b45309' : '#b91c1c' }}>{value}/100</span>
+                    </div>
+                    <div style={{ height: 7, background: 'var(--bg-elevated)', borderRadius: 4, marginBottom: 8, overflow: 'hidden' }}>
+                      <div style={{ width: `${value}%`, height: '100%', background: value >= 70 ? '#10B981' : value >= 40 ? '#F59E0B' : '#EF4444', borderRadius: 4 }} />
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 4 }}><strong>Pourquoi :</strong> {adv.why}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text)' }}><strong style={{ color: 'var(--primary)' }}>Plan :</strong> {adv.plan}</div>
+                  </div>
+                );
+              })}
+            </>
+          )}
 
           {detail === 'product' && (
             <>

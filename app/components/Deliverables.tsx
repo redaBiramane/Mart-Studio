@@ -528,6 +528,11 @@ function SQLTab({ session }: { session: WorkshopSession }) {
     <div className="fade-in">
       <h3 style={{ fontSize: 18, marginBottom: 16 }}>SQL — Création des tables</h3>
       <NamingToolbar naming={std.naming} translating={std.translating} onTranslate={std.translate} onReset={std.reset} alias={alias} onAlias={setAlias} />
+      {std.naming && alias && (
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+          ℹ️ Mode ALIAS : le DDL conserve les noms d&apos;origine, et des requêtes <code>SELECT col AS NOM_STANDARDISÉ</code> sont ajoutées à la fin pour exposer les noms normalisés.
+        </div>
+      )}
       <CodeBlock title="DDL SQL" language="sql" code={sql} />
     </div>
   );
@@ -1549,7 +1554,8 @@ function CodeBlock({ title, language, code }: { title: string; language: string;
         <SyntaxHighlighter
           language={language === 'yaml' ? 'yaml' : language === 'dbml' ? 'sql' : language === 'mermaid' ? 'text' : 'sql'}
           style={oneDark}
-          customStyle={{ margin: 0, background: 'transparent', fontSize: 12.5, padding: 0 }}
+          customStyle={{ margin: 0, background: '#282c34', color: '#e6e6e6', fontSize: 12.5, padding: 16, borderRadius: 8 }}
+          codeTagProps={{ style: { background: 'transparent', fontFamily: "'Fira Code','Cascadia Code',monospace" } }}
           wrapLongLines
         >
           {code}
