@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useI18n } from '@/lib/i18n';
 
@@ -38,12 +38,44 @@ const STYLE = `
 .ml-kpi .v { font-size: 42px; font-weight: 800; color: var(--primary); line-height: 1; }
 .ml-kpi .l { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-top: 8px; }
 
-.ml-showcase { max-width: 1200px; margin: 0 auto; padding: 20px 24px 40px; }
-.ml-shot { position: relative; border-radius: 20px; padding: 14px; background: linear-gradient(135deg, #0a1420, #06263a); box-shadow: 0 30px 80px rgba(0,0,0,0.35); animation: mlFloatY 7s ease-in-out infinite; }
-.ml-shot::before { content: ''; position: absolute; inset: -2px; border-radius: 22px; padding: 2px; background: linear-gradient(120deg, var(--primary), #3EE3D3, #009597); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0.9; animation: mlGlow 5s ease-in-out infinite; }
-.ml-shot::after { content: ''; position: absolute; z-index: -1; inset: 8% 6%; border-radius: 40px; background: radial-gradient(closest-side, rgba(62,227,211,0.35), transparent 70%); filter: blur(50px); animation: mlGlow 5s ease-in-out infinite; }
-.ml-shot img { display: block; width: 100%; height: auto; border-radius: 12px; }
-.ml-showcase.ml-reveal { transition: opacity .7s ease, transform .7s ease; }
+/* ===== Diagramme produit (INPUT -> IA -> OUTPUT) ===== */
+.ml-diagram-wrap { max-width: 1240px; margin: 0 auto; padding: 10px 24px 44px; }
+.ml-diagram { position: relative; border-radius: 22px; padding: 28px; background: linear-gradient(160deg, #0b1a28, #071521); border: 1px solid rgba(62,227,211,0.18); box-shadow: 0 30px 80px rgba(0,0,0,0.35); color: #dbe7f0; overflow: hidden; }
+.ml-diagram::after { content: ''; position: absolute; inset: 0; background: radial-gradient(620px 320px at 50% 42%, rgba(62,227,211,0.10), transparent 70%); pointer-events: none; }
+.mld-inner { position: relative; z-index: 1; }
+.mld-title { text-align: center; font-size: 12px; font-weight: 800; letter-spacing: 2.5px; color: #3EE3D3; margin-bottom: 22px; }
+
+.mld-steps { position: relative; display: flex; justify-content: space-between; gap: 6px; max-width: 900px; margin: 0 auto 30px; }
+.mld-steps::before { content: ''; position: absolute; top: 22px; left: 6%; right: 6%; height: 2px; background: linear-gradient(90deg, rgba(62,227,211,0.12), rgba(62,227,211,0.6), rgba(62,227,211,0.12)); }
+.mld-step { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.mld-step-ico { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #3EE3D3; background: #0c2230; border: 1.5px solid rgba(62,227,211,0.45); animation: mldPulse 3s ease-in-out infinite; }
+.mld-step-l { font-size: 10.5px; font-weight: 600; color: #b9c9d6; text-align: center; }
+
+.mld-flow { display: grid; grid-template-columns: 1fr auto 1.3fr auto 1fr; gap: 14px; align-items: center; }
+.mld-arrow { color: #3EE3D3; animation: mldArrow 1.5s ease-in-out infinite; }
+.mld-panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; padding: 18px; }
+.mld-panel-t { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #3EE3D3; margin-bottom: 14px; }
+.mld-bubble { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; font-size: 12px; line-height: 1.5; color: #cfdae2; margin-bottom: 16px; }
+.mld-sub { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #8fa3b3; margin-bottom: 9px; }
+.mld-row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 9px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-size: 12px; margin-bottom: 8px; color: #c7d3dd; }
+.mld-row:last-child { margin-bottom: 0; }
+.mld-row svg { color: #3EE3D3; flex-shrink: 0; }
+.mld-row .mld-tag { margin-left: auto; font-size: 8.5px; font-weight: 800; letter-spacing: 0.5px; color: #04303a; background: #3EE3D3; border-radius: 5px; padding: 2px 7px; }
+
+.mld-core { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.mld-ai { width: 94px; height: 94px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 25px; letter-spacing: 1px; color: #04303a; background: radial-gradient(circle at 35% 30%, #8ff5e6, #16cbb6 58%, #0a9e97); animation: mldGlow2 3s ease-in-out infinite; }
+.mld-erd { width: 100%; background: #f6fafc; border-radius: 12px; padding: 12px; }
+.mld-erd-t { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: #0a9e97; text-align: center; margin-bottom: 10px; }
+.mld-erd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mld-tbl { background: #fff; border: 1px solid #d8e6ee; border-radius: 8px; overflow: hidden; }
+.mld-tbl-h { background: #0a2a3a; color: #a9eee6; font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 4px 8px; }
+.mld-tbl-b { padding: 6px 8px; font-size: 8.5px; color: #4a5b68; line-height: 1.55; }
+
+.mld-feats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.08); }
+.mld-feat-t { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; color: #3EE3D3; margin-bottom: 7px; }
+.mld-feat p { font-size: 11.5px; color: #9fb0bd; line-height: 1.5; }
+.mld-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.1); margin-top: 9px; overflow: hidden; }
+.mld-bar span { display: block; height: 100%; background: linear-gradient(90deg, #3EE3D3, #10A37F); border-radius: 3px; width: 0; animation: mldBar 1.6s ease forwards; }
 
 .ml-sec { max-width: 1160px; margin: 0 auto; padding: 64px 24px; }
 .ml-sec-alt { background: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -93,6 +125,10 @@ const STYLE = `
 @keyframes mlFloat { 0%,100% { transform: translate(0,0); } 50% { transform: translate(20px,-24px); } }
 @keyframes mlFloatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes mlGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes mldGlow2 { 0%,100% { box-shadow: 0 0 28px rgba(62,227,211,0.4); } 50% { box-shadow: 0 0 56px rgba(62,227,211,0.75); } }
+@keyframes mldPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(62,227,211,0.35); } 50% { box-shadow: 0 0 0 6px rgba(62,227,211,0); } }
+@keyframes mldArrow { 0%,100% { transform: translateX(0); opacity: 0.5; } 50% { transform: translateX(5px); opacity: 1; } }
+@keyframes mldBar { from { width: 0; } to { width: var(--w, 80%); } }
 
 @media (max-width: 920px) {
   .ml-hero h1 { font-size: 36px; }
@@ -100,10 +136,17 @@ const STYLE = `
   .ml-grid { grid-template-columns: 1fr; }
   .ml-feats { grid-template-columns: 1fr; }
   .ml-nav-hide { display: none; }
+  .mld-flow { grid-template-columns: 1fr; }
+  .mld-arrow { transform: rotate(90deg); justify-self: center; }
+  .mld-feats { grid-template-columns: 1fr 1fr; }
+  .mld-steps { flex-wrap: wrap; justify-content: center; gap: 14px; }
+  .mld-steps::before { display: none; }
+  .mld-step { flex: 0 0 70px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ml-reveal, .ml-chip, .ml-hero h1, .ml-hero-sub, .ml-hero-cta, .ml-kpis { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
-  .ml-blob, .ml-shot, .ml-shot::before, .ml-shot::after { animation: none !important; }
+  .ml-blob, .mld-ai, .mld-step-ico, .mld-arrow, .mld-bar span { animation: none !important; }
+  .mld-bar span { width: var(--w, 80%) !important; }
 }
 `;
 
@@ -132,7 +175,6 @@ function Icon({ name }: { name: string }) {
 export default function Landing({ onEnter }: LandingProps) {
   const { lang, toggle } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
-  const [shotOk, setShotOk] = useState(true);
 
   useEffect(() => {
     const els = rootRef.current?.querySelectorAll('.ml-reveal');
@@ -186,7 +228,29 @@ export default function Landing({ onEnter }: LandingProps) {
       : 'Generate a complete, standardized Data Product in just a few minutes.',
     finalBtn: fr ? 'Démarrer maintenant' : 'Get started now',
     showCaption: fr ? "De l'idée métier au Data Product prêt à l'emploi" : 'From business idea to a ready-to-use Data Product',
+    diagTitle: fr ? '7 étapes guidées' : '7 guided steps',
+    diagInput: 'INPUT',
+    diagOutput: 'OUTPUT',
+    diagNeed: fr ? 'Idée métier / Besoin' : 'Business idea / Need',
+    diagNeedEx: fr ? '« Suivre nos clients, leurs crédits, les risques associés et les agences. »' : '“Track our customers, their loans, related risks and branches.”',
+    diagSources: fr ? 'Sources de données' : 'Data sources',
+    diagCore: fr ? 'MCD / ERD proposé' : 'Proposed ERD',
+    diagOut6: fr ? '6 livrables techniques' : '6 technical deliverables',
+    export: fr ? 'Exporter' : 'Export',
   };
+
+  const inputs = [
+    fr ? 'Fichiers SAS' : 'SAS files', 'Excel',
+    fr ? 'Bases existantes' : 'Existing databases',
+    fr ? 'Documents métier' : 'Business docs', 'APIs / ERP / CRM',
+  ];
+
+  const features = [
+    { icon: 'import', t: fr ? 'Import automatisé' : 'Automated import', d: fr ? 'Lecture et profilage des fichiers (SAS, SQL, Excel…).' : 'Reads and profiles files (SAS, SQL, Excel…).', w: '78%' },
+    { icon: 'gov', t: fr ? 'Gouvernance intégrée' : 'Built-in governance', d: fr ? 'Règles, glossaire, lineage et qualité des données.' : 'Rules, glossary, lineage and data quality.', w: '100%' },
+    { icon: 'dad', t: fr ? 'Score de maturité (DAD)' : 'Maturity score (DAD)', d: fr ? 'Évaluation automatique selon le Design Authority.' : 'Automatic Design Authority assessment.', w: '86%' },
+    { icon: 'arrow', t: fr ? 'Rapidité' : 'Speed', d: fr ? 'Un Data Product complet et standardisé en minutes.' : 'A complete, standardized Data Product in minutes.', w: '92%' },
+  ];
 
   const steps = [
     { ico: 'context', num: fr ? 'Étape 1' : 'Step 1', name: fr ? 'Contexte' : 'Context' },
@@ -246,16 +310,76 @@ export default function Landing({ onEnter }: LandingProps) {
         </div>
       </header>
 
-      {/* SHOWCASE — infographie produit */}
-      {shotOk && (
-        <section className="ml-showcase ml-reveal">
-          <div className="ml-shot">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/mart-infographic.png" alt={L.showCaption} onError={() => setShotOk(false)} loading="lazy" />
+      {/* DIAGRAMME PRODUIT — INPUT -> IA -> OUTPUT */}
+      <section className="ml-diagram-wrap ml-reveal">
+        <div className="ml-diagram">
+          <div className="mld-inner">
+            <div className="mld-title">{L.diagTitle}</div>
+            {/* Stepper 7 étapes */}
+            <div className="mld-steps">
+              {steps.map((s) => (
+                <div key={s.name} className="mld-step">
+                  <div className="mld-step-ico"><Icon name={s.ico} /></div>
+                  <div className="mld-step-l">{s.name}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Flux INPUT -> IA -> OUTPUT */}
+            <div className="mld-flow">
+              {/* INPUT */}
+              <div className="mld-panel">
+                <div className="mld-panel-t">{L.diagInput}</div>
+                <div className="mld-sub">{L.diagNeed}</div>
+                <div className="mld-bubble">{L.diagNeedEx}</div>
+                <div className="mld-sub">{L.diagSources}</div>
+                {inputs.map((src) => (
+                  <div key={src} className="mld-row"><Icon name="import" />{src}</div>
+                ))}
+              </div>
+
+              <div className="mld-arrow"><Icon name="arrow" /></div>
+
+              {/* CORE IA + ERD */}
+              <div className="mld-core">
+                <div className="mld-ai">AI</div>
+                <div className="mld-erd">
+                  <div className="mld-erd-t">{L.diagCore}</div>
+                  <div className="mld-erd-grid">
+                    <div className="mld-tbl"><div className="mld-tbl-h">CLIENT</div><div className="mld-tbl-b">client_id (PK)<br />nom · segment</div></div>
+                    <div className="mld-tbl"><div className="mld-tbl-h">AGENCE</div><div className="mld-tbl-b">agence_id (PK)<br />region</div></div>
+                    <div className="mld-tbl"><div className="mld-tbl-h">CREDIT</div><div className="mld-tbl-b">credit_id (PK)<br />client_id (FK)<br />montant</div></div>
+                    <div className="mld-tbl"><div className="mld-tbl-h">RISQUE</div><div className="mld-tbl-b">risque_id (PK)<br />score_risque</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mld-arrow"><Icon name="arrow" /></div>
+
+              {/* OUTPUT */}
+              <div className="mld-panel">
+                <div className="mld-panel-t">{L.diagOutput}</div>
+                <div className="mld-sub">{L.diagOut6}</div>
+                {deliverables.map((d) => (
+                  <div key={d.name} className="mld-row"><Icon name={d.ico} />{d.name}<span className="mld-tag">{L.export}</span></div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bandeau atouts */}
+            <div className="mld-feats">
+              {features.map((f) => (
+                <div key={f.t}>
+                  <div className="mld-feat-t"><Icon name={f.icon} />{f.t}</div>
+                  <p>{f.d}</p>
+                  <div className="mld-bar"><span style={{ '--w': f.w } as React.CSSProperties} /></div>
+                </div>
+              ))}
+            </div>
           </div>
-          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{L.showCaption}</p>
-        </section>
-      )}
+        </div>
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{L.showCaption}</p>
+      </section>
 
       {/* PROCESS */}
       <section className="ml-sec">
