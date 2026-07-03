@@ -54,6 +54,8 @@ export interface Relation {
   isRequired: boolean;
   description: string;
   isHierarchy: boolean;
+  fkColumn?: string;
+  refColumn?: string;
 }
 
 export interface GranularityInfo {

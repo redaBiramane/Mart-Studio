@@ -7,6 +7,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
+import { parseDDL } from '@/lib/ddl';
 import { useWorkshopStore } from '@/lib/store';
 import type { WorkshopSession, Entity, Attribute, Relation } from '@/lib/types';
 
@@ -37,38 +38,43 @@ type TableData = {
 
 function TableNode({ data }: NodeProps<Node<TableData>>) {
   const { entity, attrs } = data;
+  const [collapsed, setCollapsed] = useState(false);
   return (
-    <div style={{ minWidth: 275, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12, cursor: 'grab' }}>
+    <div style={{ minWidth: 285, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12, cursor: 'grab' }}>
       <Handle type="target" position={Position.Left} title="Tirer pour relier" style={{ background: 'var(--primary)', width: 14, height: 14, border: '2px solid var(--bg-surface)', left: -7 }} />
       <Handle type="source" position={Position.Right} title="Tirer pour relier" style={{ background: 'var(--primary)', width: 14, height: 14, border: '2px solid var(--bg-surface)', right: -7 }} />
-      <div className="gd-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)', cursor: 'grab' }}>
-        <span style={{ display: 'flex', color: 'var(--text-muted)', flexShrink: 0 }} title="Glisser pour déplacer">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6" /><circle cx="8" cy="12" r="1.6" /><circle cx="8" cy="18" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)', cursor: 'grab' }}>
+        <button className="nodrag" onClick={() => setCollapsed((c) => !c)} title={collapsed ? 'Déplier' : 'Replier'} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0, padding: 0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6" /></svg>
+        </button>
         <input
           className="nodrag"
           value={entity.name}
           onChange={(e) => data.onRename(entity.id, e.target.value)}
           placeholder="NOM_TABLE"
-          style={{ flex: 1, border: 'none', background: 'transparent', fontWeight: 700, fontSize: 12.5, color: 'var(--primary-light)', textTransform: 'uppercase', outline: 'none' }}
+          style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontWeight: 700, fontSize: 12.5, color: 'var(--primary-light)', textTransform: 'uppercase', outline: 'none' }}
         />
+        <span style={{ fontSize: 10.5, color: 'var(--text-muted)', flexShrink: 0 }}>{attrs.length}</span>
         <button className="nodrag" onClick={() => data.onDelete(entity.id)} title="Supprimer la table" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, flexShrink: 0, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', lineHeight: 1, fontSize: 18, fontWeight: 700 }}>×</button>
       </div>
-      <div style={{ padding: 6 }}>
-        {attrs.map((a) => (
-          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0' }}>
-            <button className="nodrag" onClick={() => data.onAttr(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Basculer clé primaire" style={{ width: 24, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>
-              {a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}
-            </button>
-            <input className="nodrag" value={a.name} onChange={(e) => data.onAttr(a.id, { name: e.target.value })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 12.5, color: 'var(--text)', outline: 'none', padding: '2px 4px', borderRadius: 4 }} />
-            <select className="nodrag" value={a.type || 'varchar'} onChange={(e) => data.onAttr(a.id, { type: e.target.value })} title="Type SQL" style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 12, color: 'var(--text-secondary)', borderRadius: 6, padding: '4px 5px', minWidth: 82, cursor: 'pointer' }}>
-              {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <button className="nodrag" onClick={() => data.onDelAttr(a.id)} title="Supprimer la colonne" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-          </div>
-        ))}
-        <button className="nodrag" onClick={() => data.onAddAttr(entity.id)} style={{ marginTop: 4, width: '100%', background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 6, color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 11, padding: '4px 0' }}>+ colonne</button>
-      </div>
+      {!collapsed && (
+        <div className="nowheel" style={{ padding: 6, maxHeight: 360, overflowY: 'auto' }}>
+          {attrs.map((a) => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0' }}>
+              <button className="nodrag" onClick={() => data.onAttr(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Basculer clé primaire" style={{ width: 24, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>
+                {a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}
+              </button>
+              <input className="nodrag" value={a.name} onChange={(e) => data.onAttr(a.id, { name: e.target.value })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 12.5, color: 'var(--text)', outline: 'none', padding: '2px 4px', borderRadius: 4 }} />
+              <select className="nodrag" value={a.type || 'varchar'} onChange={(e) => data.onAttr(a.id, { type: e.target.value })} title="Type SQL" style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 12, color: 'var(--text-secondary)', borderRadius: 6, padding: '4px 5px', minWidth: 82, maxWidth: 110, cursor: 'pointer' }}>
+                {!SQL_TYPES.includes(a.type) && a.type && <option value={a.type}>{a.type}</option>}
+                {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <button className="nodrag" onClick={() => data.onDelAttr(a.id)} title="Supprimer la colonne" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+          <button className="nodrag" onClick={() => data.onAddAttr(entity.id)} style={{ marginTop: 4, width: '100%', background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 6, color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 11, padding: '4px 0' }}>+ colonne</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -94,6 +100,9 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   });
   const [selectedRel, setSelectedRel] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [ddlText, setDdlText] = useState('');
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   // Recadrer/centrer à l'entrée en plein écran (et au montage)
   useEffect(() => {
@@ -246,6 +255,48 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     updateSessionData({ relations: session.relations.filter((r) => r.id !== relId) });
   };
 
+  // Importer un script Snowflake / SQL / PROC SQL : crée tables, colonnes, PK/FK et relations.
+  function importDDL() {
+    const { tables, relations } = parseDDL(ddlText);
+    if (tables.length === 0) { setImportMsg('Aucune table CREATE TABLE détectée. Vérifiez le script.'); return; }
+
+    const entities = [...session.entities];
+    const attributes = [...session.attributes];
+    const rels = [...session.relations];
+    const findEnt = (name: string) => entities.find((e) => e.name.toLowerCase() === name.toLowerCase());
+
+    let nbTables = 0, nbCols = 0;
+    tables.forEach((t) => {
+      let ent = findEnt(t.name);
+      if (!ent) {
+        ent = { id: genId('e'), name: t.name, definition: '', description: '', example: '', responsible: '', type: 'transactional', lifecycle: 'created' };
+        entities.push(ent); nbTables++;
+      }
+      t.columns.forEach((c) => {
+        const exists = attributes.some((a) => (a.entityId === ent!.id || a.entityId === ent!.name) && a.name.toLowerCase() === c.name.toLowerCase());
+        if (!exists) {
+          attributes.push({ id: genId('a'), entityId: ent!.id, name: c.name, type: c.type, description: '', isPrimaryKey: c.isPrimaryKey, isForeignKey: c.isForeignKey, isNaturalKey: false, isRequired: c.isPrimaryKey, isSensitive: false, isHistorized: false });
+          nbCols++;
+        }
+      });
+    });
+
+    let nbRels = 0;
+    relations.forEach((r) => {
+      const s = findEnt(r.source), tg = findEnt(r.target);
+      if (!s || !tg) return;
+      if (rels.some((x) => x.sourceEntityId === s.id && x.targetEntityId === tg.id && x.fkColumn === r.fkColumn)) return;
+      rels.push({ id: genId('r'), sourceEntityId: s.id, targetEntityId: tg.id, sourceEntityName: s.name, targetEntityName: tg.name, type: '1:N', isRequired: false, description: '', isHierarchy: false, fkColumn: r.fkColumn, refColumn: r.refColumn });
+      nbRels++;
+    });
+
+    updateSessionData({ entities, attributes, relations: rels });
+    lastArrangedId.current = null; // forcer un ré-agencement
+    setImportMsg(`✓ Importé : ${nbTables} table(s), ${nbCols} colonne(s), ${nbRels} relation(s).`);
+    setDdlText('');
+    setTimeout(() => { setShowImport(false); setImportMsg(null); arrange(); }, 1400);
+  }
+
   // ---- Construction nodes / edges depuis le modèle ----
   const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => ({
     id: e.id,
@@ -275,7 +326,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           id: r.id,
           source,
           target,
-          label: r.type,
+          label: r.fkColumn ? `${r.type} · ${r.fkColumn}` : r.type,
           labelStyle: { fontSize: 11, fontWeight: 700, fill: sel ? 'var(--accent-amber)' : 'var(--primary)' },
           labelBgStyle: { fill: 'var(--bg-surface)' },
           labelBgPadding: [4, 2] as [number, number],
@@ -307,6 +358,9 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selRel = session.relations.find((r) => r.id === selectedRel) || null;
+  const relSrc = selRel ? session.entities.find((e) => e.id === selRel.sourceEntityId || e.name === selRel.sourceEntityName) : null;
+  const relTgt = selRel ? session.entities.find((e) => e.id === selRel.targetEntityId || e.name === selRel.targetEntityName) : null;
+  const patchRel = (patch: Partial<Relation>) => selRel && updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, ...patch } : r) });
 
   const containerStyle: React.CSSProperties = fullscreen
     ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg-surface)' }
@@ -337,6 +391,10 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
 
       <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button className="cta-btn" onClick={addEntity} style={{ padding: '8px 14px' }}>+ Table</button>
+        <button onClick={() => { setShowImport(true); setImportMsg(null); }} title="Coller un script Snowflake / SQL" style={{ ...toolBtn, color: 'var(--primary)', borderColor: 'var(--border-active)' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13 4l-2 16" /></svg>
+          Importer SQL
+        </button>
         <button onClick={arrange} title="Réorganiser les tables" style={toolBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
           Arranger
@@ -348,6 +406,31 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           {fullscreen ? 'Réduire' : 'Plein écran'}
         </button>
       </div>
+
+      {/* Modale : importer un script SQL/Snowflake */}
+      {showImport && (
+        <div onClick={() => setShowImport(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(640px, 96%)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <strong style={{ fontSize: 16 }}>Importer un script SQL / Snowflake</strong>
+              <button onClick={() => setShowImport(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>×</button>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>Collez un ou plusieurs <code>CREATE TABLE</code> (Snowflake, SQL standard, PROC SQL). Les colonnes, types, clés <strong>PK</strong> et <strong>FK</strong> (et les relations) sont créés automatiquement.</p>
+            <textarea
+              value={ddlText}
+              onChange={(e) => setDdlText(e.target.value)}
+              placeholder={'CREATE TABLE CLIENT (\n  client_id NUMBER(38,0) PRIMARY KEY,\n  nom VARCHAR(255),\n  ...\n);\nCREATE TABLE COMMANDE (\n  commande_id NUMBER PRIMARY KEY,\n  client_id NUMBER,\n  FOREIGN KEY (client_id) REFERENCES CLIENT(client_id)\n);'}
+              spellCheck={false}
+              style={{ width: '100%', height: 240, resize: 'vertical', padding: 12, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-code, #0d1b2a)', color: '#e6edf3', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5, lineHeight: 1.5, outline: 'none' }}
+            />
+            {importMsg && <div style={{ marginTop: 10, fontSize: 13, color: importMsg.startsWith('✓') ? 'var(--primary)' : 'var(--accent-red)' }}>{importMsg}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button className="suggested-chip" onClick={() => setShowImport(false)}>Annuler</button>
+              <button className="cta-btn" onClick={importDDL} disabled={!ddlText.trim()} style={{ opacity: ddlText.trim() ? 1 : 0.5 }}>Analyser &amp; importer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modale d'édition de relation (centrée) */}
       {selRel && (
@@ -363,11 +446,41 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Cardinalité</label>
             <select
               value={selRel.type}
-              onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, type: e.target.value as Relation['type'] } : r) })}
+              onChange={(e) => patchRel({ type: e.target.value as Relation['type'] })}
               style={{ width: '100%', height: 42, marginTop: 6, marginBottom: 14, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 14 }}
             >
               {REL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+
+            <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Jointure sur les colonnes</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 14 }}>
+              <select
+                value={selRel.refColumn || ''}
+                onChange={(e) => patchRel({ refColumn: e.target.value })}
+                title={`Colonne dans ${relSrc?.name || 'source'}`}
+                style={{ flex: 1, minWidth: 0, height: 38, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 12.5 }}
+              >
+                <option value="">{relSrc?.name || 'source'}…</option>
+                {(relSrc ? attrsOf(relSrc) : []).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+              </select>
+              <span style={{ color: 'var(--primary)', fontWeight: 700 }}>→</span>
+              <select
+                value={selRel.fkColumn || ''}
+                onChange={(e) => {
+                  const fk = e.target.value;
+                  patchRel({ fkColumn: fk });
+                  // marque la colonne comme clé étrangère
+                  if (fk && relTgt) {
+                    updateSessionData({ attributes: session.attributes.map((a) => ((a.entityId === relTgt.id || a.entityId === relTgt.name) && a.name === fk) ? { ...a, isForeignKey: true } : a) });
+                  }
+                }}
+                title={`Colonne FK dans ${relTgt?.name || 'cible'}`}
+                style={{ flex: 1, minWidth: 0, height: 38, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 12.5 }}
+              >
+                <option value="">{relTgt?.name || 'cible'} (FK)…</option>
+                {(relTgt ? attrsOf(relTgt) : []).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+              </select>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
