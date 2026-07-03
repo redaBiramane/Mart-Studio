@@ -105,22 +105,40 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
   }
 
-  // Réconciliation : toute entité citée dans une relation mais absente des entités
-  // est créée comme table → le visuel devient iso avec les données collectées.
+  // Réconciliation : le visuel reste iso avec les données collectées.
+  // 1) On renomme les entités au nom technique (ex. entity_123..._abc) si une
+  //    relation fournit un vrai nom pour cet id. 2) On crée les tables manquantes
+  //    citées par des relations, mais UNIQUEMENT avec un nom propre (jamais un id).
   useEffect(() => {
-    const haveId = new Set(session.entities.map((e) => e.id));
-    const haveName = new Set(session.entities.map((e) => e.name.toLowerCase()));
+    const isTech = (n: string) => /^(e|entity|ws|a|r)[_-]\d/i.test(n.trim());
+
+    // Meilleur nom propre connu pour chaque id d'entité (via les relations)
+    const cleanNameFor = new Map<string, string>();
+    session.relations.forEach((r) => {
+      if (r.sourceEntityName && !isTech(r.sourceEntityName)) cleanNameFor.set(r.sourceEntityId, r.sourceEntityName);
+      if (r.targetEntityName && !isTech(r.targetEntityName)) cleanNameFor.set(r.targetEntityId, r.targetEntityName);
+    });
+
+    let changed = false;
+    let entities = session.entities.map((e) => {
+      if (isTech(e.name) && cleanNameFor.has(e.id)) { changed = true; return { ...e, name: cleanNameFor.get(e.id) as string }; }
+      return e;
+    });
+
+    const haveId = new Set(entities.map((e) => e.id));
+    const haveName = new Set(entities.map((e) => e.name.toLowerCase()));
     const missing = new Map<string, string>();
     session.relations.forEach((r) => {
       ([[r.sourceEntityId, r.sourceEntityName], [r.targetEntityId, r.targetEntityName]] as const).forEach(([id, name]) => {
         const ok = (id && haveId.has(id)) || (name && haveName.has(name.toLowerCase())) || (id && haveName.has(id.toLowerCase()));
-        const disp = (name || id || '').trim();
-        if (!ok && disp) missing.set(disp.toLowerCase(), disp);
+        const disp = (name || '').trim(); // seulement le NOM, jamais l'id
+        if (!ok && disp && !isTech(disp)) missing.set(disp.toLowerCase(), disp);
       });
     });
-    if (missing.size > 0) {
-      const newEnts: Entity[] = Array.from(missing.values()).map((nm) => ({ id: genId('e'), name: nm, definition: '', description: '', example: '', responsible: '', type: 'reference', lifecycle: 'created' }));
-      updateSessionData({ entities: [...session.entities, ...newEnts] });
+    const newEnts: Entity[] = Array.from(missing.values()).map((nm) => ({ id: genId('e'), name: nm, definition: '', description: '', example: '', responsible: '', type: 'reference', lifecycle: 'created' }));
+
+    if (changed || newEnts.length > 0) {
+      updateSessionData({ entities: [...entities, ...newEnts] });
     }
   }, [session.entities, session.relations]); // eslint-disable-line react-hooks/exhaustive-deps
 
