@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType,
+  ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType, ConnectionMode,
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -31,8 +31,8 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
   const { entity, attrs } = data;
   return (
     <div style={{ minWidth: 230, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12, cursor: 'grab' }}>
-      <Handle type="target" position={Position.Left} style={{ background: 'var(--primary)', width: 9, height: 9 }} />
-      <Handle type="source" position={Position.Right} style={{ background: 'var(--primary)', width: 9, height: 9 }} />
+      <Handle type="target" position={Position.Left} title="Tirer pour relier" style={{ background: 'var(--primary)', width: 14, height: 14, border: '2px solid var(--bg-surface)', left: -7 }} />
+      <Handle type="source" position={Position.Right} title="Tirer pour relier" style={{ background: 'var(--primary)', width: 14, height: 14, border: '2px solid var(--bg-surface)', right: -7 }} />
       <div className="gd-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)', cursor: 'grab' }}>
         <span style={{ display: 'flex', color: 'var(--text-muted)', flexShrink: 0 }} title="Glisser pour déplacer">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6" /><circle cx="8" cy="12" r="1.6" /><circle cx="8" cy="18" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
@@ -256,6 +256,7 @@ export default function VisualEditor({ session, onSync }: { session: WorkshopSes
         onEdgeClick={(_, e) => setSelectedRel(e.id)}
         onPaneClick={() => setSelectedRel(null)}
         onInit={(inst) => { rf.current = inst as unknown as typeof rf.current; }}
+        connectionMode={ConnectionMode.Loose}
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
