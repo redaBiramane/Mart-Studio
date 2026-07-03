@@ -34,6 +34,7 @@ type TableData = {
   onAddAttr: (entityId: string) => void;
   onAttr: (attrId: string, patch: Partial<Attribute>) => void;
   onDelAttr: (attrId: string) => void;
+  onExpand: (entityId: string) => void;
 };
 
 function TableNode({ data }: NodeProps<Node<TableData>>) {
@@ -55,6 +56,9 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
           style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontWeight: 700, fontSize: 12.5, color: 'var(--primary-light)', textTransform: 'uppercase', outline: 'none' }}
         />
         <span style={{ fontSize: 10.5, color: 'var(--text-muted)', flexShrink: 0 }}>{attrs.length}</span>
+        <button className="nodrag" onClick={() => data.onExpand(entity.id)} title="Voir toutes les colonnes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, flexShrink: 0, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+        </button>
         <button className="nodrag" onClick={() => data.onDelete(entity.id)} title="Supprimer la table" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, flexShrink: 0, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', lineHeight: 1, fontSize: 18, fontWeight: 700 }}>×</button>
       </div>
       {!collapsed && (
@@ -103,6 +107,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const [showImport, setShowImport] = useState(false);
   const [ddlText, setDdlText] = useState('');
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [columnsFor, setColumnsFor] = useState<string | null>(null);
+  const [colSearch, setColSearch] = useState('');
 
   // Recadrer/centrer à l'entrée en plein écran (et au montage)
   useEffect(() => {
@@ -302,7 +308,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     id: e.id,
     type: 'table',
     position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
-    data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: deleteEntity, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute },
+    data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: deleteEntity, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor },
   })), [session.entities, session.attributes, positions, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const edges: Edge[] = useMemo(() => {
@@ -406,6 +412,44 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           {fullscreen ? 'Réduire' : 'Plein écran'}
         </button>
       </div>
+
+      {/* Fenêtre : toutes les colonnes d'une table (gère les tables à 600 colonnes) */}
+      {(() => {
+        const ent = columnsFor ? session.entities.find((e) => e.id === columnsFor) : null;
+        if (!ent) return null;
+        const cols = attrsOf(ent).filter((a) => !colSearch || a.name.toLowerCase().includes(colSearch.toLowerCase()));
+        return (
+          <div onClick={() => { setColumnsFor(null); setColSearch(''); }} style={{ position: 'absolute', inset: 0, zIndex: 55, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(680px, 96%)', maxHeight: '86%', display: 'flex', flexDirection: 'column', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+                <strong style={{ fontSize: 16, color: 'var(--primary-light)', textTransform: 'uppercase' }}>{ent.name}</strong>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{attrsOf(ent).length} colonnes</span>
+                <button onClick={() => { setColumnsFor(null); setColSearch(''); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
+              </div>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
+                <input value={colSearch} onChange={(e) => setColSearch(e.target.value)} placeholder="Rechercher une colonne…" autoFocus style={{ width: '100%', height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 13.5, outline: 'none' }} />
+              </div>
+              <div style={{ overflowY: 'auto', padding: '8px 12px', flex: 1 }}>
+                {cols.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Aucune colonne.</div>}
+                {cols.map((a) => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderBottom: '1px solid var(--border-light)' }}>
+                    <button onClick={() => patchAttribute(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 30, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>{a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}</button>
+                    <input value={a.name} onChange={(e) => patchAttribute(a.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 13, color: 'var(--text)', outline: 'none', padding: '6px 8px', borderRadius: 6 }} />
+                    <select value={a.type || 'varchar'} onChange={(e) => patchAttribute(a.id, { type: e.target.value })} style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 12.5, color: 'var(--text-secondary)', borderRadius: 6, padding: '6px', minWidth: 110 }}>
+                      {!SQL_TYPES.includes(a.type) && a.type && <option value={a.type}>{a.type}</option>}
+                      {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <button onClick={() => deleteAttribute(a.id)} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16 }}>×</button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+                <button className="cta-btn" onClick={() => addAttribute(ent.id)} style={{ width: '100%' }}>+ Ajouter une colonne</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modale : importer un script SQL/Snowflake */}
       {showImport && (
