@@ -16,6 +16,13 @@ function genId(p: string) { return `${p}_${Date.now()}_${Math.random().toString(
 
 const toolBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontWeight: 600 };
 
+const VE_TIP_CSS = `
+.ve-tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--primary-glow); color: var(--primary); font-size: 10px; font-weight: 800; cursor: help; border: 1px solid var(--border-active); outline: none; }
+.ve-tip-box { position: absolute; bottom: calc(100% + 8px); left: 50%; width: 250px; transform: translateX(-50%) translateY(4px); background: #0d1b2a; color: #e6edf3; font-size: 11.5px; font-weight: 500; line-height: 1.55; padding: 11px 13px; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.35); opacity: 0; visibility: hidden; transition: all .18s ease; z-index: 60; text-align: left; }
+.ve-tip-box::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #0d1b2a; }
+.ve-tip:hover .ve-tip-box, .ve-tip:focus .ve-tip-box { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+`;
+
 // ---- Nœud table personnalisé ----
 type TableData = {
   entity: Entity;
@@ -270,6 +277,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
 
   return (
     <div style={containerStyle}>
+      <style dangerouslySetInnerHTML={{ __html: VE_TIP_CSS }} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -323,10 +331,17 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
             >
               {REL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 18, cursor: 'pointer' }}>
-              <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
-              Hiérarchie
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
+                Hiérarchie
+              </label>
+              <span className="ve-tip" tabIndex={0} role="button" aria-label="À quoi sert la hiérarchie ?">i
+                <span className="ve-tip-box">
+                  Lien <strong>parent → enfant</strong> entre niveaux d&apos;un même axe (ex. Région → Agence → Client). Coché ⇒ dimension <strong>normalisée en flocon</strong> (snowflake) et analyses drill-down. À laisser décoché pour une relation classique (ex. Client → Crédit).
+                </span>
+              </span>
+            </div>
             <button onClick={() => { deleteRelation(selRel.id); setSelectedRel(null); }} style={{ width: '100%', background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Supprimer la relation</button>
           </div>
         </div>
