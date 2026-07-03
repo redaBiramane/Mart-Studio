@@ -231,8 +231,27 @@ export const useWorkshopStore = create<WorkshopStore>()(
 
       deleteUser: async (id) => {
         if (!supabase) return;
-        await supabase.from('data_products').delete().eq('owner_id', id);
-        await supabase.from('profiles').delete().eq('id', id);
+        // Suppression complète (profil + données + compte Auth) via la route serveur
+        // qui détient la clé service_role. Repli client si non configurée.
+        let serverOk = false;
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const token = sess.session?.access_token;
+          if (token) {
+            const res = await fetch('/api/admin/delete-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ userId: id }),
+            });
+            serverOk = res.ok;
+          }
+        } catch { serverOk = false; }
+
+        if (!serverOk) {
+          // Repli : retire au moins le profil et ses Data Products (le compte Auth subsiste).
+          await supabase.from('data_products').delete().eq('owner_id', id);
+          await supabase.from('profiles').delete().eq('id', id);
+        }
         await get().logActivity('delete_user', id);
         await get().loadAdminData();
       },
