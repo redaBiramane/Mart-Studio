@@ -135,9 +135,15 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
   }, [session.entities, session.relations, session.attributes]);
 
-  // Agencement automatique à chaque ouverture du Visuel (déclenché dans onInit,
-  // quand le canvas est prêt → fiable).
-  const didAutoArrange = useRef(false);
+  // Agencement automatique une fois par Data Product : à l'ouverture du Visuel ET
+  // quand on change de session sans quitter le Visuel (le composant ne se re-monte pas).
+  const lastArrangedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastArrangedId.current === session.id) return;
+    lastArrangedId.current = session.id;
+    const t = setTimeout(() => { if (session.entities.length > 0) arrange(); }, 250);
+    return () => clearTimeout(t);
+  }, [session.id, session.entities.length, arrange]);
   function closeHint() {
     setHintOpen(false);
     try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
@@ -318,13 +324,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         onConnect={onConnect}
         onEdgeClick={(_, e) => setSelectedRel(e.id)}
         onPaneClick={() => setSelectedRel(null)}
-        onInit={(inst) => {
-          rf.current = inst as unknown as typeof rf.current;
-          if (!didAutoArrange.current && session.entities.length > 0) {
-            didAutoArrange.current = true;
-            setTimeout(() => arrange(), 60);
-          }
-        }}
+        onInit={(inst) => { rf.current = inst as unknown as typeof rf.current; }}
         connectionMode={ConnectionMode.Loose}
         fitView
         proOptions={{ hideAttribution: true }}
