@@ -8,6 +8,9 @@ import { STEPS } from '@/lib/constants';
 import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 
+const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
+const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
+
 export default function Workshop({ onNew }: { onNew?: () => void }) {
   const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage } = useWorkshopStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -18,6 +21,9 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -437,6 +443,29 @@ ${truncated}
     }
   }
 
+  function resetWorkshop() {
+    setShowReset(false);
+    setMenuOpen(false);
+    setMessages([]);
+    hasInitialized.current = false;
+    updateSessionData({
+      currentStep: 1, status: 'active',
+      productName: '', businessProblem: '', objective: '', users: [], domain: '',
+      productOwner: '', dataSteward: '', businessDecision: '', frequency: '', existingSimilar: '', contextSummary: '',
+      entities: [], granularity: null, relations: [], attributes: [], kpis: [], businessRules: [],
+      dataSources: [], qualityRules: [], governance: null, architecture: null, maturityScores: null,
+      validationNotes: [], messages: [],
+    });
+  }
+
+  function deleteWorkshop() {
+    const id = session?.id;
+    setShowDelete(false);
+    setMenuOpen(false);
+    if (id) useWorkshopStore.getState().deleteSession(id);
+    setCurrentPage('products');
+  }
+
   if (!session) {
     const recent = useWorkshopStore.getState().sessions.slice(0, 4);
     return (
@@ -496,13 +525,78 @@ ${truncated}
           <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16, marginLeft: 4 }}>✕</button>
         </div>
       )}
+
+      {/* Confirmation : remise à zéro */}
+      {showReset && (
+        <div onClick={() => setShowReset(false)} style={wsOverlay}>
+          <div onClick={e => e.stopPropagation()} style={wsModal}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ color: 'var(--accent-amber)', display: 'flex' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg></span>
+              <h3 style={{ fontSize: 17, margin: 0 }}>Remettre l&apos;atelier à zéro ?</h3>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
+              Toutes les données collectées (contexte, entités, relations, attributs, KPI, règles) et la conversation seront effacées. Vous recommencez de l&apos;étape&nbsp;1. Cette action est irréversible.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button className="suggested-chip" onClick={() => setShowReset(false)}>Annuler</button>
+              <button onClick={resetWorkshop} style={{ background: 'var(--accent-amber)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Remettre à zéro</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation : supprimer */}
+      {showDelete && (
+        <div onClick={() => setShowDelete(false)} style={wsOverlay}>
+          <div onClick={e => e.stopPropagation()} style={wsModal}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ color: 'var(--accent-red)', display: 'flex' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg></span>
+              <h3 style={{ fontSize: 17, margin: 0 }}>Supprimer ce Data Product ?</h3>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
+              «&nbsp;{session?.productName || 'Ce Data Product'}&nbsp;» et toute sa conception seront définitivement supprimés. Cette action est irréversible.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button className="suggested-chip" onClick={() => setShowDelete(false)}>Annuler</button>
+              <button onClick={deleteWorkshop} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <StepSidebar currentStep={currentStep} onStepChange={handleStepChange} session={session} />
 
       <div className="chat-panel">
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)',
         }}>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              title="Options de l'atelier"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12.5 }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+              Options
+            </button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, minWidth: 240, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 41 }}>
+                  <button className="user-menu-item" onClick={() => { setShowReset(true); setMenuOpen(false); }} style={{ color: 'var(--accent-amber)' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg>
+                    Remettre à zéro l&apos;atelier
+                  </button>
+                  <button className="user-menu-item" onClick={() => { setShowDelete(true); setMenuOpen(false); }} style={{ color: 'var(--accent-red)' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg>
+                    Supprimer ce Data Product
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Propulsé par</span>
           <span
             title={`Fournisseur : ${llmSettings.provider}`}
@@ -514,6 +608,7 @@ ${truncated}
           >
             {llmProviderIcon(llmSettings.provider)} {llmLabel(llmSettings.provider, llmSettings.model)}
           </span>
+          </div>
         </div>
         <div className="chat-messages">
           {displayMessages.length === 0 && !isLoading && (
