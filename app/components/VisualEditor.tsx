@@ -6,6 +6,7 @@ import {
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import dagre from '@dagrejs/dagre';
 import { useWorkshopStore } from '@/lib/store';
 import type { WorkshopSession, Entity, Attribute, Relation } from '@/lib/types';
 
@@ -100,13 +101,49 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     return () => clearTimeout(t);
   }, [fullscreen]);
 
-  // Réorganiser les tables proprement en grille, puis recadrer
+  // Agencement automatique par graphe (dagre) : place les tables en couches selon
+  // leurs relations et minimise les croisements. Bien plus lisible qu'une grille.
   const arrange = useCallback(() => {
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: 'LR', nodesep: 70, ranksep: 140, marginx: 40, marginy: 40 });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    const attrsCount = (e: Entity) => session.attributes.filter((a) => a.entityId === e.id || a.entityId === e.name).length;
+    session.entities.forEach((e) => {
+      g.setNode(e.id, { width: 290, height: 60 + attrsCount(e) * 28 + 34 });
+    });
+
+    // Résolution des extrémités par id OU nom (comme pour les arêtes)
+    const byId = new Set(session.entities.map((e) => e.id));
+    const byName = new Map(session.entities.map((e) => [e.name.toLowerCase(), e.id]));
+    const resolve = (id?: string, name?: string) =>
+      (id && byId.has(id)) ? id : (name && byName.get(name.toLowerCase())) || (id && byName.get(id.toLowerCase())) || undefined;
+    session.relations.forEach((r) => {
+      const s = resolve(r.sourceEntityId, r.sourceEntityName);
+      const t = resolve(r.targetEntityId, r.targetEntityName);
+      if (s && t && s !== t) g.setEdge(s, t);
+    });
+
+    dagre.layout(g);
+
     const next: Record<string, { x: number; y: number }> = {};
-    session.entities.forEach((e, i) => { next[e.id] = { x: 40 + (i % 3) * 360, y: 40 + Math.floor(i / 3) * 340 }; });
+    session.entities.forEach((e) => {
+      const n = g.node(e.id);
+      if (n) next[e.id] = { x: n.x - n.width / 2, y: n.y - n.height / 2 };
+    });
     setPositions(next);
-    setTimeout(() => rf.current?.fitView({ padding: 0.2, duration: 300 }), 60);
-  }, [session.entities]);
+    setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
+  }, [session.entities, session.relations, session.attributes]);
+
+  // Auto-agencement à la première ouverture (aucune position mémorisée)
+  const didAutoArrange = useRef(false);
+  useEffect(() => {
+    if (didAutoArrange.current) return;
+    if (session.entities.length > 2 && Object.keys(positions).length === 0) {
+      didAutoArrange.current = true;
+      setTimeout(() => arrange(), 250);
+    }
+  }, [session.entities.length, positions, arrange]);
   function closeHint() {
     setHintOpen(false);
     try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
