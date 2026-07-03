@@ -145,16 +145,35 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: deleteEntity, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute },
   })), [session.entities, session.attributes, positions, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const edges: Edge[] = useMemo(() => session.relations.map((r) => ({
-    id: r.id,
-    source: r.sourceEntityId,
-    target: r.targetEntityId,
-    label: r.type,
-    labelStyle: { fontSize: 11, fontWeight: 700, fill: 'var(--primary)' },
-    labelBgStyle: { fill: 'var(--bg-surface)' },
-    style: { stroke: 'var(--primary)', strokeWidth: 1.6 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)' },
-  })), [session.relations]);
+  const edges: Edge[] = useMemo(() => {
+    // Les relations issues du chat peuvent référencer les entités par NOM (ou un id
+    // différent de celui des nœuds). On résout chaque extrémité vers l'id du nœud.
+    const byId = new Set(session.entities.map((e) => e.id));
+    const byName = new Map(session.entities.map((e) => [e.name.toLowerCase(), e.id]));
+    const resolve = (idOrName?: string, name?: string): string | undefined => {
+      if (idOrName && byId.has(idOrName)) return idOrName;
+      if (name && byName.has(name.toLowerCase())) return byName.get(name.toLowerCase());
+      if (idOrName && byName.has(idOrName.toLowerCase())) return byName.get(idOrName.toLowerCase());
+      return undefined;
+    };
+    return session.relations
+      .map((r) => {
+        const source = resolve(r.sourceEntityId, r.sourceEntityName);
+        const target = resolve(r.targetEntityId, r.targetEntityName);
+        if (!source || !target) return null; // entité absente du canvas (ex. Region)
+        return {
+          id: r.id,
+          source,
+          target,
+          label: r.type,
+          labelStyle: { fontSize: 11, fontWeight: 700, fill: 'var(--primary)' },
+          labelBgStyle: { fill: 'var(--bg-surface)' },
+          style: { stroke: 'var(--primary)', strokeWidth: 1.6 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)' },
+        } as Edge;
+      })
+      .filter((e): e is Edge => e !== null);
+  }, [session.relations, session.entities]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setPositions((prev) => {
