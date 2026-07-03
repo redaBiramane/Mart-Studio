@@ -7,6 +7,7 @@ import { useWorkshopStore } from '@/lib/store';
 import { STEPS } from '@/lib/constants';
 import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
+import VisualEditor from '@/app/components/VisualEditor';
 
 const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
@@ -24,6 +25,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [visual, setVisual] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -596,6 +598,22 @@ ${truncated}
               </>
             )}
           </div>
+          <div style={{ display: 'inline-flex', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
+            <button
+              onClick={() => setVisual(false)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, background: !visual ? 'var(--bg-surface)' : 'transparent', color: !visual ? 'var(--text)' : 'var(--text-muted)', boxShadow: !visual ? 'var(--shadow)' : 'none' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2Z" /></svg>
+              Chat
+            </button>
+            <button
+              onClick={() => setVisual(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, background: visual ? 'var(--bg-surface)' : 'transparent', color: visual ? 'var(--text)' : 'var(--text-muted)', boxShadow: visual ? 'var(--shadow)' : 'none' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="8.5" y="14" width="7" height="6" rx="1.5" /></svg>
+              Visuel
+            </button>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Propulsé par</span>
           <span
@@ -610,6 +628,10 @@ ${truncated}
           </span>
           </div>
         </div>
+        {visual ? (
+          <VisualEditor session={session} />
+        ) : (
+        <>
         <div className="chat-messages">
           {displayMessages.length === 0 && !isLoading && (
             <div className="welcome-message">
@@ -796,6 +818,8 @@ ${truncated}
             </button>
           </form>
         </div>
+        </>
+        )}
       </div>
 
       {showContext && <ContextPanel session={session} onClose={() => setShowContext(false)} />}
