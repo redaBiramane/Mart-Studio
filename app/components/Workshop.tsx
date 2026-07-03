@@ -629,13 +629,7 @@ ${truncated}
           </div>
         </div>
         {visual ? (
-          <VisualEditor
-            session={session}
-            onSync={() => {
-              setVisual(false);
-              sendMessage({ text: "[SYSTÈME] J'ai modifié le modèle dans l'éditeur visuel. Prends en compte le schéma ACTUEL (entités, colonnes, types, clés PK/FK, relations) tel qu'il est maintenant, et confirme en une phrase ce que tu as intégré." });
-            }}
-          />
+          <VisualEditor session={session} />
         ) : (
         <>
         <div className="chat-messages">

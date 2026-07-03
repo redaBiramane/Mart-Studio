@@ -67,7 +67,7 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
 
 const nodeTypes = { table: TableNode };
 
-export default function VisualEditor({ session, onSync }: { session: WorkshopSession; onSync?: () => void }) {
+export default function VisualEditor({ session }: { session: WorkshopSession }) {
   const { updateSessionData } = useWorkshopStore();
   const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number }) => void } | null>(null);
   const posKey = `mart-erd-pos-${session.id}`;
@@ -278,12 +278,6 @@ export default function VisualEditor({ session, onSync }: { session: WorkshopSes
           </svg>
           {fullscreen ? 'Réduire' : 'Plein écran'}
         </button>
-        {onSync && (
-          <button onClick={onSync} title="Faire relire le schéma à Marty" style={{ ...toolBtn, color: 'var(--primary)', borderColor: 'var(--border-active)' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg>
-            Synchroniser avec Marty
-          </button>
-        )}
       </div>
 
       {/* Panneau d'édition de relation */}
