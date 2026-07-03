@@ -29,15 +29,15 @@ export default function Deliverables() {
   const data = enrichSession(session);
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'overview', label: 'Vue d\'ensemble', icon: '📊' },
-    { key: 'report', label: 'Rapport détaillé (PDF)', icon: '📄' },
-    { key: 'mcd', label: 'MCD / ERD', icon: '🗺️' },
-    { key: 'dimensional', label: 'Étoile / Flocon', icon: '❄️' },
-    { key: 'dbml', label: 'DBML (dbdiagram.io)', icon: '🧬' },
-    { key: 'sql', label: 'SQL DDL', icon: '🛢️' },
-    { key: 'dbt', label: 'dbt YAML', icon: '🔧' },
-    { key: 'dictionary', label: 'Dictionnaire', icon: '📖' },
-    { key: 'dad', label: 'Rapport DAD', icon: '📋' },
+    { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
+    { key: 'report', label: 'Rapport détaillé (PDF)', icon: 'report' },
+    { key: 'mcd', label: 'MCD / ERD', icon: 'mcd' },
+    { key: 'dimensional', label: 'Étoile / Flocon', icon: 'dimensional' },
+    { key: 'dbml', label: 'DBML (dbdiagram.io)', icon: 'dbml' },
+    { key: 'sql', label: 'SQL DDL', icon: 'sql' },
+    { key: 'dbt', label: 'dbt YAML', icon: 'dbt' },
+    { key: 'dictionary', label: 'Dictionnaire', icon: 'dictionary' },
+    { key: 'dad', label: 'Rapport DAD', icon: 'dad' },
   ];
 
   return (
@@ -46,9 +46,9 @@ export default function Deliverables() {
       <div style={{ display: 'flex', gap: 4, padding: '12px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', overflowX: 'auto' }}>
         {tabs.map(t => (
           <button key={t.key} className={`suggested-chip ${activeTab === t.key ? 'active' : ''}`}
-            style={activeTab === t.key ? { background: 'var(--primary-glow)', borderColor: 'var(--border-active)', color: 'var(--primary-light)' } : {}}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...(activeTab === t.key ? { background: 'var(--primary-glow)', borderColor: 'var(--border-active)', color: 'var(--primary-light)' } : {}) }}
             onClick={() => setActiveTab(t.key)}>
-            {t.icon} {t.label}
+            <DIcon name={t.icon} size={15} /> {t.label}
           </button>
         ))}
       </div>
@@ -65,6 +65,34 @@ export default function Deliverables() {
         {activeTab === 'dad' && <DADTab session={data} />}
       </div>
     </div>
+  );
+}
+
+// Icônes SVG (remplacent les emojis) — cohérentes avec le reste du site.
+function DIcon({ name, size = 16 }: { name: string; size?: number }) {
+  const p: Record<string, React.ReactNode> = {
+    overview: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    report: <><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M8 13h8M8 17h5" /></>,
+    mcd: <><rect x="3" y="4" width="8" height="6" rx="1" /><rect x="13" y="14" width="8" height="6" rx="1" /><path d="M7 10v2a2 2 0 0 0 2 2h4" /></>,
+    dimensional: <><path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1" /></>,
+    dbml: <><path d="M8 8l-4 4 4 4M16 8l4 4-4 4" /></>,
+    sql: <><ellipse cx="12" cy="6" rx="7" ry="2.6" /><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6" /><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6" /></>,
+    dbt: <><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1" /></>,
+    dictionary: <><path d="M6.5 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M8 7h8M8 11h6" /></>,
+    dad: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4h6v3H9z" /><path d="M8 12l2 2 4-4" /></>,
+    entities: <><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="8.5" y="14" width="7" height="6" rx="1.5" /></>,
+    relations: <><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><circle cx="18" cy="6" r="2.5" /><path d="M8.5 6H15M6 8.5V15a3 3 0 0 0 3 3h6.5" /></>,
+    attributes: <><path d="M20.5 11 13 3.5 4 4l-.5 9L11 20.5Z" /><circle cx="8" cy="8" r="1.3" /></>,
+    kpis: <><path d="M3 12h4l2.5-7 5 14 2.5-7H21" /></>,
+    rules: <><path d="M12 3v18M5 21h14M6.5 6.5l-3 6a3 3 0 0 0 6 0Zm11 0-3 6a3 3 0 0 0 6 0ZM9 5.5l6-1" /></>,
+    sources: <><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" /><path d="M10 12h4" /></>,
+    star: <><path d="M12 3l2.5 5.3 5.5.7-4 3.9 1 5.6L12 18.9 7 21.5l1-5.6-4-3.9 5.5-.7Z" /></>,
+    cube: <><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path d="M12 3v18M4 7.5l8 4.5 8-4.5" /></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: '-3px', flexShrink: 0 }}>
+      {p[name] || <circle cx="12" cy="12" r="9" />}
+    </svg>
   );
 }
 
@@ -111,12 +139,12 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
   const avgScore = session.maturityScores ? Math.round(Object.values(session.maturityScores).reduce((a, b) => a + b, 0) / 7) : 0;
 
   const cards: { key: OverviewDetailKey; label: string; value: number; icon: string }[] = [
-    { key: 'entities', label: 'Entités', value: nbEnt, icon: '🧩' },
-    { key: 'relations', label: 'Relations', value: session.relations.length, icon: '🔗' },
-    { key: 'attributes', label: 'Attributs', value: session.attributes.length, icon: '📋' },
-    { key: 'kpis', label: 'KPIs', value: session.kpis.length, icon: '📊' },
-    { key: 'rules', label: 'Règles', value: session.businessRules.length, icon: '⚖️' },
-    { key: 'sources', label: 'Sources', value: session.dataSources.length, icon: '🗄️' },
+    { key: 'entities', label: 'Entités', value: nbEnt, icon: 'entities' },
+    { key: 'relations', label: 'Relations', value: session.relations.length, icon: 'relations' },
+    { key: 'attributes', label: 'Attributs', value: session.attributes.length, icon: 'attributes' },
+    { key: 'kpis', label: 'KPIs', value: session.kpis.length, icon: 'kpis' },
+    { key: 'rules', label: 'Règles', value: session.businessRules.length, icon: 'rules' },
+    { key: 'sources', label: 'Sources', value: session.dataSources.length, icon: 'sources' },
   ];
 
   const topEntities = [...session.entities].map(e => ({ name: e.name, n: attrsOf(e).length })).sort((a, b) => b.n - a.n).slice(0, 8);
@@ -132,7 +160,7 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
         {cards.map(s => (
           <div key={s.label} className="stat-card" style={{ cursor: s.value > 0 ? 'pointer' : 'default' }} onClick={() => s.value > 0 && setDetail(s.key)}>
-            <div style={{ fontSize: 22, marginBottom: 2 }}>{s.icon}</div>
+            <div style={{ marginBottom: 4, color: 'var(--primary)' }}><DIcon name={s.icon} size={24} /></div>
             <div className="stat-value" style={{ fontSize: 26 }}>{s.value}</div>
             <div className="stat-label">{s.label}{s.value > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}> ›</span>}</div>
           </div>
@@ -157,8 +185,8 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
             {dims.length > 0 && <div style={{ width: `${100 - factRatio}%`, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{dims.length}</div>}
           </div>
           <div style={{ display: 'flex', gap: 16, fontSize: 12.5 }}>
-            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#F59E0B', borderRadius: 2, marginRight: 6 }} />⭐ Faits : <strong>{facts.length}</strong></span>
-            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--primary)', borderRadius: 2, marginRight: 6 }} />🧩 Dimensions : <strong>{dims.length}</strong></span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ display: 'inline-block', width: 10, height: 10, background: '#F59E0B', borderRadius: 2 }} /><span style={{ color: '#F59E0B' }}><DIcon name="star" size={14} /></span> Faits : <strong>{facts.length}</strong></span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--primary)', borderRadius: 2 }} /><span style={{ color: 'var(--primary)' }}><DIcon name="cube" size={14} /></span> Dimensions : <strong>{dims.length}</strong></span>
           </div>
           <div style={{ display: 'flex', gap: 24, marginTop: 16, fontSize: 13 }}>
             <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary)' }}>{pkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés primaires</div></div>
