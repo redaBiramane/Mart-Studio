@@ -23,6 +23,7 @@ const DICT: Dict = {
   'nav.recentSessions': { fr: 'Sessions récentes', en: 'Recent sessions' },
   'nav.administration': { fr: 'Administration', en: 'Administration' },
   'nav.newProduct': { fr: 'Nouveau produit', en: 'New product' },
+  'nav.seeAll': { fr: 'Tous les Data Products', en: 'All Data Products' },
 
   // --- Header titres ---
   'header.dashboard': { fr: 'Tableau de bord', en: 'Dashboard' },

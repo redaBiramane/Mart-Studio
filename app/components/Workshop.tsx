@@ -8,7 +8,7 @@ import { STEPS } from '@/lib/constants';
 import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 
-export default function Workshop() {
+export default function Workshop({ onNew }: { onNew?: () => void }) {
   const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage } = useWorkshopStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -438,11 +438,36 @@ ${truncated}
   }
 
   if (!session) {
+    const recent = useWorkshopStore.getState().sessions.slice(0, 4);
     return (
       <div className="welcome-message">
-        <div className="welcome-icon">🧠</div>
+        <div className="welcome-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 6.5 13.7 11l4.5 1.7-4.5 1.7L12 19l-1.7-4.6L5.8 12.7 10.3 11 12 6.5Z" /><path d="M5 4v3M3.5 5.5h3M18 15v3M16.5 16.5h3" />
+          </svg>
+        </div>
         <h3>Aucune session active</h3>
-        <p>Créez un nouvel atelier depuis le tableau de bord pour commencer la conception de votre Data Product avec l&apos;IA.</p>
+        <p>Créez un nouvel atelier ou ouvrez un Data Product existant pour commencer la conception avec l&apos;IA.</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
+          {onNew && <button className="cta-btn" onClick={onNew}>✨ Nouveau Data Product</button>}
+          <button className="cta-btn cta-btn-secondary" onClick={() => setCurrentPage('products')}>Voir les Data Products</button>
+        </div>
+        {recent.length > 0 && (
+          <div style={{ marginTop: 28, width: 'min(420px, 90%)', textAlign: 'left' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>Reprendre récemment</div>
+            {recent.map(s => (
+              <button
+                key={s.id}
+                onClick={() => useWorkshopStore.getState().loadSession(s.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="7" ry="2.6" /><path d="M5 5v14c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V5" /><path d="M5 12c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6" /></svg>
+                <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.productName || 'Nouveau produit'}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.currentStep}/7</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

@@ -235,6 +235,14 @@ export default function Home() {
                   </span>
                 </div>
               ))}
+              <div
+                className="nav-item"
+                onClick={() => { setCurrentPage('products'); setSidebarOpen(false); }}
+                style={{ color: 'var(--primary)', fontWeight: 600 }}
+              >
+                <span className="nav-item-icon"><NavIcon name="products" /></span>
+                <span>{t('nav.seeAll')}{sessions.length > 5 ? ` (${sessions.length})` : ''}</span>
+              </div>
             </div>
           )}
 
@@ -380,7 +388,7 @@ export default function Home() {
             onOpenWorkshop={(id) => { useWorkshopStore.getState().loadSession(id); setCurrentPage('workshop'); }}
             onOpenDeliverables={(id) => { useWorkshopStore.getState().loadSession(id); setCurrentPage('deliverables'); }}
           />}
-          {currentPage === 'workshop' && <Workshop />}
+          {currentPage === 'workshop' && <Workshop onNew={startNewSession} />}
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}
           {currentPage === 'supervision' && <Supervision initialTab={supervisionTab} />}
