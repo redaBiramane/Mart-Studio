@@ -277,6 +277,7 @@ export interface WorkshopStore {
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
   createSession: (mode?: 'batch' | 'guided') => void;
   loadSession: (id: string) => void;
+  duplicateSession: (id: string) => void;
   setCurrentStep: (step: number) => void;
   addMessage: (message: ChatMessage) => void;
   updateSessionData: (data: Partial<WorkshopSession>) => void;

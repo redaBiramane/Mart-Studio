@@ -233,6 +233,29 @@ export const useWorkshopStore = create<WorkshopStore>()(
         }
       },
 
+      duplicateSession: (id: string) => {
+        const { sessions } = get();
+        const src = sessions.find((s) => s.id === id);
+        if (!src) return;
+        const now = Date.now();
+        const copy: WorkshopSession = {
+          ...src,
+          id: generateId(),
+          createdAt: now,
+          updatedAt: now,
+          productName: `${src.productName || 'Data Product'} (copie)`,
+        };
+        set((state) => ({
+          session: copy,
+          sessions: [copy, ...state.sessions],
+        }));
+        const { user } = get();
+        if (user) {
+          upsertProduct(copy, user.id, user.email);
+          get().logActivity('duplicate_product', copy.productName);
+        }
+      },
+
       setCurrentStep: (step: number) => {
         set((state) => {
           if (!state.session) return state;

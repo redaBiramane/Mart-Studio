@@ -19,6 +19,7 @@ function Ico({ name, size = 15 }: { name: string; size?: number }) {
     open: <><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /></>,
     deliverables: <><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /></>,
     edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="M13.5 6.5l4 4" /></>,
+    copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></>,
     trash: <><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>{p[name]}</svg>;
@@ -39,7 +40,7 @@ function StatIcon({ name }: { name: string }) {
 }
 
 export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables }: Props) {
-  const { sessions, deleteSession, loadSession, updateSessionData } = useWorkshopStore();
+  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession } = useWorkshopStore();
   const { t, lang } = useI18n();
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
@@ -191,6 +192,7 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
                     <div style={{ display: 'inline-flex', gap: 6 }}>
                       <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title={t('dp.open')} onClick={() => onOpenWorkshop(s.id)}><Ico name="open" /> {t('dp.open')}</button>
                       {s.entities.length > 0 && <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title={t('dp.deliverables')} onClick={() => onOpenDeliverables(s.id)}><Ico name="deliverables" /> {t('dp.deliverables')}</button>}
+                      <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title={t('dp.duplicateTitle')} onClick={() => duplicateSession(s.id)}><Ico name="copy" /></button>
                       <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title={t('dp.renameTitle')} onClick={() => rename(s.id, s.productName)}><Ico name="edit" /></button>
                       <button style={{ ...iconBtn, color: 'var(--accent-red)', display: 'inline-flex', alignItems: 'center' }} title={t('dp.deleteTitle')} onClick={() => confirmDelete(s.id, s.productName)}><Ico name="trash" /></button>
                     </div>

@@ -138,6 +138,18 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
   const factRatio = nbEnt > 0 ? (facts.length / nbEnt) * 100 : 0;
   const avgScore = session.maturityScores ? Math.round(Object.values(session.maturityScores).reduce((a, b) => a + b, 0) / 7) : 0;
 
+  // Métriques de couverture / qualité
+  const nbAttr = session.attributes.length;
+  const sensitiveCount = session.attributes.filter(a => a.isSensitive).length;
+  const historizedCount = session.attributes.filter(a => a.isHistorized).length;
+  const naturalKeyCount = session.attributes.filter(a => a.isNaturalKey).length;
+  const requiredCount = session.attributes.filter(a => a.isRequired).length;
+  const nnRel = session.relations.filter(r => r.type === 'N:N').length;
+  const hierRel = session.relations.filter(r => r.isHierarchy).length;
+  const entWithoutPk = nbEnt - entWithPk;
+  const docPct = nbEnt ? Math.round((entWithAttrs / nbEnt) * 100) : 0;
+  const requiredPct = nbAttr ? Math.round((requiredCount / nbAttr) * 100) : 0;
+
   const cards: { key: OverviewDetailKey; label: string; value: number; icon: string }[] = [
     { key: 'entities', label: 'Entités', value: nbEnt, icon: 'entities' },
     { key: 'relations', label: 'Relations', value: session.relations.length, icon: 'relations' },
@@ -154,15 +166,53 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
   return (
     <div className="fade-in">
       <h2 style={{ fontSize: 22, marginBottom: 4 }}>{session.productName || 'Data Product'} — Tableau de bord</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Vue synthétique du modèle. Cliquez sur un indicateur pour le détail.</p>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Vue synthétique du modèle. Cliquez sur un indicateur pour le détail.</p>
+
+      {/* Barre méta produit */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+        {[
+          session.domain && { l: 'Domaine', v: session.domain },
+          session.productOwner && { l: 'Product Owner', v: session.productOwner },
+          session.dataSteward && { l: 'Data Steward', v: session.dataSteward },
+          session.frequency && { l: 'Fréquence', v: session.frequency },
+          { l: 'Statut', v: session.status === 'completed' ? 'Terminé' : 'En cours' },
+          { l: 'Avancement', v: `${session.currentStep}/7` },
+        ].filter(Boolean).map((m, i) => {
+          const it = m as { l: string; v: string };
+          return (
+            <span key={i} style={{ fontSize: 12.5, padding: '6px 12px', borderRadius: 999, background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{it.l} : </span><strong>{it.v}</strong>
+            </span>
+          );
+        })}
+      </div>
 
       {/* Indicateurs clés */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
         {cards.map(s => (
-          <div key={s.label} className="stat-card" style={{ cursor: s.value > 0 ? 'pointer' : 'default' }} onClick={() => s.value > 0 && setDetail(s.key)}>
-            <div style={{ marginBottom: 4, color: 'var(--primary)' }}><DIcon name={s.icon} size={24} /></div>
-            <div className="stat-value" style={{ fontSize: 26 }}>{s.value}</div>
+          <div key={s.label} className="stat-card" style={{ cursor: s.value > 0 ? 'pointer' : 'default', padding: '22px 18px', minHeight: 120, justifyContent: 'center' }} onClick={() => s.value > 0 && setDetail(s.key)}>
+            <div style={{ marginBottom: 6, color: 'var(--primary)' }}><DIcon name={s.icon} size={28} /></div>
+            <div className="stat-value" style={{ fontSize: 30 }}>{s.value}</div>
             <div className="stat-label">{s.label}{s.value > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}> ›</span>}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Couverture & qualité — KPI secondaires */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+        {[
+          { v: `${docPct}%`, l: 'Entités documentées', c: 'var(--primary)' },
+          { v: entWithoutPk, l: 'Entités sans clé primaire', c: entWithoutPk > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' },
+          { v: nnRel, l: 'Relations N:N', c: 'var(--accent-blue)' },
+          { v: hierRel, l: 'Hiérarchies', c: 'var(--accent-purple)' },
+          { v: sensitiveCount, l: 'Attributs sensibles (RGPD)', c: sensitiveCount > 0 ? 'var(--accent-rose)' : 'var(--text-muted)' },
+          { v: historizedCount, l: 'Attributs historisés', c: 'var(--accent-blue)' },
+          { v: naturalKeyCount, l: 'Clés naturelles', c: 'var(--primary)' },
+          { v: `${requiredPct}%`, l: 'Attributs obligatoires', c: 'var(--accent-emerald)' },
+        ].map((m, i) => (
+          <div key={i} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px' }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: m.c }}>{m.v}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.3 }}>{m.l}</div>
           </div>
         ))}
       </div>
