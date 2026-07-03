@@ -223,10 +223,13 @@ export const useWorkshopStore = create<WorkshopStore>()(
       // ---- Admin : gestion des utilisateurs --------------------------------
 
       setUserRole: async (id, role) => {
-        if (!supabase) return;
-        await supabase.from('profiles').update({ role }).eq('id', id);
+        if (!supabase) return 'Supabase non configuré.';
+        const { error, data } = await supabase.from('profiles').update({ role }).eq('id', id).select();
+        if (error) return error.message;
+        if (!data || data.length === 0) return 'Aucune ligne modifiée (droits RLS insuffisants ?).';
         await get().logActivity(role === 'banned' ? 'ban_user' : 'set_role', `${id} → ${role}`);
         await get().loadAdminData();
+        return null;
       },
 
       deleteUser: async (id) => {

@@ -296,6 +296,6 @@ export interface WorkshopStore {
   loadUserSessions: () => Promise<void>;
   loadAdminData: () => Promise<void>;
   logActivity: (action: string, detail?: string) => Promise<void>;
-  setUserRole: (id: string, role: UserRole) => Promise<void>;
+  setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;
 }

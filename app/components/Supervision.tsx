@@ -51,6 +51,13 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
   const [uSearch, setUSearch] = useState('');
   const [uRole, setURole] = useState('all');
   const [delUser, setDelUser] = useState<{ id: string; label: string } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const tm = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(tm);
+  }, [toast]);
 
   useEffect(() => {
     loadAdminData();
@@ -62,13 +69,15 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
 
   async function changeRole(id: string, currentRole: string) {
     setBusyId(id);
-    await setUserRole(id, currentRole === 'admin' ? 'user' : 'admin');
+    const err = await setUserRole(id, currentRole === 'admin' ? 'user' : 'admin');
     setBusyId(null);
+    if (err) setToast(`Échec du changement de rôle : ${err}`);
   }
   async function toggleBan(id: string, currentRole: string) {
     setBusyId(id);
-    await setUserRole(id, currentRole === 'banned' ? 'user' : 'banned');
+    const err = await setUserRole(id, currentRole === 'banned' ? 'user' : 'banned');
     setBusyId(null);
+    if (err) setToast(`Échec du bannissement : ${err}`);
   }
   async function doDeleteUser() {
     if (!delUser) return;
@@ -293,6 +302,14 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
               <button onClick={doDeleteUser} disabled={busyId === delUser.id} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{busyId === delUser.id ? '…' : 'Supprimer'}</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: 'var(--bg-code, #1f2430)', color: '#fff', padding: '12px 18px', borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.35)', fontSize: 13.5, maxWidth: 'min(640px, 92vw)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+          <span>{toast}</span>
+          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16, marginLeft: 4 }}>✕</button>
         </div>
       )}
     </div>
