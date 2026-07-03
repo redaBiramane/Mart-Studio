@@ -25,6 +25,18 @@ const VE_TIP_CSS = `
 .ve-tip:hover .ve-tip-box, .ve-tip:focus .ve-tip-box { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
 `;
 
+// Sélecteur de type uniforme (affichage majuscules, casse normalisée)
+function TypeSelect({ value, onChange, style }: { value: string; onChange: (v: string) => void; style?: React.CSSProperties }) {
+  const v = (value || 'varchar').toLowerCase();
+  const custom = !SQL_TYPES.includes(v) && v;
+  return (
+    <select className="nodrag" value={v} onChange={(e) => onChange(e.target.value)} title="Type SQL" style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', borderRadius: 6, cursor: 'pointer', textTransform: 'uppercase', fontSize: 12, ...style }}>
+      {custom && <option value={v}>{v}</option>}
+      {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+    </select>
+  );
+}
+
 // ---- Nœud table personnalisé ----
 type TableData = {
   entity: Entity;
@@ -69,10 +81,7 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
                 {a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}
               </button>
               <input className="nodrag" value={a.name} onChange={(e) => data.onAttr(a.id, { name: e.target.value })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 12.5, color: 'var(--text)', outline: 'none', padding: '2px 4px', borderRadius: 4 }} />
-              <select className="nodrag" value={a.type || 'varchar'} onChange={(e) => data.onAttr(a.id, { type: e.target.value })} title="Type SQL" style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 12, color: 'var(--text-secondary)', borderRadius: 6, padding: '4px 5px', minWidth: 82, maxWidth: 110, cursor: 'pointer' }}>
-                {!SQL_TYPES.includes(a.type) && a.type && <option value={a.type}>{a.type}</option>}
-                {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <TypeSelect value={a.type} onChange={(v) => data.onAttr(a.id, { type: v })} style={{ padding: '4px 5px', minWidth: 82, maxWidth: 110 }} />
               <button className="nodrag" onClick={() => data.onDelAttr(a.id)} title="Supprimer la colonne" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
             </div>
           ))}
@@ -109,6 +118,14 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [columnsFor, setColumnsFor] = useState<string | null>(null);
   const [colSearch, setColSearch] = useState('');
+  const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
+  const [relEdit, setRelEdit] = useState<{ type: Relation['type']; fkColumn: string; refColumn: string; isHierarchy: boolean } | null>(null);
+
+  // Charge les valeurs de la relation sélectionnée dans un tampon (validation par bouton)
+  useEffect(() => {
+    const r = useWorkshopStore.getState().session?.relations.find((x) => x.id === selectedRel);
+    setRelEdit(r ? { type: r.type, fkColumn: r.fkColumn || '', refColumn: r.refColumn || '', isHierarchy: r.isHierarchy } : null);
+  }, [selectedRel]);
 
   // Recadrer/centrer à l'entrée en plein écran (et au montage)
   useEffect(() => {
@@ -308,7 +325,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     id: e.id,
     type: 'table',
     position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
-    data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: deleteEntity, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor },
+    data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: setDeleteTableId, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor },
   })), [session.entities, session.attributes, positions, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const edges: Edge[] = useMemo(() => {
@@ -366,7 +383,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const selRel = session.relations.find((r) => r.id === selectedRel) || null;
   const relSrc = selRel ? session.entities.find((e) => e.id === selRel.sourceEntityId || e.name === selRel.sourceEntityName) : null;
   const relTgt = selRel ? session.entities.find((e) => e.id === selRel.targetEntityId || e.name === selRel.targetEntityName) : null;
-  const patchRel = (patch: Partial<Relation>) => selRel && updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, ...patch } : r) });
+  const delTableEnt = deleteTableId ? session.entities.find((e) => e.id === deleteTableId) : null;
 
   const containerStyle: React.CSSProperties = fullscreen
     ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg-surface)' }
@@ -435,10 +452,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
                   <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderBottom: '1px solid var(--border-light)' }}>
                     <button onClick={() => patchAttribute(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 30, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>{a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}</button>
                     <input value={a.name} onChange={(e) => patchAttribute(a.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 13, color: 'var(--text)', outline: 'none', padding: '6px 8px', borderRadius: 6 }} />
-                    <select value={a.type || 'varchar'} onChange={(e) => patchAttribute(a.id, { type: e.target.value })} style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 12.5, color: 'var(--text-secondary)', borderRadius: 6, padding: '6px', minWidth: 110 }}>
-                      {!SQL_TYPES.includes(a.type) && a.type && <option value={a.type}>{a.type}</option>}
-                      {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <TypeSelect value={a.type} onChange={(v) => patchAttribute(a.id, { type: v })} style={{ fontSize: 12.5, padding: '6px', minWidth: 120 }} />
                     <button onClick={() => deleteAttribute(a.id)} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16 }}>×</button>
                   </div>
                 ))}
@@ -476,10 +490,29 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         </div>
       )}
 
-      {/* Modale d'édition de relation (centrée) */}
-      {selRel && (
+      {/* Confirmation : suppression de table */}
+      {delTableEnt && (
+        <div onClick={() => setDeleteTableId(null)} style={{ position: 'absolute', inset: 0, zIndex: 56, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(420px, 94%)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', padding: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ color: 'var(--accent-red)', display: 'flex' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg></span>
+              <h3 style={{ fontSize: 17, margin: 0 }}>Supprimer la table ?</h3>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
+              La table <strong style={{ textTransform: 'uppercase' }}>{delTableEnt.name}</strong>, ses <strong>colonnes</strong> et ses <strong>relations</strong> seront supprimées. Cette action est irréversible.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button className="suggested-chip" onClick={() => setDeleteTableId(null)}>Annuler</button>
+              <button onClick={() => { deleteEntity(delTableEnt.id); setDeleteTableId(null); }} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale d'édition de relation (validation par bouton) */}
+      {selRel && relEdit && (
         <div onClick={() => setSelectedRel(null)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(360px, 92%)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', padding: 22 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(370px, 94%)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', padding: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <strong style={{ fontSize: 15 }}>Relation</strong>
               <button onClick={() => setSelectedRel(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
@@ -489,8 +522,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
             </div>
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Cardinalité</label>
             <select
-              value={selRel.type}
-              onChange={(e) => patchRel({ type: e.target.value as Relation['type'] })}
+              value={relEdit.type}
+              onChange={(e) => setRelEdit({ ...relEdit, type: e.target.value as Relation['type'] })}
               style={{ width: '100%', height: 42, marginTop: 6, marginBottom: 14, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 14 }}
             >
               {REL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -499,8 +532,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Jointure sur les colonnes</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 14 }}>
               <select
-                value={selRel.refColumn || ''}
-                onChange={(e) => patchRel({ refColumn: e.target.value })}
+                value={relEdit.refColumn}
+                onChange={(e) => setRelEdit({ ...relEdit, refColumn: e.target.value })}
                 title={`Colonne dans ${relSrc?.name || 'source'}`}
                 style={{ flex: 1, minWidth: 0, height: 38, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 12.5 }}
               >
@@ -509,15 +542,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
               </select>
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>→</span>
               <select
-                value={selRel.fkColumn || ''}
-                onChange={(e) => {
-                  const fk = e.target.value;
-                  patchRel({ fkColumn: fk });
-                  // marque la colonne comme clé étrangère
-                  if (fk && relTgt) {
-                    updateSessionData({ attributes: session.attributes.map((a) => ((a.entityId === relTgt.id || a.entityId === relTgt.name) && a.name === fk) ? { ...a, isForeignKey: true } : a) });
-                  }
-                }}
+                value={relEdit.fkColumn}
+                onChange={(e) => setRelEdit({ ...relEdit, fkColumn: e.target.value })}
                 title={`Colonne FK dans ${relTgt?.name || 'cible'}`}
                 style={{ flex: 1, minWidth: 0, height: 38, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 12.5 }}
               >
@@ -527,7 +553,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
+                <input type="checkbox" checked={relEdit.isHierarchy} onChange={(e) => setRelEdit({ ...relEdit, isHierarchy: e.target.checked })} />
                 Hiérarchie
               </label>
               <span className="ve-tip" tabIndex={0} role="button" aria-label="À quoi sert la hiérarchie ?">i
@@ -536,7 +562,19 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
                 </span>
               </span>
             </div>
-            <button onClick={() => { deleteRelation(selRel.id); setSelectedRel(null); }} style={{ width: '100%', background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Supprimer la relation</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { deleteRelation(selRel.id); setSelectedRel(null); }} title="Supprimer la relation" style={{ flexShrink: 0, background: 'var(--bg-surface)', color: 'var(--accent-red)', border: '1px solid var(--border)', borderRadius: 9, padding: '11px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
+              <button
+                onClick={() => {
+                  updateSessionData({
+                    relations: session.relations.map((r) => r.id === selRel.id ? { ...r, type: relEdit.type, fkColumn: relEdit.fkColumn || undefined, refColumn: relEdit.refColumn || undefined, isHierarchy: relEdit.isHierarchy } : r),
+                    attributes: (relEdit.fkColumn && relTgt) ? session.attributes.map((a) => ((a.entityId === relTgt.id || a.entityId === relTgt.name) && a.name === relEdit.fkColumn) ? { ...a, isForeignKey: true } : a) : session.attributes,
+                  });
+                  setSelectedRel(null);
+                }}
+                style={{ flex: 1, background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 9, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+              >Valider</button>
+            </div>
           </div>
         </div>
       )}
