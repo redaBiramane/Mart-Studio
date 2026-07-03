@@ -220,7 +220,7 @@ export interface LLMSettings {
 
 // ---- Auth / Admin ----
 
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'admin' | 'banned';
 
 export interface AuthUser {
   id: string;
@@ -296,4 +296,6 @@ export interface WorkshopStore {
   loadUserSessions: () => Promise<void>;
   loadAdminData: () => Promise<void>;
   logActivity: (action: string, detail?: string) => Promise<void>;
+  setUserRole: (id: string, role: UserRole) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 }

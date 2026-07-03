@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
 
 const ACTION_META: Record<string, { icon: string; label: string }> = {
   login: { icon: 'key', label: 'Connexion' },
@@ -33,6 +32,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
     idea: <><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.3 1 2.5h6c0-1.2.3-1.8 1-2.5A6 6 0 0 0 12 3Z" /></>,
     promote: <><path d="M12 19V5M6 11l6-6 6 6" /></>,
     demote: <><path d="M12 5v14M6 13l6 6 6-6" /></>,
+    ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: '-3px', flexShrink: 0 }}>
@@ -42,12 +42,15 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
 }
 
 export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' }) {
-  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData } = useWorkshopStore();
+  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser } = useWorkshopStore();
   const [tab, setTab] = useState<'activity' | 'products' | 'users'>(initialTab);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [fUser, setFUser] = useState('all');
   const [fAction, setFAction] = useState('all');
   const [fDetail, setFDetail] = useState('');
+  const [uSearch, setUSearch] = useState('');
+  const [uRole, setURole] = useState('all');
+  const [delUser, setDelUser] = useState<{ id: string; label: string } | null>(null);
 
   useEffect(() => {
     loadAdminData();
@@ -58,12 +61,21 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
   }, [initialTab]);
 
   async function changeRole(id: string, currentRole: string) {
-    if (!supabase) return;
     setBusyId(id);
-    const next = currentRole === 'admin' ? 'user' : 'admin';
-    await supabase.from('profiles').update({ role: next }).eq('id', id);
-    await loadAdminData();
+    await setUserRole(id, currentRole === 'admin' ? 'user' : 'admin');
     setBusyId(null);
+  }
+  async function toggleBan(id: string, currentRole: string) {
+    setBusyId(id);
+    await setUserRole(id, currentRole === 'banned' ? 'user' : 'banned');
+    setBusyId(null);
+  }
+  async function doDeleteUser() {
+    if (!delUser) return;
+    setBusyId(delUser.id);
+    await deleteUser(delUser.id);
+    setBusyId(null);
+    setDelUser(null);
   }
 
   if (profile?.role !== 'admin') {
@@ -92,6 +104,11 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
     (fUser === 'all' || l.user_email === fUser) &&
     (fAction === 'all' || l.action === fAction) &&
     (!fDetail || `${l.detail || ''}`.toLowerCase().includes(fDetail.toLowerCase()))
+  );
+
+  const filteredUsers = adminProfiles.filter(u =>
+    (uRole === 'all' || u.role === uRole) &&
+    (!uSearch || `${u.full_name || ''} ${u.email}`.toLowerCase().includes(uSearch.toLowerCase()))
   );
 
   const th: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '2px solid var(--border)' };
@@ -202,33 +219,82 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
 
         {tab === 'users' && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead><tr><th style={th}>Nom</th><th style={th}>Email</th><th style={th}>Rôle</th><th style={th}>Inscrit le</th><th style={th}>Actions</th></tr></thead>
+            <thead>
+              <tr><th style={th}>Nom</th><th style={th}>Email</th><th style={th}>Rôle</th><th style={th}>Inscrit le</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr>
+              <tr>
+                <th style={filterTh} colSpan={2}>
+                  <input style={filterCtl} placeholder="Rechercher un nom ou email…" value={uSearch} onChange={e => setUSearch(e.target.value)} />
+                </th>
+                <th style={filterTh}>
+                  <select style={filterCtl} value={uRole} onChange={e => setURole(e.target.value)}>
+                    <option value="all">Tous les rôles</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">User</option>
+                    <option value="banned">Banni</option>
+                  </select>
+                </th>
+                <th style={filterTh} colSpan={2} />
+              </tr>
+            </thead>
             <tbody>
-              {adminProfiles.map(u => (
-                <tr key={u.id}>
-                  <td style={{ ...td, fontWeight: 600 }}>{u.full_name || '—'}</td>
-                  <td style={td}>{u.email}</td>
-                  <td style={td}>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: u.role === 'admin' ? '#fde68a' : 'var(--border)', color: u.role === 'admin' ? '#92400e' : 'var(--text-secondary)' }}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td style={td}>{fmt(u.created_at)}</td>
-                  <td style={td}>
-                    {u.id === user?.id ? (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>vous</span>
-                    ) : (
-                      <button className="suggested-chip" disabled={busyId === u.id} onClick={() => changeRole(u.id, u.role)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {busyId === u.id ? '…' : <><SIcon name={u.role === 'admin' ? 'demote' : 'promote'} size={14} /> {u.role === 'admin' ? 'Rétrograder' : 'Promouvoir admin'}</>}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filteredUsers.map(u => {
+                const roleBg = u.role === 'admin' ? '#fde68a' : u.role === 'banned' ? '#fecaca' : 'var(--border)';
+                const roleFg = u.role === 'admin' ? '#92400e' : u.role === 'banned' ? '#991b1b' : 'var(--text-secondary)';
+                const roleLabel = u.role === 'banned' ? 'banni' : u.role;
+                return (
+                  <tr key={u.id}>
+                    <td style={{ ...td, fontWeight: 600 }}>{u.full_name || '—'}</td>
+                    <td style={td}>{u.email}</td>
+                    <td style={td}>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: roleBg, color: roleFg }}>{roleLabel}</span>
+                    </td>
+                    <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmt(u.created_at)}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>
+                      {u.id === user?.id ? (
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>vous</span>
+                      ) : (
+                        <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          {u.role !== 'banned' && (
+                            <button className="suggested-chip" disabled={busyId === u.id} onClick={() => changeRole(u.id, u.role)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title={u.role === 'admin' ? 'Rétrograder' : 'Promouvoir admin'}>
+                              <SIcon name={u.role === 'admin' ? 'demote' : 'promote'} size={14} /> {u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'}
+                            </button>
+                          )}
+                          <button className="suggested-chip" disabled={busyId === u.id} onClick={() => toggleBan(u.id, u.role)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: u.role === 'banned' ? 'var(--primary)' : 'var(--accent-amber)' }} title={u.role === 'banned' ? 'Réactiver' : 'Bannir'}>
+                            <SIcon name={u.role === 'banned' ? 'check' : 'ban'} size={14} /> {u.role === 'banned' ? 'Réactiver' : 'Bannir'}
+                          </button>
+                          <button className="suggested-chip" disabled={busyId === u.id} onClick={() => setDelUser({ id: u.id, label: u.full_name || u.email })} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--accent-red)' }} title="Supprimer">
+                            <SIcon name="trash" size={14} /> Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredUsers.length === 0 && <tr><td style={td} colSpan={5}>Aucun utilisateur pour ces filtres.</td></tr>}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Modale confirmation suppression utilisateur */}
+      {delUser && (
+        <div onClick={() => setDelUser(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ color: 'var(--accent-red)', display: 'flex' }}><SIcon name="trash" size={22} /></span>
+              <h3 style={{ fontSize: 17, margin: 0 }}>Supprimer l&apos;utilisateur</h3>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
+              Supprimer définitivement <strong>{delUser.label}</strong> et tous ses Data Products ? Cette action est irréversible.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button className="suggested-chip" onClick={() => setDelUser(null)}>Annuler</button>
+              <button onClick={doDeleteUser} disabled={busyId === delUser.id} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{busyId === delUser.id ? '…' : 'Supprimer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

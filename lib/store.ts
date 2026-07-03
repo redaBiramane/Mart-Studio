@@ -102,8 +102,13 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const { data } = await supabase.auth.getSession();
         const sUser = data.session?.user;
         if (sUser) {
-          set({ user: { id: sUser.id, email: sUser.email || '' } });
           const { data: prof } = await supabase.from('profiles').select('*').eq('id', sUser.id).single();
+          if (prof?.role === 'banned') {
+            await supabase.auth.signOut();
+            set({ user: null, profile: null, authReady: true });
+            return;
+          }
+          set({ user: { id: sUser.id, email: sUser.email || '' } });
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
           if (prof?.role === 'admin') await get().loadAdminData();
@@ -127,8 +132,13 @@ export const useWorkshopStore = create<WorkshopStore>()(
           set({ authError: error?.message || 'Connexion impossible.' });
           return false;
         }
-        set({ user: { id: data.user.id, email: data.user.email || '' } });
         const { data: prof } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+        if (prof?.role === 'banned') {
+          await supabase.auth.signOut();
+          set({ user: null, profile: null, authError: 'Votre compte a été suspendu. Contactez un administrateur.' });
+          return false;
+        }
+        set({ user: { id: data.user.id, email: data.user.email || '' } });
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
         if (prof?.role === 'admin') await get().loadAdminData();
@@ -208,6 +218,23 @@ export const useWorkshopStore = create<WorkshopStore>()(
           action,
           detail: detail || null,
         });
+      },
+
+      // ---- Admin : gestion des utilisateurs --------------------------------
+
+      setUserRole: async (id, role) => {
+        if (!supabase) return;
+        await supabase.from('profiles').update({ role }).eq('id', id);
+        await get().logActivity(role === 'banned' ? 'ban_user' : 'set_role', `${id} → ${role}`);
+        await get().loadAdminData();
+      },
+
+      deleteUser: async (id) => {
+        if (!supabase) return;
+        await supabase.from('data_products').delete().eq('owner_id', id);
+        await supabase.from('profiles').delete().eq('id', id);
+        await get().logActivity('delete_user', id);
+        await get().loadAdminData();
       },
 
       // ---- Sessions --------------------------------------------------------
