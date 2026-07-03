@@ -28,7 +28,7 @@ type TableData = {
 function TableNode({ data }: NodeProps<Node<TableData>>) {
   const { entity, attrs } = data;
   return (
-    <div style={{ minWidth: 220, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12 }}>
+    <div style={{ minWidth: 230, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12, cursor: 'grab' }}>
       <Handle type="target" position={Position.Left} style={{ background: 'var(--primary)', width: 9, height: 9 }} />
       <Handle type="source" position={Position.Right} style={{ background: 'var(--primary)', width: 9, height: 9 }} />
       <div className="gd-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)', cursor: 'grab' }}>
@@ -46,15 +46,15 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
       </div>
       <div style={{ padding: 6 }}>
         {attrs.map((a) => (
-          <div key={a.id} className="nodrag" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
-            <button onClick={() => data.onAttr(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 20, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>
+          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
+            <button className="nodrag" onClick={() => data.onAttr(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 20, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>
               {a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}
             </button>
-            <input value={a.name} onChange={(e) => data.onAttr(a.id, { name: e.target.value })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 11.5, color: 'var(--text)', outline: 'none', padding: '1px 3px', borderRadius: 4 }} />
-            <select value={a.type || 'varchar'} onChange={(e) => data.onAttr(a.id, { type: e.target.value })} style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 10.5, color: 'var(--text-secondary)', borderRadius: 4, padding: '1px 2px' }}>
+            <input className="nodrag" value={a.name} onChange={(e) => data.onAttr(a.id, { name: e.target.value })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 11.5, color: 'var(--text)', outline: 'none', padding: '1px 3px', borderRadius: 4 }} />
+            <select className="nodrag" value={a.type || 'varchar'} onChange={(e) => data.onAttr(a.id, { type: e.target.value })} style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 10.5, color: 'var(--text-secondary)', borderRadius: 4, padding: '1px 2px' }}>
               {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <button onClick={() => data.onDelAttr(a.id)} title="Supprimer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>×</button>
+            <button className="nodrag" onClick={() => data.onDelAttr(a.id)} title="Supprimer la colonne" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>×</button>
           </div>
         ))}
         <button className="nodrag" onClick={() => data.onAddAttr(entity.id)} style={{ marginTop: 4, width: '100%', background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 6, color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 11, padding: '4px 0' }}>+ colonne</button>
@@ -81,6 +81,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('mart-erd-hint') !== 'off';
   });
+  const [selectedRel, setSelectedRel] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   function closeHint() {
     setHintOpen(false);
     try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
@@ -155,11 +157,6 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     const rel: Relation = { id: genId('r'), sourceEntityId: sourceId, targetEntityId: targetId, sourceEntityName: s.name, targetEntityName: t.name, type: '1:N', isRequired: false, description: '', isHierarchy: false };
     updateSessionData({ relations: [...session.relations, rel] });
   };
-  const cycleRelation = (relId: string) => {
-    updateSessionData({
-      relations: session.relations.map((r) => r.id === relId ? { ...r, type: REL_TYPES[(REL_TYPES.indexOf(r.type) + 1) % REL_TYPES.length] } : r),
-    });
-  };
   const deleteRelation = (relId: string) => {
     updateSessionData({ relations: session.relations.filter((r) => r.id !== relId) });
   };
@@ -168,7 +165,6 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => ({
     id: e.id,
     type: 'table',
-    dragHandle: '.gd-drag',
     position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
     data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: deleteEntity, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute },
   })), [session.entities, session.attributes, positions, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -189,19 +185,20 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         const source = resolve(r.sourceEntityId, r.sourceEntityName);
         const target = resolve(r.targetEntityId, r.targetEntityName);
         if (!source || !target) return null; // entité absente du canvas (ex. Region)
+        const sel = r.id === selectedRel;
         return {
           id: r.id,
           source,
           target,
           label: r.type,
-          labelStyle: { fontSize: 11, fontWeight: 700, fill: 'var(--primary)' },
+          labelStyle: { fontSize: 11, fontWeight: 700, fill: sel ? 'var(--accent-amber)' : 'var(--primary)' },
           labelBgStyle: { fill: 'var(--bg-surface)' },
-          style: { stroke: 'var(--primary)', strokeWidth: 1.6 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)' },
+          style: { stroke: sel ? 'var(--accent-amber)' : 'var(--primary)', strokeWidth: sel ? 2.6 : 1.6 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: sel ? 'var(--accent-amber)' : 'var(--primary)' },
         } as Edge;
       })
       .filter((e): e is Edge => e !== null);
-  }, [session.relations, session.entities]);
+  }, [session.relations, session.entities, selectedRel]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setPositions((prev) => {
@@ -222,8 +219,14 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     if (c.source && c.target) addRelation(c.source, c.target);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const selRel = session.relations.find((r) => r.id === selectedRel) || null;
+
+  const containerStyle: React.CSSProperties = fullscreen
+    ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg-surface)' }
+    : { flex: 1, position: 'relative' };
+
   return (
-    <div style={{ flex: 1, position: 'relative' }}>
+    <div style={containerStyle}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -231,7 +234,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onEdgeClick={(_, e) => cycleRelation(e.id)}
+        onEdgeClick={(_, e) => setSelectedRel(e.id)}
+        onPaneClick={() => setSelectedRel(null)}
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
@@ -243,10 +247,43 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
 
       <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 8 }}>
         <button className="cta-btn" onClick={addEntity} style={{ padding: '8px 14px' }}>+ Table</button>
+        <button onClick={() => setFullscreen((f) => !f)} title={fullscreen ? 'Réduire' : 'Plein écran'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            {fullscreen ? <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4" /> : <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />}
+          </svg>
+          {fullscreen ? 'Réduire' : 'Plein écran'}
+        </button>
       </div>
-      {hintOpen && (
-        <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, fontSize: 11.5, color: 'var(--text-muted)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 30px 8px 10px', maxWidth: 320, boxShadow: 'var(--shadow)' }}>
-          Tirez d&apos;une table à l&apos;autre pour créer une relation · cliquez une relation pour changer sa cardinalité · Suppr. pour l&apos;effacer. Marty lit ce schéma en temps réel.
+
+      {/* Panneau d'édition de relation */}
+      {selRel && (
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 6, width: 250, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--shadow-lg)', padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <strong style={{ fontSize: 13 }}>Relation</strong>
+            <button onClick={() => setSelectedRel(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text)', marginBottom: 12 }}>
+            <strong>{selRel.sourceEntityName}</strong> <span style={{ color: 'var(--text-muted)' }}>→</span> <strong>{selRel.targetEntityName}</strong>
+          </div>
+          <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Cardinalité</label>
+          <select
+            value={selRel.type}
+            onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, type: e.target.value as Relation['type'] } : r) })}
+            style={{ width: '100%', height: 38, marginTop: 5, marginBottom: 10, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 13 }}
+          >
+            {REL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 14, cursor: 'pointer' }}>
+            <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
+            Hiérarchie
+          </label>
+          <button onClick={() => { deleteRelation(selRel.id); setSelectedRel(null); }} style={{ width: '100%', background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Supprimer la relation</button>
+        </div>
+      )}
+
+      {hintOpen && !selRel && (
+        <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, fontSize: 11.5, color: 'var(--text-muted)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 30px 8px 10px', maxWidth: 340, boxShadow: 'var(--shadow)' }}>
+          Tirez d&apos;une table à l&apos;autre (point à droite → point à gauche) pour créer une relation · cliquez une relation pour l&apos;éditer ou la supprimer. Marty lit ce schéma en temps réel.
           <button onClick={closeHint} title="Masquer" style={{ position: 'absolute', top: 4, right: 6, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
         </div>
       )}
