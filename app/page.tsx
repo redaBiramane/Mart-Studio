@@ -164,7 +164,6 @@ export default function Home() {
         <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3, color: 'var(--text)' }}>Mart Studio</div>
         <div className="app-progress" />
         <div style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: 0.3 }}>Chargement…</div>
-        <Image src="/sofinco-logo.svg" alt="Sofinco" width={104} height={22} style={{ width: 104, height: 22, opacity: 0.55, marginTop: 8 }} />
       </div>
     );
   }
