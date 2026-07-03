@@ -77,6 +77,34 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     try { localStorage.setItem(posKey, JSON.stringify(positions)); } catch { /* ignore */ }
   }, [positions, posKey]);
 
+  const [hintOpen, setHintOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('mart-erd-hint') !== 'off';
+  });
+  function closeHint() {
+    setHintOpen(false);
+    try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
+  }
+
+  // Réconciliation : toute entité citée dans une relation mais absente des entités
+  // est créée comme table → le visuel devient iso avec les données collectées.
+  useEffect(() => {
+    const haveId = new Set(session.entities.map((e) => e.id));
+    const haveName = new Set(session.entities.map((e) => e.name.toLowerCase()));
+    const missing = new Map<string, string>();
+    session.relations.forEach((r) => {
+      ([[r.sourceEntityId, r.sourceEntityName], [r.targetEntityId, r.targetEntityName]] as const).forEach(([id, name]) => {
+        const ok = (id && haveId.has(id)) || (name && haveName.has(name.toLowerCase())) || (id && haveName.has(id.toLowerCase()));
+        const disp = (name || id || '').trim();
+        if (!ok && disp) missing.set(disp.toLowerCase(), disp);
+      });
+    });
+    if (missing.size > 0) {
+      const newEnts: Entity[] = Array.from(missing.values()).map((nm) => ({ id: genId('e'), name: nm, definition: '', description: '', example: '', responsible: '', type: 'reference', lifecycle: 'created' }));
+      updateSessionData({ entities: [...session.entities, ...newEnts] });
+    }
+  }, [session.entities, session.relations]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const attrsOf = useCallback(
     (e: Entity) => session.attributes.filter((a) => a.entityId === e.id || a.entityId === e.name),
     [session.attributes]
@@ -216,9 +244,12 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
       <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 8 }}>
         <button className="cta-btn" onClick={addEntity} style={{ padding: '8px 14px' }}>+ Table</button>
       </div>
-      <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, fontSize: 11.5, color: 'var(--text-muted)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', maxWidth: 320 }}>
-        Tirez d&apos;une table à l&apos;autre pour créer une relation · cliquez une relation pour changer sa cardinalité · Suppr. pour l&apos;effacer. Marty lit ce schéma en temps réel.
-      </div>
+      {hintOpen && (
+        <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, fontSize: 11.5, color: 'var(--text-muted)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 30px 8px 10px', maxWidth: 320, boxShadow: 'var(--shadow)' }}>
+          Tirez d&apos;une table à l&apos;autre pour créer une relation · cliquez une relation pour changer sa cardinalité · Suppr. pour l&apos;effacer. Marty lit ce schéma en temps réel.
+          <button onClick={closeHint} title="Masquer" style={{ position: 'absolute', top: 4, right: 6, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
+        </div>
+      )}
     </div>
   );
 }
