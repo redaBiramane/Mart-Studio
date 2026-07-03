@@ -135,15 +135,15 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
   }, [session.entities, session.relations, session.attributes]);
 
-  // Auto-agencement à la première ouverture (aucune position mémorisée)
+  // Agencement automatique à chaque ouverture du Visuel (Arranger par défaut).
   const didAutoArrange = useRef(false);
   useEffect(() => {
     if (didAutoArrange.current) return;
-    if (session.entities.length > 2 && Object.keys(positions).length === 0) {
+    if (session.entities.length > 0) {
       didAutoArrange.current = true;
       setTimeout(() => arrange(), 250);
     }
-  }, [session.entities.length, positions, arrange]);
+  }, [session.entities.length, arrange]);
   function closeHint() {
     setHintOpen(false);
     try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
