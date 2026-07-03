@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType,
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
@@ -13,6 +13,8 @@ const SQL_TYPES = ['bigint', 'int', 'varchar', 'text', 'decimal', 'numeric', 'da
 const REL_TYPES: Relation['type'][] = ['1:N', 'N:1', '1:1', 'N:N'];
 
 function genId(p: string) { return `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+
+const toolBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontWeight: 600 };
 
 // ---- Nœud table personnalisé ----
 type TableData = {
@@ -65,8 +67,9 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
 
 const nodeTypes = { table: TableNode };
 
-export default function VisualEditor({ session }: { session: WorkshopSession }) {
+export default function VisualEditor({ session, onSync }: { session: WorkshopSession; onSync?: () => void }) {
   const { updateSessionData } = useWorkshopStore();
+  const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number }) => void } | null>(null);
   const posKey = `mart-erd-pos-${session.id}`;
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>(() => {
     if (typeof window === 'undefined') return {};
@@ -83,6 +86,20 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   });
   const [selectedRel, setSelectedRel] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+
+  // Recadrer/centrer à l'entrée en plein écran (et au montage)
+  useEffect(() => {
+    const t = setTimeout(() => rf.current?.fitView({ padding: 0.2, duration: 300 }), 130);
+    return () => clearTimeout(t);
+  }, [fullscreen]);
+
+  // Réorganiser les tables proprement en grille, puis recadrer
+  const arrange = useCallback(() => {
+    const next: Record<string, { x: number; y: number }> = {};
+    session.entities.forEach((e, i) => { next[e.id] = { x: 40 + (i % 3) * 360, y: 40 + Math.floor(i / 3) * 340 }; });
+    setPositions(next);
+    setTimeout(() => rf.current?.fitView({ padding: 0.2, duration: 300 }), 60);
+  }, [session.entities]);
   function closeHint() {
     setHintOpen(false);
     try { localStorage.setItem('mart-erd-hint', 'off'); } catch { /* ignore */ }
@@ -193,8 +210,10 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           label: r.type,
           labelStyle: { fontSize: 11, fontWeight: 700, fill: sel ? 'var(--accent-amber)' : 'var(--primary)' },
           labelBgStyle: { fill: 'var(--bg-surface)' },
+          labelBgPadding: [4, 2] as [number, number],
           style: { stroke: sel ? 'var(--accent-amber)' : 'var(--primary)', strokeWidth: sel ? 2.6 : 1.6 },
           markerEnd: { type: MarkerType.ArrowClosed, color: sel ? 'var(--accent-amber)' : 'var(--primary)' },
+          interactionWidth: 26,
         } as Edge;
       })
       .filter((e): e is Edge => e !== null);
@@ -236,6 +255,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         onConnect={onConnect}
         onEdgeClick={(_, e) => setSelectedRel(e.id)}
         onPaneClick={() => setSelectedRel(null)}
+        onInit={(inst) => { rf.current = inst as unknown as typeof rf.current; }}
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
@@ -245,14 +265,24 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         <MiniMap pannable zoomable nodeColor="var(--primary)" style={{ background: 'var(--bg-elevated)' }} />
       </ReactFlow>
 
-      <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 8 }}>
+      <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button className="cta-btn" onClick={addEntity} style={{ padding: '8px 14px' }}>+ Table</button>
-        <button onClick={() => setFullscreen((f) => !f)} title={fullscreen ? 'Réduire' : 'Plein écran'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
+        <button onClick={arrange} title="Réorganiser les tables" style={toolBtn}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+          Arranger
+        </button>
+        <button onClick={() => setFullscreen((f) => !f)} title={fullscreen ? 'Réduire' : 'Plein écran'} style={toolBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             {fullscreen ? <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4" /> : <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />}
           </svg>
           {fullscreen ? 'Réduire' : 'Plein écran'}
         </button>
+        {onSync && (
+          <button onClick={onSync} title="Faire relire le schéma à Marty" style={{ ...toolBtn, color: 'var(--primary)', borderColor: 'var(--border-active)' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg>
+            Synchroniser avec Marty
+          </button>
+        )}
       </div>
 
       {/* Panneau d'édition de relation */}
