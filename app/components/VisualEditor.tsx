@@ -304,29 +304,31 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         </button>
       </div>
 
-      {/* Panneau d'édition de relation */}
+      {/* Modale d'édition de relation (centrée) */}
       {selRel && (
-        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 6, width: 250, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--shadow-lg)', padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <strong style={{ fontSize: 13 }}>Relation</strong>
-            <button onClick={() => setSelectedRel(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        <div onClick={() => setSelectedRel(null)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(360px, 92%)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong style={{ fontSize: 15 }}>Relation</strong>
+              <button onClick={() => setSelectedRel(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 16, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
+              <strong>{selRel.sourceEntityName}</strong> <span style={{ color: 'var(--primary)', fontWeight: 700 }}>→</span> <strong>{selRel.targetEntityName}</strong>
+            </div>
+            <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Cardinalité</label>
+            <select
+              value={selRel.type}
+              onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, type: e.target.value as Relation['type'] } : r) })}
+              style={{ width: '100%', height: 42, marginTop: 6, marginBottom: 14, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 14 }}
+            >
+              {REL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 18, cursor: 'pointer' }}>
+              <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
+              Hiérarchie
+            </label>
+            <button onClick={() => { deleteRelation(selRel.id); setSelectedRel(null); }} style={{ width: '100%', background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Supprimer la relation</button>
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text)', marginBottom: 12 }}>
-            <strong>{selRel.sourceEntityName}</strong> <span style={{ color: 'var(--text-muted)' }}>→</span> <strong>{selRel.targetEntityName}</strong>
-          </div>
-          <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Cardinalité</label>
-          <select
-            value={selRel.type}
-            onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, type: e.target.value as Relation['type'] } : r) })}
-            style={{ width: '100%', height: 38, marginTop: 5, marginBottom: 10, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 13 }}
-          >
-            {REL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 14, cursor: 'pointer' }}>
-            <input type="checkbox" checked={selRel.isHierarchy} onChange={(e) => updateSessionData({ relations: session.relations.map((r) => r.id === selRel.id ? { ...r, isHierarchy: e.target.checked } : r) })} />
-            Hiérarchie
-          </label>
-          <button onClick={() => { deleteRelation(selRel.id); setSelectedRel(null); }} style={{ width: '100%', background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Supprimer la relation</button>
         </div>
       )}
 
