@@ -141,6 +141,8 @@ const DICT: Dict = {
   'dp.open': { fr: 'Ouvrir', en: 'Open' },
   'dp.deliverables': { fr: 'Livrables', en: 'Deliverables' },
   'dp.duplicateTitle': { fr: 'Dupliquer', en: 'Duplicate' },
+  'dp.cancel': { fr: 'Annuler', en: 'Cancel' },
+  'dp.save': { fr: 'Enregistrer', en: 'Save' },
   'dp.renameTitle': { fr: 'Renommer', en: 'Rename' },
   'dp.deleteTitle': { fr: 'Supprimer', en: 'Delete' },
   'dp.renamePrompt': { fr: 'Nouveau nom du Data Product :', en: 'New Data Product name:' },

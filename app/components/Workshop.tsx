@@ -17,6 +17,13 @@ export default function Workshop() {
   const hasInitialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const currentStep = session?.currentStep || 1;
   const stepDef = STEPS[currentStep - 1];
@@ -394,7 +401,7 @@ export default function Workshop() {
     const file = e.target.files?.[0];
     if (!file || !session) return;
     if (file.size > 3 * 1024 * 1024) {
-      alert('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
+      setToast('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
       e.target.value = '';
       return;
     }
@@ -423,7 +430,7 @@ ${truncated}
 \`\`\``;
       sendMessage({ text: prompt });
     } catch {
-      alert('Impossible de lire ce fichier.');
+      setToast('Impossible de lire ce fichier.');
     } finally {
       setImporting(false);
       e.target.value = '';
@@ -457,6 +464,13 @@ ${truncated}
 
   return (
     <div className="workshop-layout">
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: 'var(--bg-code, #1f2430)', color: '#fff', padding: '12px 18px', borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.35)', fontSize: 13.5, maxWidth: 'min(520px, 90vw)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+          <span>{toast}</span>
+          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16, marginLeft: 4 }}>✕</button>
+        </div>
+      )}
       <StepSidebar currentStep={currentStep} onStepChange={handleStepChange} session={session} />
 
       <div className="chat-panel">

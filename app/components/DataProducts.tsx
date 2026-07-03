@@ -46,6 +46,9 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [domainFilter, setDomainFilter] = useState('all');
   const [sort, setSort] = useState<SortKey>('recent');
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const domains = useMemo(() => {
     const set = new Set<string>();
@@ -77,16 +80,22 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
     return new Date(ts).toLocaleDateString(localeCode(lang), { day: '2-digit', month: 'short', year: 'numeric' });
   }
   function rename(id: string, current: string) {
-    const name = window.prompt(t('dp.renamePrompt'), current);
-    if (name && name.trim()) {
-      loadSession(id);
-      updateSessionData({ productName: name.trim() });
+    setRenameId(id);
+    setRenameValue(current);
+  }
+  function doRename() {
+    if (renameId && renameValue.trim()) {
+      loadSession(renameId);
+      updateSessionData({ productName: renameValue.trim() });
     }
+    setRenameId(null);
   }
   function confirmDelete(id: string, name: string) {
-    if (window.confirm(t('dp.deleteConfirm', { name: name || t('dp.thisProduct') }))) {
-      deleteSession(id);
-    }
+    setDeleteTarget({ id, name });
+  }
+  function doDelete() {
+    if (deleteTarget) deleteSession(deleteTarget.id);
+    setDeleteTarget(null);
   }
 
   const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12, borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap' };
@@ -203,6 +212,49 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
           </table>
         </div>
       )}
+
+      {/* Modale : renommer */}
+      {renameId && (
+        <div onClick={() => setRenameId(null)} style={overlay}>
+          <div onClick={e => e.stopPropagation()} style={modalBox}>
+            <h3 style={{ fontSize: 17, margin: '0 0 14px' }}>{t('dp.renamePrompt')}</h3>
+            <input
+              className="chat-input"
+              autoFocus
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') setRenameId(null); }}
+              style={{ width: '100%', height: 42, padding: '0 12px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+              <button className="suggested-chip" onClick={() => setRenameId(null)}>{t('dp.cancel')}</button>
+              <button className="cta-btn" onClick={doRename} disabled={!renameValue.trim()} style={{ opacity: renameValue.trim() ? 1 : 0.5 }}>{t('dp.save')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : supprimer */}
+      {deleteTarget && (
+        <div onClick={() => setDeleteTarget(null)} style={overlay}>
+          <div onClick={e => e.stopPropagation()} style={modalBox}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ color: 'var(--accent-red)', display: 'flex' }}><Ico name="trash" size={22} /></span>
+              <h3 style={{ fontSize: 17, margin: 0 }}>{t('dp.deleteTitle')}</h3>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
+              {t('dp.deleteConfirm', { name: deleteTarget.name || t('dp.thisProduct') })}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button className="suggested-chip" onClick={() => setDeleteTarget(null)}>{t('dp.cancel')}</button>
+              <button onClick={doDelete} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{t('dp.deleteTitle')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
+const modalBox: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
