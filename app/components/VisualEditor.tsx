@@ -166,10 +166,16 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   };
   const deleteEntity = (id: string) => {
     const ent = session.entities.find((e) => e.id === id);
+    const nm = ent?.name?.toLowerCase();
     updateSessionData({
       entities: session.entities.filter((e) => e.id !== id),
       attributes: session.attributes.filter((a) => a.entityId !== id && a.entityId !== ent?.name),
-      relations: session.relations.filter((r) => r.sourceEntityId !== id && r.targetEntityId !== id),
+      // Retirer toute relation touchant cette table (par id OU par nom), sinon la
+      // réconciliation la recréerait immédiatement.
+      relations: session.relations.filter((r) =>
+        r.sourceEntityId !== id && r.targetEntityId !== id &&
+        r.sourceEntityName?.toLowerCase() !== nm && r.targetEntityName?.toLowerCase() !== nm
+      ),
     });
     setPositions((p) => { const n = { ...p }; delete n[id]; return n; });
   };
