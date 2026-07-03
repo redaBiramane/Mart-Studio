@@ -31,7 +31,10 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
     <div style={{ minWidth: 220, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12 }}>
       <Handle type="target" position={Position.Left} style={{ background: 'var(--primary)', width: 9, height: 9 }} />
       <Handle type="source" position={Position.Right} style={{ background: 'var(--primary)', width: 9, height: 9 }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)' }}>
+      <div className="gd-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)', cursor: 'grab' }}>
+        <span style={{ display: 'flex', color: 'var(--text-muted)', flexShrink: 0 }} title="Glisser pour déplacer">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6" /><circle cx="8" cy="12" r="1.6" /><circle cx="8" cy="18" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
+        </span>
         <input
           className="nodrag"
           value={entity.name}
@@ -83,7 +86,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const addEntity = () => {
     const id = genId('e');
     const entity: Entity = { id, name: `TABLE_${session.entities.length + 1}`, definition: '', description: '', example: '', responsible: '', type: 'transactional', lifecycle: 'created' };
-    setPositions((p) => ({ ...p, [id]: { x: 60 + (session.entities.length % 4) * 260, y: 60 + Math.floor(session.entities.length / 4) * 220 } }));
+    setPositions((p) => ({ ...p, [id]: { x: 40 + (session.entities.length % 3) * 340, y: 40 + Math.floor(session.entities.length / 3) * 320 } }));
     updateSessionData({ entities: [...session.entities, entity] });
   };
   const renameEntity = (id: string, name: string) => {
@@ -137,7 +140,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => ({
     id: e.id,
     type: 'table',
-    position: positions[e.id] || { x: 60 + (i % 4) * 260, y: 60 + Math.floor(i / 4) * 220 },
+    dragHandle: '.gd-drag',
+    position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
     data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: deleteEntity, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute },
   })), [session.entities, session.attributes, positions, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
