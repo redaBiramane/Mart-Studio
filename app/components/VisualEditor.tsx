@@ -118,6 +118,16 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [columnsFor, setColumnsFor] = useState<string | null>(null);
   const [colSearch, setColSearch] = useState('');
+  const [colDraft, setColDraft] = useState<Attribute[] | null>(null);
+
+  // Charge les colonnes dans un tampon éditable (validation par bouton)
+  useEffect(() => {
+    const s = useWorkshopStore.getState().session;
+    const ent = s?.entities.find((e) => e.id === columnsFor);
+    if (!ent) { setColDraft(null); return; }
+    setColDraft((s?.attributes.filter((a) => a.entityId === ent.id || a.entityId === ent.name) || []).map((a) => ({ ...a })));
+    setColSearch('');
+  }, [columnsFor]);
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
   const [relEdit, setRelEdit] = useState<{ type: Relation['type']; fkColumn: string; refColumn: string; isHierarchy: boolean } | null>(null);
 
@@ -430,18 +440,26 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         </button>
       </div>
 
-      {/* Fenêtre : toutes les colonnes d'une table (gère les tables à 600 colonnes) */}
+      {/* Fenêtre : toutes les colonnes d'une table (édition tampon + Valider) */}
       {(() => {
         const ent = columnsFor ? session.entities.find((e) => e.id === columnsFor) : null;
-        if (!ent) return null;
-        const cols = attrsOf(ent).filter((a) => !colSearch || a.name.toLowerCase().includes(colSearch.toLowerCase()));
+        if (!ent || !colDraft) return null;
+        const cols = colDraft.filter((a) => !colSearch || a.name.toLowerCase().includes(colSearch.toLowerCase()));
+        const setCol = (id: string, patch: Partial<Attribute>) => setColDraft(colDraft.map((a) => a.id === id ? { ...a, ...patch } : a));
+        const delCol = (id: string) => setColDraft(colDraft.filter((a) => a.id !== id));
+        const addCol = () => setColDraft([...colDraft, { id: genId('a'), entityId: ent.id, name: 'nouvelle_colonne', type: 'varchar', description: '', isPrimaryKey: false, isForeignKey: false, isNaturalKey: false, isRequired: false, isSensitive: false, isHistorized: false }]);
+        const save = () => {
+          const others = session.attributes.filter((a) => a.entityId !== ent.id && a.entityId !== ent.name);
+          updateSessionData({ attributes: [...others, ...colDraft] });
+          setColumnsFor(null);
+        };
         return (
-          <div onClick={() => { setColumnsFor(null); setColSearch(''); }} style={{ position: 'absolute', inset: 0, zIndex: 55, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={() => setColumnsFor(null)} style={{ position: 'absolute', inset: 0, zIndex: 55, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(680px, 96%)', maxHeight: '86%', display: 'flex', flexDirection: 'column', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
                 <strong style={{ fontSize: 16, color: 'var(--primary-light)', textTransform: 'uppercase' }}>{ent.name}</strong>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{attrsOf(ent).length} colonnes</span>
-                <button onClick={() => { setColumnsFor(null); setColSearch(''); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{colDraft.length} colonnes</span>
+                <button onClick={() => setColumnsFor(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
               </div>
               <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
                 <input value={colSearch} onChange={(e) => setColSearch(e.target.value)} placeholder="Rechercher une colonne…" autoFocus style={{ width: '100%', height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 13.5, outline: 'none' }} />
@@ -450,15 +468,19 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
                 {cols.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Aucune colonne.</div>}
                 {cols.map((a) => (
                   <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderBottom: '1px solid var(--border-light)' }}>
-                    <button onClick={() => patchAttribute(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 30, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>{a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}</button>
-                    <input value={a.name} onChange={(e) => patchAttribute(a.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 13, color: 'var(--text)', outline: 'none', padding: '6px 8px', borderRadius: 6 }} />
-                    <TypeSelect value={a.type} onChange={(v) => patchAttribute(a.id, { type: v })} style={{ fontSize: 12.5, padding: '6px', minWidth: 120 }} />
-                    <button onClick={() => deleteAttribute(a.id)} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16 }}>×</button>
+                    <button onClick={() => setCol(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 30, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>{a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}</button>
+                    <input value={a.name} onChange={(e) => setCol(a.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 13, color: 'var(--text)', outline: 'none', padding: '6px 8px', borderRadius: 6 }} />
+                    <TypeSelect value={a.type} onChange={(v) => setCol(a.id, { type: v })} style={{ fontSize: 12.5, padding: '6px', minWidth: 120 }} />
+                    <button onClick={() => delCol(a.id)} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16 }}>×</button>
                   </div>
                 ))}
               </div>
-              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-                <button className="cta-btn" onClick={() => addAttribute(ent.id)} style={{ width: '100%' }}>+ Ajouter une colonne</button>
+              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button className="suggested-chip" onClick={addCol} style={{ width: '100%', padding: '9px 0' }}>+ Ajouter une colonne</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="suggested-chip" onClick={() => setColumnsFor(null)} style={{ flex: 1 }}>Annuler</button>
+                  <button className="cta-btn" onClick={save} style={{ flex: 2 }}>Valider</button>
+                </div>
               </div>
             </div>
           </div>
