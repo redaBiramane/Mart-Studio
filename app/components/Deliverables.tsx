@@ -1059,43 +1059,91 @@ async function downloadReportPdf(session: WorkshopSession) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 40;
-  let y = margin;
+  const contentW = pageW - margin * 2;
+  const INK = 26, MUTED = 120;
+  let y = 0;
 
   const ensure = (needed: number) => {
-    if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+    if (y + needed > pageH - 46) { doc.addPage(); y = margin; }
   };
-  const para = (text: string, size = 10, color = 40) => {
+  const para = (text: string, size = 10, color = 55) => {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(color);
-    const lines = doc.splitTextToSize(text, pageW - margin * 2) as string[];
-    ensure(lines.length * (size + 2));
+    const lines = doc.splitTextToSize(text, contentW) as string[];
+    ensure(lines.length * (size + 3));
     doc.text(lines, margin, y);
-    y += lines.length * (size + 2) + 2;
+    y += lines.length * (size + 3) + 2;
   };
   const sectionTitle = (t: string) => {
-    y += 8; ensure(28);
+    y += 10; ensure(30);
+    doc.setFillColor(0, 107, 79); doc.roundedRect(margin, y - 1, 3.5, 15, 1.5, 1.5, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(0, 107, 79);
-    doc.text(t, margin, y); y += 6;
-    doc.setDrawColor(220); doc.line(margin, y, pageW - margin, y); y += 14;
+    doc.text(t, margin + 12, y + 11); y += 26;
   };
   const bullets = (title: string, items: string[]) => {
     if (!items.length) return;
     sectionTitle(title);
-    items.forEach(it => para('•  ' + it, 10, 30));
+    items.forEach(it => para('•  ' + it, 10, 45));
   };
 
-  // En-tête
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(0, 107, 79);
-  doc.text(session.productName || 'Data Product', margin, y); y += 22;
-  para(`Domaine : ${session.domain || '—'}`, 10, 70);
-  para(`Product Owner : ${session.productOwner || '—'}    |    Data Steward : ${session.dataSteward || '—'}`, 10, 70);
-  if (session.objective) para(`Objectif : ${session.objective}`, 10, 70);
-  if (session.contextSummary) para(session.contextSummary, 10, 70);
+  // ---- Bandeau de couverture (couleur primaire) ----
+  doc.setFillColor(0, 107, 79); doc.rect(0, 0, pageW, 100, 'F');
+  // Pastille "S" (favicon)
+  doc.setFillColor(62, 227, 211); doc.roundedRect(margin, 30, 34, 34, 8, 8, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(19, 50, 79);
+  doc.text('S', margin + 11, 54);
+  // Titre + eyebrow
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+  doc.text('MART STUDIO  ·  RAPPORT DATA PRODUCT', margin + 46, 40);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(19);
+  const titleLines = doc.splitTextToSize(session.productName || 'Data Product', contentW - 46) as string[];
+  doc.text(titleLines[0], margin + 46, 62);
+  // Date à droite
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }), pageW - margin, 40, { align: 'right' });
 
-  // Entités & attributs
+  y = 122;
+
+  // ---- Méta produit ----
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(0, 107, 79);
+  doc.text('Domaine', margin, y);
+  doc.text('Product Owner', margin + contentW / 3, y);
+  doc.text('Data Steward', margin + (contentW / 3) * 2, y);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK);
+  doc.text(session.domain || '—', margin, y + 15, { maxWidth: contentW / 3 - 10 });
+  doc.text(session.productOwner || '—', margin + contentW / 3, y + 15, { maxWidth: contentW / 3 - 10 });
+  doc.text(session.dataSteward || '—', margin + (contentW / 3) * 2, y + 15, { maxWidth: contentW / 3 - 10 });
+  y += 34;
+  if (session.objective) { para(`Objectif : ${session.objective}`, 10, 55); }
+  if (session.contextSummary) { para(session.contextSummary, 9.5, 90); }
+
+  // ---- Bandeau KPI ----
+  const avg = session.maturityScores ? Math.round(Object.values(session.maturityScores).reduce((a, b) => a + b, 0) / 7) : 0;
+  const kpis: [string, string | number][] = [
+    ['Entités', session.entities.length],
+    ['Relations', session.relations.length],
+    ['Attributs', session.attributes.length],
+    ['KPIs', session.kpis.length],
+    ['Règles', session.businessRules.length],
+    ['Maturité', `${avg}%`],
+  ];
+  y += 6; ensure(64);
+  const gap = 8; const boxW = (contentW - gap * (kpis.length - 1)) / kpis.length;
+  kpis.forEach((k, i) => {
+    const x = margin + i * (boxW + gap);
+    doc.setFillColor(244, 246, 250); doc.roundedRect(x, y, boxW, 52, 6, 6, 'F');
+    doc.setTextColor(0, 107, 79); doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text(String(k[1]), x + boxW / 2, y + 26, { align: 'center' });
+    doc.setTextColor(MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+    doc.text(String(k[0]), x + boxW / 2, y + 42, { align: 'center' });
+  });
+  y += 64;
+
+  // ---- Entités & attributs ----
   sectionTitle(`Entités & attributs (${session.entities.length})`);
   session.entities.forEach(e => {
-    ensure(40);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20);
+    ensure(50);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(19, 50, 79);
     doc.text(e.name, margin, y); y += 4;
     const attrs = session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
     autoTable(doc, {
@@ -1103,15 +1151,22 @@ async function downloadReportPdf(session: WorkshopSession) {
       head: [['Attribut', 'Type', 'Clé', 'Description']],
       body: attrs.map(a => [a.name, a.type, a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '', a.description || '']),
       margin: { left: margin, right: margin },
-      styles: { fontSize: 8.5, cellPadding: 3, overflow: 'linebreak' },
-      headStyles: { fillColor: [0, 107, 79] },
-      columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 70 }, 2: { cellWidth: 40 } },
+      styles: { fontSize: 8.5, cellPadding: 4, overflow: 'linebreak', lineColor: [230, 232, 236], lineWidth: 0.5, textColor: INK },
+      headStyles: { fillColor: [0, 107, 79], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+      alternateRowStyles: { fillColor: [246, 248, 250] },
+      columnStyles: { 0: { cellWidth: 135, fontStyle: 'bold' }, 1: { cellWidth: 72 }, 2: { cellWidth: 38, halign: 'center' } },
       theme: 'grid',
+      didParseCell: (d) => {
+        if (d.section === 'body' && d.column.index === 2) {
+          if (d.cell.raw === 'PK') { d.cell.styles.textColor = [176, 120, 0]; d.cell.styles.fontStyle = 'bold'; }
+          if (d.cell.raw === 'FK') { d.cell.styles.textColor = [37, 99, 235]; d.cell.styles.fontStyle = 'bold'; }
+        }
+      },
     });
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
   });
 
-  bullets(`Relations (${session.relations.length})`, session.relations.map(r => `${r.sourceEntityName} -> ${r.targetEntityName} (${r.type})${r.description ? ' — ' + r.description : ''}`));
+  bullets(`Relations (${session.relations.length})`, session.relations.map(r => `${r.sourceEntityName} → ${r.targetEntityName} (${r.type})${r.description ? ' — ' + r.description : ''}`));
   bullets(`KPIs (${session.kpis.length})`, session.kpis.map(k => `${k.name}${k.formula ? ' — ' + k.formula : ''}`));
   bullets(`Règles métier (${session.businessRules.length})`, session.businessRules.map(r => `${r.name} (${r.type})${r.description ? ' — ' + r.description : ''}`));
   bullets(`Sources de données (${session.dataSources.length})`, session.dataSources.map(s => `${s.name}${s.system ? ' — ' + s.system : ''}${s.loadFrequency ? ' · ' + s.loadFrequency : ''}`));
@@ -1119,12 +1174,15 @@ async function downloadReportPdf(session: WorkshopSession) {
     bullets('Score de maturité', MATURITY_DIMENSIONS.map(d => `${d.label} : ${session.maturityScores![d.key as keyof typeof session.maturityScores]}/100`));
   }
 
-  // Pied de page sur chaque page
+  // ---- Pied de page (filet + branding) sur chaque page ----
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(150);
-    doc.text(`Mart Studio — Crédit Agricole PF&M   ·   page ${i}/${pages}`, margin, pageH - 20);
+    doc.setDrawColor(0, 107, 79); doc.setLineWidth(0.6);
+    doc.line(margin, pageH - 30, pageW - margin, pageH - 30);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(MUTED);
+    doc.text('Mart Studio · Sofinco — Personal Finance & Mobility', margin, pageH - 17);
+    doc.text(`Page ${i} / ${pages}`, pageW - margin, pageH - 17, { align: 'right' });
   }
 
   const fileName = (session.productName || 'data-product').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
