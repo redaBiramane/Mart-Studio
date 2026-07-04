@@ -47,7 +47,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
 
 export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' }) {
   const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData } = useWorkshopStore();
-  const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats'>(initialTab);
+  const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas'>(initialTab);
   const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
 
   useEffect(() => {
@@ -141,8 +141,11 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
     { key: 'activity', icon: 'clock', label: `Activité (${activityLogs.length})` },
     { key: 'products', icon: 'box', label: `Data Products (${adminProducts.length})` },
     { key: 'users', icon: 'users', label: `Utilisateurs (${adminProfiles.length})` },
+    { key: 'ideas', icon: 'idea', label: `Idées (${activityLogs.filter(l => l.action === 'idea').length})` },
     { key: 'stats', icon: 'chart', label: 'Statistiques' },
   ];
+
+  const ideas = activityLogs.filter(l => l.action === 'idea');
 
   // Filtres onglet Activité
   const activityUsers = Array.from(new Set(activityLogs.map(l => l.user_email).filter(Boolean))) as string[];
@@ -393,6 +396,24 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
                 <button className="suggested-chip" onClick={() => { setStatsData(null); }} style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}><SIcon name="refresh" size={14} /> Recalculer</button>
               </>
             )}
+          </div>
+        )}
+
+        {tab === 'ideas' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 4px' }}>
+              Suggestions envoyées par les utilisateurs via le bouton 💡. {ideas.length} au total.
+            </p>
+            {ideas.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 }}>Aucune idée envoyée pour le moment.</div>}
+            {ideas.map(l => (
+              <div key={l.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-amber)', borderRadius: 10, padding: '12px 16px' }}>
+                <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{l.detail || '(vide)'}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <span>👤 {l.user_email || '—'}</span>
+                  <span>· {fmt(l.created_at)}</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
