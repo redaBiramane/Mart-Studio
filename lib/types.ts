@@ -314,4 +314,5 @@ export interface WorkshopStore {
   updateStepQuestion: (id: string, text: string) => Promise<void>;
   deleteStepQuestion: (id: string) => Promise<void>;
   seedStepQuestions: (step: number, texts: string[]) => Promise<void>;
+  saveStepQuestions: (step: number, texts: string[]) => Promise<void>;
 }

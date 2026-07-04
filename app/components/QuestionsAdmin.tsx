@@ -1,29 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { STEPS } from '@/lib/constants';
 
+type Item = { key: string; text: string };
+let uid = 0;
+const mkKey = () => `q_${Date.now()}_${uid++}`;
+
 // Page admin : pilotage des questions posées par Marty à chaque étape.
 export default function QuestionsAdmin() {
-  const { stepQuestions, loadStepQuestions, addStepQuestion, updateStepQuestion, deleteStepQuestion, seedStepQuestions } = useWorkshopStore();
+  const { stepQuestions, loadStepQuestions, seedStepQuestions, saveStepQuestions, setCurrentPage } = useWorkshopStore();
   const [step, setStep] = useState(1);
+  const [draft, setDraft] = useState<Item[]>([]);
   const [newText, setNewText] = useState('');
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const dragIndex = useRef<number | null>(null);
 
   useEffect(() => { loadStepQuestions(); }, [loadStepQuestions]);
 
+  // (Re)charge le brouillon de l'étape courante depuis le store
+  useEffect(() => {
+    setDraft((stepQuestions[step] || []).map((q) => ({ key: q.id, text: q.text })));
+    setDirty(false);
+    setSaved(false);
+  }, [step, stepQuestions]);
+
   const def = STEPS.find((s) => s.id === step);
-  const qs = stepQuestions[step] || [];
-  const hasCustom = qs.length > 0;
+  const hasCustom = (stepQuestions[step]?.length || 0) > 0 || draft.length > 0;
+
+  const mutate = (next: Item[]) => { setDraft(next); setDirty(true); setSaved(false); };
+
+  function onDrop(target: number) {
+    const from = dragIndex.current;
+    dragIndex.current = null;
+    if (from === null || from === target) return;
+    const next = [...draft];
+    const [moved] = next.splice(from, 1);
+    next.splice(target, 0, moved);
+    mutate(next);
+  }
+
+  async function validate() {
+    await saveStepQuestions(step, draft.map((d) => d.text));
+    setDirty(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
 
   return (
     <div style={{ padding: 40, overflowY: 'auto', flex: 1, maxWidth: 900, margin: '0 auto' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)', marginBottom: 8 }}>Questions de l&apos;atelier</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6 }}>
-          Définissez les questions que <strong>Marty</strong> pose à chaque étape. Elles sont enregistrées côté serveur, <strong>injectées dans le contexte de Marty</strong> (prioritaires sur les questions par défaut) et affichées comme suggestions dans l&apos;atelier.
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)', marginBottom: 8 }}>Questions de l&apos;atelier</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6, margin: 0, maxWidth: 640 }}>
+            Définissez les questions que <strong>Marty</strong> pose à chaque étape. <strong>Glissez</strong> pour réordonner, puis <strong>Validez</strong>. Elles sont injectées dans le contexte de Marty (prioritaires) et affichées comme suggestions.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button className="suggested-chip" onClick={() => setCurrentPage('dashboard')}>← Accueil</button>
+          <button className="suggested-chip" onClick={() => setCurrentPage('products')}>Data Products</button>
+        </div>
       </div>
 
       <div className="context-card" style={{ padding: 28 }}>
@@ -58,21 +96,26 @@ export default function QuestionsAdmin() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {qs.map((q, i) => (
-              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 22, flexShrink: 0, textAlign: 'right', color: 'var(--text-muted)', fontSize: 13 }}>{i + 1}.</span>
+            {draft.map((q, i) => (
+              <div
+                key={q.key}
+                draggable
+                onDragStart={() => { dragIndex.current = i; }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => onDrop(i)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface)', borderRadius: 8 }}
+              >
+                <span title="Glisser pour réordonner" style={{ cursor: 'grab', color: 'var(--text-muted)', display: 'flex', flexShrink: 0, paddingLeft: 2 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6" /><circle cx="8" cy="12" r="1.6" /><circle cx="8" cy="18" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
+                </span>
+                <span style={{ width: 20, flexShrink: 0, textAlign: 'right', color: 'var(--text-muted)', fontSize: 13 }}>{i + 1}.</span>
                 <input
-                  value={drafts[q.id] ?? q.text}
-                  onChange={(e) => setDrafts({ ...drafts, [q.id]: e.target.value })}
-                  onBlur={() => {
-                    const v = (drafts[q.id] ?? q.text).trim();
-                    if (v && v !== q.text) updateStepQuestion(q.id, v);
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                  value={q.text}
+                  onChange={(e) => mutate(draft.map((d, j) => j === i ? { ...d, text: e.target.value } : d))}
                   className="chat-input"
                   style={{ flex: 1, height: 42 }}
                 />
-                <button onClick={() => deleteStepQuestion(q.id)} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 18 }}>×</button>
+                <button onClick={() => mutate(draft.filter((_, j) => j !== i))} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 18 }}>×</button>
               </div>
             ))}
 
@@ -80,14 +123,21 @@ export default function QuestionsAdmin() {
               <input
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && newText.trim()) { addStepQuestion(step, newText.trim()); setNewText(''); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && newText.trim()) { mutate([...draft, { key: mkKey(), text: newText.trim() }]); setNewText(''); } }}
                 placeholder="Ajouter une question…"
                 className="chat-input"
                 style={{ flex: 1, height: 42 }}
               />
-              <button className="cta-btn" onClick={() => { if (newText.trim()) { addStepQuestion(step, newText.trim()); setNewText(''); } }} disabled={!newText.trim()} style={{ opacity: newText.trim() ? 1 : 0.5 }}>
+              <button className="suggested-chip" onClick={() => { if (newText.trim()) { mutate([...draft, { key: mkKey(), text: newText.trim() }]); setNewText(''); } }} disabled={!newText.trim()} style={{ opacity: newText.trim() ? 1 : 0.5 }}>
                 + Ajouter
               </button>
+            </div>
+
+            {/* Barre d'action */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="cta-btn" onClick={validate} disabled={!dirty} style={{ opacity: dirty ? 1 : 0.5 }}>Valider</button>
+              {saved && <span style={{ fontSize: 13.5, color: 'var(--primary)', fontWeight: 600 }}>✓ Enregistré</span>}
+              {dirty && !saved && <span style={{ fontSize: 13, color: 'var(--accent-amber)' }}>Modifications non enregistrées</span>}
             </div>
           </div>
         )}

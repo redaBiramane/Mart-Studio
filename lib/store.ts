@@ -273,6 +273,15 @@ export const useWorkshopStore = create<WorkshopStore>()(
         await get().loadStepQuestions();
       },
 
+      // Remplace TOUTES les questions d'une étape par la liste fournie (ordre inclus).
+      saveStepQuestions: async (step, texts) => {
+        if (!supabase) return;
+        await supabase.from('step_questions').delete().eq('step', step);
+        const rows = texts.map((t) => t.trim()).filter(Boolean).map((text, i) => ({ step, position: i, text }));
+        if (rows.length) await supabase.from('step_questions').insert(rows);
+        await get().loadStepQuestions();
+      },
+
       deleteUser: async (id) => {
         if (!supabase) return;
         // Suppression complète (profil + données + compte Auth) via la route serveur
