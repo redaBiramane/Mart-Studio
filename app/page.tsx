@@ -49,7 +49,7 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users'>('activity');
+  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas'>('activity');
   const [showModeModal, setShowModeModal] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifSeen, setNotifSeen] = useState(0);
@@ -94,25 +94,29 @@ export default function Home() {
 
   // Notifications dérivées : événements produits (tous) + activité récente (admin)
   const notifications = useMemo(() => {
-    const items: { id: string; icon: string; title: string; desc: string; ts: number }[] = [];
+    type Notif = { id: string; icon: string; title: string; desc: string; ts: number; go?: () => void };
+    const items: Notif[] = [];
+    const goProduct = (id: string, page: Page) => () => { useWorkshopStore.getState().loadSession(id); setCurrentPage(page); setNotifOpen(false); setSidebarOpen(false); };
+    const goSupervision = (tab: 'activity' | 'ideas') => () => { setSupervisionTab(tab); setCurrentPage('supervision'); setNotifOpen(false); setSidebarOpen(false); };
     sessions.slice(0, 12).forEach((s) => {
       const name = s.productName || t('dash.newProduct');
       if (s.status === 'completed') {
-        items.push({ id: `done-${s.id}`, icon: 'done', title: `« ${name} » ${t('notif.completed')}`, desc: `${s.entities.length} ${t('dash.entities')}`, ts: s.updatedAt });
+        items.push({ id: `done-${s.id}`, icon: 'done', title: `« ${name} » ${t('notif.completed')}`, desc: `${s.entities.length} ${t('dash.entities')}`, ts: s.updatedAt, go: goProduct(s.id, 'deliverables') });
       } else {
-        items.push({ id: `upd-${s.id}`, icon: 'edit', title: `« ${name} » ${t('notif.updated')}`, desc: `${t('dash.step')} ${s.currentStep}/7`, ts: s.updatedAt });
+        items.push({ id: `upd-${s.id}`, icon: 'edit', title: `« ${name} » ${t('notif.updated')}`, desc: `${t('dash.step')} ${s.currentStep}/7`, ts: s.updatedAt, go: goProduct(s.id, 'workshop') });
       }
     });
     if (isAdmin) {
       activityLogs.slice(0, 10).forEach((l) => {
-        items.push({ id: `act-${l.id}`, icon: 'activity', title: `${t('notif.activity')} · ${l.action}`, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime() });
+        const isIdea = l.action === 'idea';
+        items.push({ id: `act-${l.id}`, icon: isIdea ? 'idea' : 'activity', title: isIdea ? '💡 Nouvelle idée' : `${t('notif.activity')} · ${l.action}`, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime(), go: goSupervision(isIdea ? 'ideas' : 'activity') });
       });
     }
     if (items.length === 0) {
       items.push({ id: 'welcome', icon: 'welcome', title: t('notif.welcome'), desc: t('notif.welcomeDesc'), ts: Date.now() });
     }
     return items.sort((a, b) => b.ts - a.ts).slice(0, 15);
-  }, [sessions, activityLogs, isAdmin, t]);
+  }, [sessions, activityLogs, isAdmin, t, setCurrentPage]);
 
   const unreadCount = notifications.filter((n) => n.ts > notifSeen && n.id !== 'welcome').length;
 
@@ -142,6 +146,7 @@ export default function Home() {
       done: <><circle cx="12" cy="12" r="9" /><path d="M8.3 12.4l2.6 2.6 4.8-5.2" /></>,
       edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="M13.5 6.5l4 4" /></>,
       activity: <><path d="M3 12h4l2.5-7 5 14 2.5-7H21" /></>,
+      idea: <><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.3 1 2.5h6c0-1.2.3-1.8 1-2.5A6 6 0 0 0 12 3Z" /></>,
       welcome: <><path d="M12 3l2.3 4.7 5.2.8-3.8 3.7.9 5.1L12 15l-4.6 2.4.9-5.1L4.5 8.5l5.2-.8L12 3Z" /></>,
     };
     return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{p[name] || <circle cx="12" cy="12" r="9" />}</svg>;
@@ -378,7 +383,13 @@ export default function Home() {
                     {notifications.length === 0 ? (
                       <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>{t('notif.empty')}</div>
                     ) : notifications.map((n) => (
-                      <div key={n.id} style={{ display: 'flex', gap: 10, padding: '11px 14px', borderBottom: '1px solid var(--border-light)', background: n.ts > notifSeen && n.id !== 'welcome' ? 'var(--primary-glow)' : 'transparent' }}>
+                      <div
+                        key={n.id}
+                        onClick={n.go}
+                        style={{ display: 'flex', gap: 10, padding: '11px 14px', borderBottom: '1px solid var(--border-light)', background: n.ts > notifSeen && n.id !== 'welcome' ? 'var(--primary-glow)' : 'transparent', cursor: n.go ? 'pointer' : 'default' }}
+                        onMouseEnter={(e) => { if (n.go) e.currentTarget.style.background = 'var(--bg-elevated)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = n.ts > notifSeen && n.id !== 'welcome' ? 'var(--primary-glow)' : 'transparent'; }}
+                      >
                         <div style={{ marginTop: 1 }}><NotifIcon name={n.icon} /></div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{n.title}</div>

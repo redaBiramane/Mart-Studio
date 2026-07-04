@@ -45,7 +45,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
   );
 }
 
-export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' }) {
+export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' }) {
   const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData } = useWorkshopStore();
   const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas'>(initialTab);
   const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
@@ -408,9 +408,18 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
             {ideas.map(l => (
               <div key={l.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-amber)', borderRadius: 10, padding: '12px 16px' }}>
                 <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{l.detail || '(vide)'}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <span>👤 {l.user_email || '—'}</span>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><SIcon name="users" size={13} /> {l.user_email || '—'}</span>
                   <span>· {fmt(l.created_at)}</span>
+                  {l.user_email && (
+                    <a
+                      href={`mailto:${l.user_email}?subject=${encodeURIComponent('Votre idée sur Mart Studio')}&body=${encodeURIComponent(`Bonjour,\n\nÀ propos de votre suggestion : « ${l.detail || ''} »\n\n`)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <SIcon name="chat" size={13} /> Répondre
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
