@@ -153,9 +153,13 @@ const inp: React.CSSProperties = {
 };
 const rowBox: React.CSSProperties = { border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 10, background: 'var(--bg-elevated)' };
 const delBtn: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', fontSize: 13, fontWeight: 600 };
+const emptyMsg: React.CSSProperties = { padding: '18px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 };
 
 function EditModal({ session, detail, onClose }: { session: WorkshopSession; detail: Exclude<DetailKey, null>; onClose: () => void }) {
   const { updateSessionData } = useWorkshopStore();
+  const [q, setQ] = useState('');
+  const searchable = detail === 'entities' || detail === 'attributes' || detail === 'relations';
+  const ql = q.trim().toLowerCase();
   const titles: Record<string, string> = {
     product: '🎯 Produit', context: '📝 Contexte', entities: '🧩 Entités', relations: '🔗 Relations',
     attributes: '📋 Attributs', kpis: '📊 KPIs', rules: '⚖️ Règles métier', sources: '🗄️ Sources de données',
@@ -197,6 +201,21 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
           <h3 style={{ fontSize: 16, margin: 0 }}>{detail === 'maturity' ? 'Analyse' : 'Modifier'} — {titles[detail]}</h3>
           <button onClick={onClose} className="cta-btn" style={{ padding: '6px 14px', fontSize: 13 }}>✓ Terminé</button>
         </div>
+        {searchable && (
+          <div style={{ position: 'sticky', top: 57, zIndex: 2, background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={detail === 'attributes' ? 'Rechercher une table ou une colonne…' : detail === 'relations' ? 'Rechercher une relation…' : 'Rechercher une entité…'}
+                style={{ ...inp, paddingLeft: 32, height: 38 }}
+              />
+            </div>
+            {q && <button onClick={() => setQ('')} style={{ ...delBtn, whiteSpace: 'nowrap' }}>✕ Effacer</button>}
+          </div>
+        )}
         <div style={{ padding: 20 }}>
 
           {detail === 'maturity' && session.maturityScores && (
@@ -249,7 +268,11 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
 
           {detail === 'entities' && (
             <>
-              {session.entities.map((e: Entity) => (
+              {(() => {
+                const list = ql ? session.entities.filter((e) => e.name.toLowerCase().includes(ql) || (e.definition || '').toLowerCase().includes(ql)) : session.entities;
+                return ql && list.length === 0 ? <div style={emptyMsg}>Aucune entité ne correspond à « {q} ».</div> : null;
+              })()}
+              {(ql ? session.entities.filter((e) => e.name.toLowerCase().includes(ql) || (e.definition || '').toLowerCase().includes(ql)) : session.entities).map((e: Entity) => (
                 <div key={e.id} style={rowBox}>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input style={inp} placeholder="Nom" value={e.name} onChange={(ev) => patch<Entity>('entities', e.id, { name: ev.target.value })} />
@@ -270,7 +293,11 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
 
           {detail === 'relations' && (
             <>
-              {session.relations.map((r: Relation) => (
+              {(() => {
+                const list = ql ? session.relations.filter((r) => `${r.sourceEntityName} ${r.targetEntityName} ${r.type} ${r.description || ''}`.toLowerCase().includes(ql)) : session.relations;
+                return ql && list.length === 0 ? <div style={emptyMsg}>Aucune relation ne correspond à « {q} ».</div> : null;
+              })()}
+              {(ql ? session.relations.filter((r) => `${r.sourceEntityName} ${r.targetEntityName} ${r.type} ${r.description || ''}`.toLowerCase().includes(ql)) : session.relations).map((r: Relation) => (
                 <div key={r.id} style={rowBox}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <input style={inp} placeholder="Source" value={r.sourceEntityName} onChange={(ev) => patch<Relation>('relations', r.id, { sourceEntityName: ev.target.value })} />
@@ -290,11 +317,24 @@ function EditModal({ session, detail, onClose }: { session: WorkshopSession; det
 
           {detail === 'attributes' && (
             <>
+              {(() => {
+                if (!ql) return null;
+                const anyMatch = session.entities.some((entity) => {
+                  const attrs = session.attributes.filter((a) => a.entityId === entity.id || a.entityId === entity.name);
+                  return entity.name.toLowerCase().includes(ql) || attrs.some((a) => a.name.toLowerCase().includes(ql) || (a.type || '').toLowerCase().includes(ql));
+                });
+                return anyMatch ? null : <div style={emptyMsg}>Aucune table ou colonne ne correspond à « {q} ».</div>;
+              })()}
               {session.entities.map((entity) => {
-                const attrs = session.attributes.filter((a) => a.entityId === entity.id || a.entityId === entity.name);
+                const allAttrs = session.attributes.filter((a) => a.entityId === entity.id || a.entityId === entity.name);
+                const entityMatches = ql ? entity.name.toLowerCase().includes(ql) : false;
+                // Si on cherche : on n'affiche l'entité que si son nom matche (toutes ses colonnes)
+                // ou si certaines de ses colonnes matchent (seulement celles-là).
+                const attrs = !ql || entityMatches ? allAttrs : allAttrs.filter((a) => a.name.toLowerCase().includes(ql) || (a.type || '').toLowerCase().includes(ql));
+                if (ql && !entityMatches && attrs.length === 0) return null;
                 return (
                   <div key={entity.id} style={{ marginBottom: 16 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--primary-light)', marginBottom: 6 }}>{entity.name}</div>
+                    <div style={{ fontWeight: 700, color: 'var(--primary-light)', marginBottom: 6 }}>{entity.name} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)' }}>({attrs.length}{ql && !entityMatches ? ` / ${allAttrs.length}` : ''})</span></div>
                     {attrs.map((a: Attribute) => (
                       <div key={a.id} style={{ ...rowBox, marginBottom: 8 }}>
                         <div style={{ display: 'flex', gap: 8 }}>
