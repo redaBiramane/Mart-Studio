@@ -269,6 +269,7 @@ export interface WorkshopStore {
   // Auth / admin state
   authReady: boolean;
   user: AuthUser | null;
+  accessToken: string | null;
   profile: Profile | null;
   authError: string | null;
   adminProducts: AdminProduct[];

@@ -6,12 +6,51 @@ import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createClient } from '@supabase/supabase-js';
 import { SYSTEM_PROMPT, getStepInstruction } from '@/lib/prompts/system-prompt';
 
 export const maxDuration = 60;
 
+// Rate limiting best-effort (par instance chaude). Pour une limite distribuée
+// robuste en prod, brancher Upstash Ratelimit.
+const RL = new Map<string, number[]>();
+const RL_MAX = 40;          // requêtes
+const RL_WINDOW = 60_000;   // par minute
+function rateLimited(key: string): boolean {
+  const now = Date.now();
+  const arr = (RL.get(key) || []).filter((t) => now - t < RL_WINDOW);
+  arr.push(now);
+  RL.set(key, arr);
+  return arr.length > RL_MAX;
+}
+
 export async function POST(req: Request) {
-  const { messages, currentStep, sessionData, llmSettings, mode } = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response('Requête invalide.', { status: 400 });
+  }
+  const { messages, currentStep, sessionData, llmSettings, mode } = body;
+
+  // --- Authentification : obligatoire dès que Supabase est configuré ---
+  // Empêche l'usage anonyme de la clé LLM serveur (abus / coûts).
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supaAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (supaUrl && supaAnon) {
+    const token = req.headers.get('authorization')?.replace('Bearer ', '').trim();
+    if (!token) return new Response('Non authentifié.', { status: 401 });
+    const supa = createClient(supaUrl, supaAnon, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: authData, error: authErr } = await supa.auth.getUser(token);
+    if (authErr || !authData.user) return new Response('Session invalide.', { status: 401 });
+    if (rateLimited(authData.user.id)) {
+      return new Response('Trop de requêtes. Réessayez dans une minute.', { status: 429 });
+    }
+  }
+
+  if (!Array.isArray(messages)) {
+    return new Response('Requête invalide.', { status: 400 });
+  }
 
   // Build the full system prompt with step-specific instructions
   const stepInstruction = getStepInstruction(currentStep || 1);

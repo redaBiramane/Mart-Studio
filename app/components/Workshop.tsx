@@ -47,6 +47,12 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   // Create transport that dynamically fetches latest session data from the store
   const transport = useMemo(() => new DefaultChatTransport({
     api: '/api/chat',
+    headers: () => {
+      const token = useWorkshopStore.getState().accessToken;
+      const h: Record<string, string> = {};
+      if (token) h.Authorization = `Bearer ${token}`;
+      return h;
+    },
     body: () => {
       const currentSession = useWorkshopStore.getState().session;
       const llmSettings = useWorkshopStore.getState().llmSettings;
@@ -879,8 +885,11 @@ function MartyAvatar({ role }: { role: string }) {
 
 // Simple markdown formatter
 function formatMarkdown(text: string): string {
+  // Sécurité : on échappe le HTML AVANT tout formatage (anti-XSS). Le texte
+  // provient du LLM et peut contenir <script>, <img onerror>, etc.
+  let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // Remove JSON extract blocks from display (the UI consumes them separately)
-  let html = text.replace(/```json:extract[\s\S]*?```/g, '');
+  html = html.replace(/```json:extract[\s\S]*?```/g, '');
   // Also drop a generic "Blocs JSON" wrapper heading and any heading that is left
   // empty once its JSON block was stripped (e.g. "#### Maturity" with nothing after).
   html = html.replace(/^#{1,4}\s*Blocs?\s*JSON.*$/gim, '');

@@ -84,6 +84,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
 
       authReady: false,
       user: null,
+      accessToken: null,
       profile: null,
       authError: null,
       adminProducts: [],
@@ -108,7 +109,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
             set({ user: null, profile: null, authReady: true });
             return;
           }
-          set({ user: { id: sUser.id, email: sUser.email || '' } });
+          set({ user: { id: sUser.id, email: sUser.email || '' }, accessToken: data.session?.access_token ?? null });
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
           if (prof?.role === 'admin') await get().loadAdminData();
@@ -116,9 +117,9 @@ export const useWorkshopStore = create<WorkshopStore>()(
         supabase.auth.onAuthStateChange((_event, sess) => {
           const u = sess?.user;
           if (u) {
-            set({ user: { id: u.id, email: u.email || '' } });
+            set({ user: { id: u.id, email: u.email || '' }, accessToken: sess?.access_token ?? null });
           } else {
-            set({ user: null, profile: null, sessions: [], session: null });
+            set({ user: null, profile: null, accessToken: null, sessions: [], session: null });
           }
         });
         set({ authReady: true });
@@ -138,7 +139,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           set({ user: null, profile: null, authError: 'Votre compte a été suspendu. Contactez un administrateur.' });
           return false;
         }
-        set({ user: { id: data.user.id, email: data.user.email || '' } });
+        set({ user: { id: data.user.id, email: data.user.email || '' }, accessToken: data.session?.access_token ?? null });
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
         if (prof?.role === 'admin') await get().loadAdminData();
@@ -160,7 +161,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         }
         // Si la confirmation email est désactivée, l'utilisateur a une session directe.
         if (data.session?.user) {
-          set({ user: { id: data.session.user.id, email: data.session.user.email || '' } });
+          set({ user: { id: data.session.user.id, email: data.session.user.email || '' }, accessToken: data.session.access_token ?? null });
           const { data: prof } = await supabase.from('profiles').select('*').eq('id', data.session.user.id).single();
           if (prof) set({ profile: prof });
           await get().logActivity('signup');
@@ -180,7 +181,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       signOut: async () => {
         await get().logActivity('logout');
         if (supabase) await supabase.auth.signOut();
-        set({ user: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], currentPage: 'dashboard' });
+        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], currentPage: 'dashboard' });
       },
 
       loadUserSessions: async () => {
