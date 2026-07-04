@@ -239,10 +239,18 @@ export default function Landing({ onEnter }: LandingProps) {
     catModel: fr ? 'Modélisation' : 'Modeling',
     catDev: fr ? 'Développement' : 'Development',
     catDoc: fr ? 'Documentation' : 'Documentation',
-    importTitle: fr ? 'Import de fichiers existants' : 'Import existing files',
+    importTitle: fr ? 'Importez vos scripts existants' : 'Import your existing scripts',
     importDesc: fr
-      ? "L'IA déduit automatiquement le modèle à partir de fichiers SAS, SQL, CSV ou Excel."
-      : 'AI automatically infers the model from SAS, SQL, CSV or Excel files.',
+      ? "Collez un CREATE TABLE Snowflake / SQL, ou importez un fichier SAS, CSV ou Excel : tables, colonnes, clés PK/FK et relations sont créées automatiquement."
+      : 'Paste a Snowflake / SQL CREATE TABLE, or import a SAS, CSV or Excel file: tables, columns, PK/FK keys and relations are created automatically.',
+    visualTitle: fr ? 'Éditeur visuel (glisser-déposer)' : 'Visual editor (drag & drop)',
+    visualDesc: fr
+      ? "Modélisez sur un canvas type ERD : déplacez les tables, éditez les colonnes, marquez les clés, tirez d'une table à l'autre pour créer une relation."
+      : 'Model on an ERD-style canvas: move tables, edit columns, mark keys, drag between tables to create a relation.',
+    syncTitle: fr ? 'Chat & Visuel synchronisés' : 'Chat & Visual in sync',
+    syncDesc: fr
+      ? "Marty comprend les deux : ce que vous dessinez, il le lit en contexte ; ce qu'il déduit apparaît sur le canvas. Une seule source, alimentant tous les livrables."
+      : 'Marty understands both: what you draw feeds its context; what it infers appears on the canvas. One source, feeding every deliverable.',
     govTitle: fr ? 'Gouvernance intégrée' : 'Built-in governance',
     govDesc: fr
       ? 'Score de maturité et préparation automatique au Design Authority (DAD).'
@@ -474,6 +482,14 @@ export default function Landing({ onEnter }: LandingProps) {
             <div className="ml-feat ml-reveal">
               <div className="ml-feat-ico"><Icon name="import" /></div>
               <div><h3>{L.importTitle}</h3><p>{L.importDesc}</p></div>
+            </div>
+            <div className="ml-feat ml-reveal" style={{ transitionDelay: '80ms' }}>
+              <div className="ml-feat-ico"><Icon name="entities" /></div>
+              <div><h3>{L.visualTitle}</h3><p>{L.visualDesc}</p></div>
+            </div>
+            <div className="ml-feat ml-reveal">
+              <div className="ml-feat-ico"><Icon name="relations" /></div>
+              <div><h3>{L.syncTitle}</h3><p>{L.syncDesc}</p></div>
             </div>
             <div className="ml-feat ml-reveal" style={{ transitionDelay: '80ms' }}>
               <div className="ml-feat-ico"><Icon name="gov" /></div>

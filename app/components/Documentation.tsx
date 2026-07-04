@@ -9,7 +9,9 @@ const STEPS = [
   { n: 2, icon: '🧩', title: 'Entités', text: 'À partir de votre description, Marty conçoit le modèle complet : tables de faits et dimensions, leurs attributs (clés, types) et leurs relations.' },
   { n: 3, icon: '🔗', title: 'Relations', text: 'Les liens entre entités sont précisés : cardinalités (1:1, 1:N, N:N), obligation et hiérarchies.' },
   { n: 4, icon: '📋', title: 'Attributs', text: 'On complète les colonnes manquantes : clés primaires, types SQL, attributs sensibles ou historisés.' },
-  { n: 5, icon: '🏁', title: 'Validation', text: 'Marty génère les règles de gestion, les sources de données, un score de maturité et le rapport de préparation DAD.' },
+  { n: 5, icon: '📊', title: 'KPI (optionnel)', text: 'Vous définissez les indicateurs à piloter (formule, fréquence, axes d\'analyse). Étape facultative : vous pouvez la passer.' },
+  { n: 6, icon: '⚖️', title: 'Règles métier (optionnel)', text: 'Les contraintes de gestion et de qualité (validations, calculs, exceptions). Étape facultative également.' },
+  { n: 7, icon: '🏁', title: 'Validation', text: 'Marty génère les sources de données, un score de maturité et le rapport de préparation DAD. Tout est prêt dans Livrables.' },
 ];
 
 const DELIVERABLES = [
@@ -72,10 +74,35 @@ export default function Documentation({ onStartWorkshop }: DocumentationProps) {
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           Mart Studio est un atelier de conception assisté par IA. Vous décrivez votre besoin métier
           en langage naturel, et <strong>Marty</strong>, votre Senior Data Architect IA, vous guide en
-          <strong> 5 étapes</strong> pour transformer cette description en un <strong>modèle de données complet</strong> et
+          <strong> 7 étapes</strong> (dont 2 optionnelles) pour transformer cette description en un <strong>modèle de données complet</strong> et
           en livrables techniques prêts à l&apos;emploi (SQL, dbt, diagrammes, dictionnaire). Aucune connaissance
           technique préalable n&apos;est requise.
         </p>
+      </div>
+
+      {/* Deux modes : Chat et Visuel */}
+      <div className="context-card" style={{ marginBottom: 16, borderLeft: '3px solid var(--primary)' }}>
+        <h3 style={{ fontSize: 18, margin: '0 0 8px' }}>💬 &amp; ▦ Deux façons de concevoir — Chat et Visuel</h3>
+        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+          Dans <strong>DataForge</strong>, une bascule <strong>Chat ⇄ Visuel</strong> vous laisse travailler comme vous préférez :
+        </p>
+        <ul style={{ paddingLeft: 18, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, margin: '8px 0 0' }}>
+          <li><strong>Mode Chat</strong> : vous discutez avec Marty, il déduit et construit le modèle.</li>
+          <li><strong>Mode Visuel</strong> : un vrai éditeur de diagramme (type ERD) — <strong>glissez-déposez les tables</strong>, ajoutez des colonnes, marquez les <strong>PK/FK</strong>, et <strong>tirez d&apos;une table à l&apos;autre</strong> pour créer une relation (avec cardinalité et jointure sur colonnes). Bouton <strong>Arranger</strong> pour un agencement automatique lisible, et une fenêtre « toutes les colonnes » pour les tables volumineuses (jusqu&apos;à des centaines de colonnes).</li>
+          <li><strong>Les deux sont synchronisés en temps réel</strong> : ce que vous dessinez, Marty le lit ; ce que Marty déduit apparaît sur le canvas. Même source unique, qui alimente aussi les livrables.</li>
+        </ul>
+      </div>
+
+      {/* Import de scripts existants */}
+      <div className="context-card" style={{ marginBottom: 24, borderLeft: '3px solid var(--accent-blue)' }}>
+        <h3 style={{ fontSize: 18, margin: '0 0 8px' }}>📥 Importez vos scripts existants (SAS, SQL, Snowflake)</h3>
+        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+          Vous avez déjà des tables ? Pas besoin de tout ressaisir :
+        </p>
+        <ul style={{ paddingLeft: 18, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, margin: '8px 0 0' }}>
+          <li>Bouton <strong>« Importer SQL »</strong> (mode Visuel) : collez un ou plusieurs <code>CREATE TABLE</code> (<strong>Snowflake</strong>, SQL standard, PROC SQL) → les <strong>tables, colonnes, types, clés PK et FK</strong> et les <strong>relations</strong> sont créés automatiquement.</li>
+          <li>Import de fichiers <strong>SAS / SQL / CSV / Excel</strong> (bouton 📎 dans le chat) : Marty analyse le contenu et en <strong>déduit le modèle</strong>.</li>
+        </ul>
       </div>
 
       {/* How it works */}

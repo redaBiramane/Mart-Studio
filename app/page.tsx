@@ -148,7 +148,6 @@ export default function Home() {
     { key: 'products' as Page, label: t('nav.products') },
     { key: 'workshop' as Page, label: t('nav.workshop'), badge: session?.status === 'active' ? `${session.currentStep}/7` : undefined },
     { key: 'deliverables' as Page, label: t('nav.deliverables') },
-    { key: 'docs' as Page, label: t('nav.docs') },
   ];
 
   const adminItems = [
@@ -246,6 +245,16 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          <div className="sidebar-section">
+            <div
+              className={`nav-item ${currentPage === 'docs' ? 'active' : ''}`}
+              onClick={() => { setCurrentPage('docs'); setSidebarOpen(false); }}
+            >
+              <span className="nav-item-icon"><NavIcon name="docs" /></span>
+              <span>{t('nav.docs')}</span>
+            </div>
+          </div>
 
           <div className="sidebar-section">
             <div className="sidebar-section-title">{t('nav.administration')}</div>
