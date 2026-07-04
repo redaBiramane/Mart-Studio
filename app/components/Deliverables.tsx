@@ -1089,7 +1089,8 @@ function generateMermaidERD(session: WorkshopSession): string {
     const src = cleanEntityName(rel.sourceEntityName);
     const tgt = cleanEntityName(rel.targetEntityName);
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
-    code += `    ${src} ${card} ${tgt} : "${rel.description || 'lié à'}"\n`;
+    const label = (rel.description || 'lié à').replace(/["\n\r]/g, ' ').replace(/\s+/g, ' ').trim() || 'lié à';
+    code += `    ${src} ${card} ${tgt} : "${label}"\n`;
   });
   return code;
 }
@@ -1494,7 +1495,8 @@ function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relat
     const src = dimFactName(rel.sourceEntityName, factNames);
     const tgt = dimFactName(rel.targetEntityName, factNames);
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
-    code += `    ${src} ${card} ${tgt} : "${(rel.description || 'lié à').replace(/"/g, '')}"\n`;
+    const dlabel = (rel.description || 'lié à').replace(/["\n\r]/g, ' ').replace(/\s+/g, ' ').trim() || 'lié à';
+    code += `    ${src} ${card} ${tgt} : "${dlabel}"\n`;
   });
   return code;
 }
