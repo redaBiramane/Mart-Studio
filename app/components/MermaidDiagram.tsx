@@ -4,6 +4,15 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 let initialized = false;
 
+// Mermaid laisse traîner des nœuds temporaires (#dmmd-…) et, en cas d'erreur,
+// un SVG « bombe » directement dans <body>. On les supprime pour ne pas polluer l'UI.
+function cleanupOrphans(keepId?: string) {
+  document.querySelectorAll('body > svg[id^="dmmd-"], body > svg[id^="mmd-"], body > [id^="dmmd-"]').forEach((el) => {
+    if (keepId && el.id === keepId) return;
+    el.remove();
+  });
+}
+
 export default function MermaidDiagram({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,6 +37,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
         }
         const id = 'mmd-' + Math.random().toString(36).slice(2);
         const { svg } = await mermaid.render(id, code);
+        cleanupOrphans(id);
         if (cancelled || !ref.current) return;
         ref.current.innerHTML = svg;
         const el = ref.current.querySelector('svg');
@@ -42,6 +52,8 @@ export default function MermaidDiagram({ code }: { code: string }) {
         }
         setError(null);
       } catch (e) {
+        // En cas d'échec, Mermaid injecte un SVG « bombe » dans le <body> : on le retire.
+        cleanupOrphans();
         if (!cancelled) setError((e as Error)?.message || 'Erreur de rendu du diagramme');
       }
     })();

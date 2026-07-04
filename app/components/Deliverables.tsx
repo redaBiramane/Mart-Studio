@@ -1067,17 +1067,20 @@ function generateMermaidERD(session: WorkshopSession): string {
 
   const mermaidFkMap = buildFkMap(session, entitiesToGenerate);
 
-  entitiesToGenerate.forEach(entity => {
-    const codeName = cleanEntityName(entity.name);
+  const validName = (n: string, fallback: string) => (n && /[a-zA-Z0-9]/.test(n) ? n : fallback);
+
+  entitiesToGenerate.forEach((entity, i) => {
+    const codeName = validName(cleanEntityName(entity.name), `ENTITE_${i + 1}`);
     // Use the same deduplicated column resolution as the SQL/dbt generators so the
     // diagram never shows duplicate attributes or columns.
     const cols = getTableColumns(entity, session, entitiesToGenerate, mermaidFkMap);
     if (cols.length > 0) {
       code += `    ${codeName} {\n`;
-      cols.forEach(c => {
+      cols.forEach((c, ci) => {
         const pkTag = c.isPk ? 'PK' : c.referencedTable ? 'FK' : '';
-        const mermaidType = mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase();
-        code += `        ${mermaidType} ${c.name}${pkTag ? ` "${pkTag}"` : ''}\n`;
+        const mermaidType = validName(mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase(), 'varchar');
+        const colName = validName(c.name, `col_${ci + 1}`);
+        code += `        ${mermaidType} ${colName}${pkTag ? ` "${pkTag}"` : ''}\n`;
       });
       code += `    }\n`;
     } else {
@@ -1085,9 +1088,12 @@ function generateMermaidERD(session: WorkshopSession): string {
     }
   });
 
+  const entityCodeNames = new Set(entitiesToGenerate.map((e, i) => validName(cleanEntityName(e.name), `ENTITE_${i + 1}`)));
   session.relations.forEach(rel => {
     const src = cleanEntityName(rel.sourceEntityName);
     const tgt = cleanEntityName(rel.targetEntityName);
+    // Une relation vers une entité inexistante casserait le diagramme : on l'ignore.
+    if (!entityCodeNames.has(src) || !entityCodeNames.has(tgt)) return;
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
     const label = (rel.description || 'lié à').replace(/["\n\r]/g, ' ').replace(/\s+/g, ' ').trim() || 'lié à';
     code += `    ${src} ${card} ${tgt} : "${label}"\n`;
