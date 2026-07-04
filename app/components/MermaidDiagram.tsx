@@ -4,6 +4,17 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 let initialized = false;
 
+// Mermaid n'est pas sûr en rendu concurrent : deux mermaid.render() lancés en
+// parallèle (ex. Étoile + Flocon sur la même page) partagent un état global et
+// le second échoue (« Cannot read properties of null (reading 'firstChild') »).
+// On sérialise donc tous les rendus dans une file d'attente globale.
+let renderChain: Promise<unknown> = Promise.resolve();
+function queueRender<T>(fn: () => Promise<T>): Promise<T> {
+  const run = renderChain.then(fn, fn);
+  renderChain = run.catch(() => {});
+  return run;
+}
+
 // Mermaid laisse traîner des nœuds temporaires (#dmmd-…) et, en cas d'erreur,
 // un SVG « bombe » directement dans <body>. On les supprime pour ne pas polluer l'UI.
 function cleanupOrphans(keepId?: string) {
@@ -36,7 +47,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
           initialized = true;
         }
         const id = 'mmd-' + Math.random().toString(36).slice(2);
-        const { svg } = await mermaid.render(id, code);
+        const { svg } = await queueRender(() => mermaid.render(id, code));
         cleanupOrphans(id);
         if (cancelled || !ref.current) return;
         ref.current.innerHTML = svg;
