@@ -98,3 +98,16 @@ create policy "step_questions_select_auth" on public.step_questions
 drop policy if exists "step_questions_write_admin" on public.step_questions;
 create policy "step_questions_write_admin" on public.step_questions
   for all using (public.is_admin()) with check (public.is_admin());
+
+-- ------------------------------------------------------------
+-- activity_logs : réponses aux idées (admin -> utilisateur)
+-- Permet à l'admin d'insérer un log ADRESSÉ à un autre utilisateur (idea_reply)
+-- et à chacun de lire les logs qui le concernent (ses réponses).
+-- ------------------------------------------------------------
+drop policy if exists "logs_insert_self" on public.activity_logs;
+create policy "logs_insert_self_or_admin" on public.activity_logs
+  for insert with check (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "logs_select_self" on public.activity_logs;
+create policy "logs_select_self" on public.activity_logs
+  for select using (user_id = auth.uid() or public.is_admin());

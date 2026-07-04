@@ -46,7 +46,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
 }
 
 export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' }) {
-  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData } = useWorkshopStore();
+  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData, replyToIdea } = useWorkshopStore();
   const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas'>(initialTab);
   const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
 
@@ -76,6 +76,21 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
   const [uRole, setURole] = useState('all');
   const [delUser, setDelUser] = useState<{ id: string; label: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [ideaModal, setIdeaModal] = useState<import('@/lib/types').ActivityLog | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyBusy, setReplyBusy] = useState(false);
+  const [replySent, setReplySent] = useState(false);
+
+  async function sendReply() {
+    if (!ideaModal || !replyText.trim()) return;
+    setReplyBusy(true);
+    await replyToIdea(ideaModal.user_id || '', ideaModal.user_email || '', replyText.trim(), ideaModal.detail || '');
+    setReplyBusy(false);
+    setReplySent(true);
+    setReplyText('');
+    setTimeout(() => { setIdeaModal(null); setReplySent(false); }, 1600);
+  }
+
   const [conv, setConv] = useState<{ name: string; owner: string } | null>(null);
   const [convMsgs, setConvMsgs] = useState<import('@/lib/types').ChatMessage[] | null>(null);
   const [convSearch, setConvSearch] = useState('');
@@ -406,20 +421,18 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
             </p>
             {ideas.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 }}>Aucune idée envoyée pour le moment.</div>}
             {ideas.map(l => (
-              <div key={l.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-amber)', borderRadius: 10, padding: '12px 16px' }}>
+              <div
+                key={l.id}
+                onClick={() => { setIdeaModal(l); setReplyText(''); setReplySent(false); }}
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-amber)', borderRadius: 10, padding: '12px 16px', cursor: 'pointer' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface)'; }}
+              >
                 <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{l.detail || '(vide)'}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><SIcon name="users" size={13} /> {l.user_email || '—'}</span>
                   <span>· {fmt(l.created_at)}</span>
-                  {l.user_email && (
-                    <a
-                      href={`mailto:${l.user_email}?subject=${encodeURIComponent('Votre idée sur Mart Studio')}&body=${encodeURIComponent(`Bonjour,\n\nÀ propos de votre suggestion : « ${l.detail || ''} »\n\n`)}`}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                    >
-                      <SIcon name="chat" size={13} /> Répondre
-                    </a>
-                  )}
+                  <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}><SIcon name="chat" size={13} /> Répondre</span>
                 </div>
               </div>
             ))}
@@ -442,6 +455,37 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
               <button className="suggested-chip" onClick={() => setDelUser(null)}>Annuler</button>
               <button onClick={doDeleteUser} disabled={busyId === delUser.id} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{busyId === delUser.id ? '…' : 'Supprimer'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : détail d'une idée + réponse in-app */}
+      {ideaModal && (
+        <div onClick={() => setIdeaModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 'min(560px, 96%)', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ color: 'var(--accent-amber)', display: 'flex' }}><SIcon name="idea" size={20} /></span>
+              <h3 style={{ fontSize: 18, margin: 0, flex: 1 }}>Idée</h3>
+              <button onClick={() => setIdeaModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', gap: 10 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><SIcon name="users" size={13} /> {ideaModal.user_email || '—'}</span>
+              <span>· {fmt(ideaModal.created_at)}</span>
+            </div>
+            <div style={{ fontSize: 14.5, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>{ideaModal.detail || '(vide)'}</div>
+
+            {replySent ? (
+              <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--primary)', fontWeight: 600 }}>✓ Réponse envoyée — l&apos;auteur recevra une notification.</div>
+            ) : (
+              <>
+                <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Votre réponse (envoyée dans la plateforme)</label>
+                <textarea value={replyText} onChange={e => setReplyText(e.target.value)} placeholder="Merci pour votre suggestion ! Nous…" className="chat-input" style={{ width: '100%', minHeight: 110, resize: 'vertical', padding: 12, marginTop: 6 }} autoFocus />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+                  <button className="suggested-chip" onClick={() => setIdeaModal(null)}>Annuler</button>
+                  <button className="cta-btn" onClick={sendReply} disabled={!replyText.trim() || replyBusy} style={{ opacity: replyText.trim() && !replyBusy ? 1 : 0.5 }}>{replyBusy ? '…' : 'Envoyer la réponse'}</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

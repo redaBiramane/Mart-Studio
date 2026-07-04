@@ -90,6 +90,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       adminProducts: [],
       adminProfiles: [],
       activityLogs: [],
+      myLogs: [],
       stepQuestions: {},
 
       setCurrentPage: (page) => set({ currentPage: page }),
@@ -114,6 +115,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
           await get().loadStepQuestions();
+          await get().loadMyLogs();
           if (prof?.role === 'admin') await get().loadAdminData();
         }
         supabase.auth.onAuthStateChange((_event, sess) => {
@@ -145,6 +147,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
         await get().loadStepQuestions();
+        await get().loadMyLogs();
         if (prof?.role === 'admin') await get().loadAdminData();
         await get().logActivity('login');
         return true;
@@ -184,7 +187,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       signOut: async () => {
         await get().logActivity('logout');
         if (supabase) await supabase.auth.signOut();
-        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], currentPage: 'dashboard' });
+        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], myLogs: [], currentPage: 'dashboard' });
       },
 
       loadUserSessions: async () => {
@@ -247,6 +250,28 @@ export const useWorkshopStore = create<WorkshopStore>()(
         return msgs;
       },
 
+      // Logs adressés à l'utilisateur courant (ex. réponses à ses idées)
+      loadMyLogs: async () => {
+        if (!supabase) return;
+        const { user } = get();
+        if (!user) return;
+        const { data } = await supabase.from('activity_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+        set({ myLogs: data || [] });
+      },
+
+      // Réponse admin à une idée : crée un log ADRESSÉ à l'auteur (il le verra en notif)
+      replyToIdea: async (submitterId, submitterEmail, replyText, ideaText) => {
+        if (!supabase) return;
+        await supabase.from('activity_logs').insert({
+          user_id: submitterId,
+          user_email: submitterEmail,
+          action: 'idea_reply',
+          detail: `Réponse à votre idée « ${ideaText.slice(0, 90)} » : ${replyText}`,
+        });
+        await get().logActivity('reply_idea', submitterEmail || submitterId);
+        await get().loadAdminData();
+      },
+
       fetchStatsData: async () => {
         if (!supabase) return [];
         const { data } = await supabase.from('data_products').select('status, data');
@@ -273,18 +298,21 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const pos = get().stepQuestions[step]?.length || 0;
         await supabase.from('step_questions').insert({ step, position: pos, text });
         await get().loadStepQuestions();
+        await get().loadMyLogs();
       },
 
       updateStepQuestion: async (id, text) => {
         if (!supabase) return;
         await supabase.from('step_questions').update({ text }).eq('id', id);
         await get().loadStepQuestions();
+        await get().loadMyLogs();
       },
 
       deleteStepQuestion: async (id) => {
         if (!supabase) return;
         await supabase.from('step_questions').delete().eq('id', id);
         await get().loadStepQuestions();
+        await get().loadMyLogs();
       },
 
       seedStepQuestions: async (step, texts) => {
@@ -292,6 +320,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const rows = texts.map((text, i) => ({ step, position: i, text }));
         if (rows.length) await supabase.from('step_questions').insert(rows);
         await get().loadStepQuestions();
+        await get().loadMyLogs();
       },
 
       // Remplace TOUTES les questions d'une étape par la liste fournie (ordre inclus).
@@ -301,6 +330,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const rows = texts.map((t) => t.trim()).filter(Boolean).map((text, i) => ({ step, position: i, text }));
         if (rows.length) await supabase.from('step_questions').insert(rows);
         await get().loadStepQuestions();
+        await get().loadMyLogs();
       },
 
       deleteUser: async (id) => {

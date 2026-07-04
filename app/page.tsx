@@ -86,7 +86,8 @@ export default function Home() {
     document.documentElement.setAttribute('data-theme', next);
     try { localStorage.setItem('mart-theme', next); } catch { /* ignore */ }
   }
-  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity } = useWorkshopStore();
+  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs } = useWorkshopStore();
+  const [replyView, setReplyView] = useState<string | null>(null);
 
   useEffect(() => { initAuth(); }, [initAuth]);
 
@@ -112,11 +113,15 @@ export default function Home() {
         items.push({ id: `act-${l.id}`, icon: isIdea ? 'idea' : 'activity', title: isIdea ? '💡 Nouvelle idée' : `${t('notif.activity')} · ${l.action}`, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime(), go: goSupervision(isIdea ? 'ideas' : 'activity') });
       });
     }
+    // Réponses de l'admin aux idées de l'utilisateur courant → notif in-app
+    myLogs.filter((l) => l.action === 'idea_reply').slice(0, 10).forEach((l) => {
+      items.push({ id: `myl-${l.id}`, icon: 'idea', title: '💬 Réponse à votre idée', desc: l.detail || '', ts: new Date(l.created_at).getTime(), go: () => { setReplyView(l.detail || ''); setNotifOpen(false); } });
+    });
     if (items.length === 0) {
       items.push({ id: 'welcome', icon: 'welcome', title: t('notif.welcome'), desc: t('notif.welcomeDesc'), ts: Date.now() });
     }
     return items.sort((a, b) => b.ts - a.ts).slice(0, 15);
-  }, [sessions, activityLogs, isAdmin, t, setCurrentPage]);
+  }, [sessions, activityLogs, myLogs, isAdmin, t, setCurrentPage]);
 
   const unreadCount = notifications.filter((n) => n.ts > notifSeen && n.id !== 'welcome').length;
 
@@ -446,6 +451,22 @@ export default function Home() {
             </div>
             <div style={{ textAlign: 'right', marginTop: 16 }}>
               <button className="suggested-chip" onClick={() => setShowModeModal(false)}>{t('mode.cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : lecture d'une réponse à une idée */}
+      {replyView && (
+        <div onClick={() => setReplyView(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(500px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ color: 'var(--primary)', display: 'flex' }}><NavIcon name="docs" /></span>
+              <h2 style={{ fontSize: 18, margin: 0 }}>Réponse de l&apos;équipe à votre idée</h2>
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>{replyView}</div>
+            <div style={{ textAlign: 'right', marginTop: 18 }}>
+              <button className="cta-btn" onClick={() => setReplyView(null)}>Fermer</button>
             </div>
           </div>
         </div>

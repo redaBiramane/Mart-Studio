@@ -282,6 +282,7 @@ export interface WorkshopStore {
   adminProducts: AdminProduct[];
   adminProfiles: Profile[];
   activityLogs: ActivityLog[];
+  myLogs: ActivityLog[];
   stepQuestions: Record<number, StepQuestion[]>;
 
   // Actions
@@ -309,6 +310,8 @@ export interface WorkshopStore {
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;
+  loadMyLogs: () => Promise<void>;
+  replyToIdea: (submitterId: string, submitterEmail: string, replyText: string, ideaText: string) => Promise<void>;
   fetchConversation: (productId: string) => Promise<ChatMessage[]>;
   fetchStatsData: () => Promise<Array<{ status: string; currentStep: number; msgSteps: number[] }>>;
   loadStepQuestions: () => Promise<void>;
