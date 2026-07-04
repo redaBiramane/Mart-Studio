@@ -1104,16 +1104,21 @@ async function downloadReportPdf(session: WorkshopSession) {
 
   y = 122;
 
-  // ---- Méta produit ----
+  // ---- Méta produit (hauteur dynamique pour éviter le chevauchement) ----
+  const colW = contentW / 3;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(0, 107, 79);
   doc.text('Domaine', margin, y);
-  doc.text('Product Owner', margin + contentW / 3, y);
-  doc.text('Data Steward', margin + (contentW / 3) * 2, y);
+  doc.text('Product Owner', margin + colW, y);
+  doc.text('Data Steward', margin + colW * 2, y);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK);
-  doc.text(session.domain || '—', margin, y + 15, { maxWidth: contentW / 3 - 10 });
-  doc.text(session.productOwner || '—', margin + contentW / 3, y + 15, { maxWidth: contentW / 3 - 10 });
-  doc.text(session.dataSteward || '—', margin + (contentW / 3) * 2, y + 15, { maxWidth: contentW / 3 - 10 });
-  y += 34;
+  const metaVals = [session.domain || '—', session.productOwner || '—', session.dataSteward || '—'];
+  let metaMaxLines = 1;
+  metaVals.forEach((v, i) => {
+    const lines = doc.splitTextToSize(v, colW - 12) as string[];
+    doc.text(lines, margin + colW * i, y + 15);
+    metaMaxLines = Math.max(metaMaxLines, lines.length);
+  });
+  y += 15 + metaMaxLines * 12 + 8;
   if (session.objective) { para(`Objectif : ${session.objective}`, 10, 55); }
   if (session.contextSummary) { para(session.contextSummary, 9.5, 90); }
 
@@ -1166,7 +1171,28 @@ async function downloadReportPdf(session: WorkshopSession) {
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
   });
 
-  bullets(`Relations (${session.relations.length})`, session.relations.map(r => `${r.sourceEntityName} → ${r.targetEntityName} (${r.type})${r.description ? ' — ' + r.description : ''}`));
+  // Relations : table (bien plus lisible que des puces)
+  if (session.relations.length) {
+    sectionTitle(`Relations (${session.relations.length})`);
+    ensure(30);
+    autoTable(doc, {
+      startY: y,
+      head: [['Source', 'Card.', 'Cible', 'Description']],
+      body: session.relations.map(r => [r.sourceEntityName, r.type, r.targetEntityName, r.description || '']),
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8.5, cellPadding: 4, overflow: 'linebreak', lineColor: [230, 232, 236], lineWidth: 0.5, textColor: INK },
+      headStyles: { fillColor: [0, 107, 79], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+      alternateRowStyles: { fillColor: [246, 248, 250] },
+      columnStyles: {
+        0: { cellWidth: 115, fontStyle: 'bold' },
+        1: { cellWidth: 46, halign: 'center', textColor: [0, 107, 79], fontStyle: 'bold' },
+        2: { cellWidth: 115, fontStyle: 'bold' },
+      },
+      theme: 'grid',
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
+  }
+
   bullets(`KPIs (${session.kpis.length})`, session.kpis.map(k => `${k.name}${k.formula ? ' — ' + k.formula : ''}`));
   bullets(`Règles métier (${session.businessRules.length})`, session.businessRules.map(r => `${r.name} (${r.type})${r.description ? ' — ' + r.description : ''}`));
   bullets(`Sources de données (${session.dataSources.length})`, session.dataSources.map(s => `${s.name}${s.system ? ' — ' + s.system : ''}${s.loadFrequency ? ' · ' + s.loadFrequency : ''}`));
