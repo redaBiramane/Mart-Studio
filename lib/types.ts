@@ -310,6 +310,7 @@ export interface WorkshopStore {
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;
   fetchConversation: (productId: string) => Promise<ChatMessage[]>;
+  fetchStatsData: () => Promise<Array<{ status: string; currentStep: number; msgSteps: number[] }>>;
   loadStepQuestions: () => Promise<void>;
   addStepQuestion: (step: number, text: string) => Promise<void>;
   updateStepQuestion: (id: string, text: string) => Promise<void>;

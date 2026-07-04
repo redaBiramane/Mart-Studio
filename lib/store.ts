@@ -247,6 +247,16 @@ export const useWorkshopStore = create<WorkshopStore>()(
         return msgs;
       },
 
+      fetchStatsData: async () => {
+        if (!supabase) return [];
+        const { data } = await supabase.from('data_products').select('status, data');
+        return (data || []).map((r) => {
+          const s = r.data as WorkshopSession | undefined;
+          const msgSteps = (s?.messages || []).filter((m) => !m.content.startsWith('[SYSTÈME]')).map((m) => m.step);
+          return { status: (r.status as string) || 'active', currentStep: s?.currentStep || 1, msgSteps };
+        });
+      },
+
       // ---- Questions de l'atelier (pilotées par l'admin) -------------------
 
       loadStepQuestions: async () => {

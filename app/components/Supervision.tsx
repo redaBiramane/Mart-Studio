@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
+import { STEPS } from '@/lib/constants';
 
 const ACTION_META: Record<string, { icon: string; label: string }> = {
   login: { icon: 'key', label: 'Connexion' },
@@ -35,6 +36,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
     demote: <><path d="M12 5v14M6 13l6 6 6-6" /></>,
     ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
     chat: <><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2Z" /><path d="M8 8.5h8M8 12h5" /></>,
+    chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: '-3px', flexShrink: 0 }}>
@@ -44,8 +46,28 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
 }
 
 export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' }) {
-  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation } = useWorkshopStore();
-  const [tab, setTab] = useState<'activity' | 'products' | 'users'>(initialTab);
+  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData } = useWorkshopStore();
+  const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats'>(initialTab);
+  const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
+
+  useEffect(() => {
+    if (tab === 'stats' && statsData === null) fetchStatsData().then(setStatsData);
+  }, [tab, statsData, fetchStatsData]);
+
+  const stats = useMemo(() => {
+    if (!statsData) return null;
+    const total = statsData.length;
+    const completed = statsData.filter(p => p.status === 'completed').length;
+    const active = total - completed;
+    const stuckByStep: Record<number, number> = {};
+    const msgByStep: Record<number, number> = {};
+    let totalMsgs = 0;
+    statsData.forEach(p => {
+      if (p.status !== 'completed') stuckByStep[p.currentStep] = (stuckByStep[p.currentStep] || 0) + 1;
+      p.msgSteps.forEach(s => { msgByStep[s] = (msgByStep[s] || 0) + 1; totalMsgs++; });
+    });
+    return { total, completed, active, stuckByStep, msgByStep, totalMsgs, avgMsgs: total ? Math.round(totalMsgs / total) : 0, completionRate: total ? Math.round((completed / total) * 100) : 0 };
+  }, [statsData]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [fUser, setFUser] = useState('all');
   const [fAction, setFAction] = useState('all');
@@ -56,10 +78,14 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
   const [toast, setToast] = useState<string | null>(null);
   const [conv, setConv] = useState<{ name: string; owner: string } | null>(null);
   const [convMsgs, setConvMsgs] = useState<import('@/lib/types').ChatMessage[] | null>(null);
+  const [convSearch, setConvSearch] = useState('');
+  const [convStepF, setConvStepF] = useState('all');
 
   async function openConversation(id: string, name: string, owner: string) {
     setConv({ name, owner });
     setConvMsgs(null);
+    setConvSearch('');
+    setConvStepF('all');
     const msgs = await fetchConversation(id);
     setConvMsgs(msgs);
   }
@@ -115,6 +141,7 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
     { key: 'activity', icon: 'clock', label: `Activité (${activityLogs.length})` },
     { key: 'products', icon: 'box', label: `Data Products (${adminProducts.length})` },
     { key: 'users', icon: 'users', label: `Utilisateurs (${adminProfiles.length})` },
+    { key: 'stats', icon: 'chart', label: 'Statistiques' },
   ];
 
   // Filtres onglet Activité
@@ -300,6 +327,74 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
             </tbody>
           </table>
         )}
+
+        {tab === 'stats' && (
+          <div>
+            {!stats ? (
+              <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Chargement des statistiques…</div>
+            ) : (
+              <>
+                {/* KPI globaux */}
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+                  {[
+                    { label: 'Data Products', value: stats.total, c: 'var(--primary)' },
+                    { label: 'En cours', value: stats.active, c: 'var(--accent-amber)' },
+                    { label: 'Terminés', value: stats.completed, c: 'var(--accent-emerald)' },
+                    { label: 'Taux de complétion', value: `${stats.completionRate}%`, c: 'var(--accent-blue)' },
+                    { label: 'Messages / produit (moy.)', value: stats.avgMsgs, c: 'var(--accent-purple)' },
+                  ].map(k => (
+                    <div key={k.label} className="stat-card" style={{ flex: 1, minWidth: 150 }}>
+                      <div className="stat-value" style={{ fontSize: 26, color: k.c }}>{k.value}</div>
+                      <div className="stat-label">{k.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+                  {/* Où les utilisateurs s'arrêtent */}
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Où les utilisateurs s&apos;arrêtent</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Répartition des produits <strong>non terminés</strong> par étape courante (l&apos;étape avec le plus de produits = point de friction / abandon).</div>
+                    {STEPS.map(s => {
+                      const v = stats.stuckByStep[s.id] || 0;
+                      const max = Math.max(1, ...Object.values(stats.stuckByStep));
+                      return (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                          <div style={{ width: 120, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.id}. {s.titleShort}</div>
+                          <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 16 }}>
+                            <div style={{ width: `${(v / max) * 100}%`, background: 'var(--accent-amber)', height: '100%', borderRadius: 6, minWidth: v > 0 ? 4 : 0 }} />
+                          </div>
+                          <div style={{ width: 26, fontSize: 12, fontWeight: 700 }}>{v}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Volume de messages par étape */}
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Volume de messages par étape</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Total des messages échangés à chaque étape (une étape « bavarde » = questions peu claires ou sujet complexe → à optimiser).</div>
+                    {STEPS.map(s => {
+                      const v = stats.msgByStep[s.id] || 0;
+                      const max = Math.max(1, ...Object.values(stats.msgByStep));
+                      return (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                          <div style={{ width: 120, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.id}. {s.titleShort}</div>
+                          <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 16 }}>
+                            <div style={{ width: `${(v / max) * 100}%`, background: 'var(--primary)', height: '100%', borderRadius: 6, minWidth: v > 0 ? 4 : 0 }} />
+                          </div>
+                          <div style={{ width: 34, fontSize: 12, fontWeight: 700 }}>{v}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button className="suggested-chip" onClick={() => { setStatsData(null); }} style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}><SIcon name="refresh" size={14} /> Recalculer</button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modale confirmation suppression utilisateur */}
@@ -333,12 +428,25 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
               </div>
               <button onClick={() => { setConv(null); setConvMsgs(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
             </div>
+            {convMsgs && convMsgs.filter(m => !m.content.startsWith('[SYSTÈME]')).length > 0 && (
+              <div style={{ display: 'flex', gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                <input value={convSearch} onChange={e => setConvSearch(e.target.value)} placeholder="Rechercher dans la conversation…" className="chat-input" style={{ flex: 1, height: 38 }} />
+                <select value={convStepF} onChange={e => setConvStepF(e.target.value)} className="chat-input" style={{ height: 38, width: 150 }}>
+                  <option value="all">Toutes les étapes</option>
+                  {Array.from(new Set(convMsgs.map(m => m.step))).sort((a, b) => a - b).map(s => <option key={s} value={s}>Étape {s}</option>)}
+                </select>
+              </div>
+            )}
             <div style={{ overflowY: 'auto', padding: 18, flex: 1, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--bg-elevated)' }}>
               {convMsgs === null && <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 24 }}>Chargement…</div>}
-              {convMsgs && convMsgs.filter(m => !m.content.startsWith('[SYSTÈME]')).length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 24 }}>Aucun message dans cette conversation.</div>
-              )}
-              {convMsgs && convMsgs.filter(m => !m.content.startsWith('[SYSTÈME]')).map(m => {
+              {(() => {
+                if (!convMsgs) return null;
+                const visible = convMsgs
+                  .filter(m => !m.content.startsWith('[SYSTÈME]'))
+                  .filter(m => convStepF === 'all' || String(m.step) === convStepF)
+                  .filter(m => !convSearch || m.content.toLowerCase().includes(convSearch.toLowerCase()));
+                if (visible.length === 0) return <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 24 }}>{convMsgs.filter(m => !m.content.startsWith('[SYSTÈME]')).length === 0 ? 'Aucun message dans cette conversation.' : 'Aucun message pour ce filtre.'}</div>;
+                return visible.map(m => {
                 const isUser = m.role === 'user';
                 const text = m.content.replace(/```json:extract[\s\S]*?```/g, '').trim();
                 if (!text) return null;
@@ -352,7 +460,8 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
                     </div>
                   </div>
                 );
-              })}
+                });
+              })()}
             </div>
           </div>
         </div>
