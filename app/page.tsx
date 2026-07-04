@@ -11,11 +11,13 @@ import AdminPanel from './components/AdminPanel';
 import Documentation from './components/Documentation';
 import DataProducts from './components/DataProducts';
 import Supervision from './components/Supervision';
+import QuestionsAdmin from './components/QuestionsAdmin';
+import Help from './components/Help';
 import Login from './components/Login';
 import Landing from './components/Landing';
 import Image from 'next/image';
 
-type Page = 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
+type Page = 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help';
 
 // Icônes SVG (line icons) pour la navigation — plus pro que des emojis.
 function NavIcon({ name }: { name: string }) {
@@ -30,6 +32,8 @@ function NavIcon({ name }: { name: string }) {
     session: <><ellipse cx="12" cy="5" rx="7" ry="2.6" /><path d="M5 5v6c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V5" /><path d="M5 11v6c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6v-6" /></>,
     users: <><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6" /><path d="M18.5 20a5.5 5.5 0 0 0-3.2-5" /></>,
     logout: <><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l-5-5 5-5" /><path d="M15 12H5" /></>,
+    questions: <><path d="M6.5 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M9.2 8.2a2.3 2.3 0 0 1 4.3 1c0 1.6-2.3 1.8-2.3 3M11.2 15h.01" /></>,
+    help: <><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.3 1.2c0 1.9-2.8 2.1-2.8 3.6M12 17h.01" /></>,
   };
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
@@ -152,6 +156,7 @@ export default function Home() {
 
   const adminItems = [
     ...(isAdmin ? [{ key: 'supervision' as Page, label: t('menu.supervision') }] : []),
+    ...(isAdmin ? [{ key: 'questions' as Page, label: t('nav.questions') }] : []),
     { key: 'admin' as Page, label: t('menu.llm') },
   ];
 
@@ -289,6 +294,7 @@ export default function Home() {
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                   </>
                 )}
+                <button className="user-menu-item" onClick={() => { setCurrentPage('help'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="help" /> {t('menu.help')}</button>
                 {user && (
                   <button className="user-menu-item" style={{ color: 'var(--accent-red)' }} onClick={() => { signOut(); setUserMenuOpen(false); }}><NavIcon name="logout" /> {t('menu.logout')}</button>
                 )}
@@ -333,6 +339,8 @@ export default function Home() {
               {currentPage === 'admin' && t('header.admin')}
               {currentPage === 'docs' && t('header.docs')}
               {currentPage === 'supervision' && t('header.supervision')}
+              {currentPage === 'questions' && t('nav.questions')}
+              {currentPage === 'help' && t('menu.help')}
             </h1>
           </div>
           <div className="header-actions">
@@ -402,6 +410,8 @@ export default function Home() {
           {currentPage === 'deliverables' && <Deliverables />}
           {currentPage === 'admin' && <AdminPanel />}
           {currentPage === 'supervision' && <Supervision initialTab={supervisionTab} />}
+          {currentPage === 'questions' && <QuestionsAdmin />}
+          {currentPage === 'help' && <Help onOpenDocs={() => setCurrentPage('docs')} onStartWorkshop={startNewSession} onSuggestIdea={() => { setShowIdea(true); setIdeaSent(false); }} />}
           {currentPage === 'docs' && <Documentation onStartWorkshop={startNewSession} />}
         </div>
       </div>

@@ -271,7 +271,7 @@ export interface WorkshopStore {
   llmSettings: LLMSettings;
   isLoading: boolean;
   isSending: boolean;
-  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision';
+  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help';
 
   // Auth / admin state
   authReady: boolean;
