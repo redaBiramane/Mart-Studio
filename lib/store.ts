@@ -236,6 +236,17 @@ export const useWorkshopStore = create<WorkshopStore>()(
         return null;
       },
 
+      // ---- Admin : consultation d'une conversation (lecture seule) ---------
+
+      fetchConversation: async (productId) => {
+        if (!supabase) return [];
+        const { data } = await supabase.from('data_products').select('data, name').eq('id', productId).single();
+        const msgs = ((data?.data as WorkshopSession | undefined)?.messages || []) as ChatMessage[];
+        // Traçabilité : on journalise l'accès admin à une conversation.
+        await get().logActivity('view_conversation', (data?.name as string) || productId);
+        return msgs;
+      },
+
       // ---- Questions de l'atelier (pilotées par l'admin) -------------------
 
       loadStepQuestions: async () => {

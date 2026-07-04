@@ -12,6 +12,7 @@ const ACTION_META: Record<string, { icon: string; label: string }> = {
   complete_product: { icon: 'check', label: 'Atelier terminé' },
   delete_product: { icon: 'trash', label: 'Suppression produit' },
   idea: { icon: 'idea', label: 'Idée' },
+  view_conversation: { icon: 'chat', label: 'Consultation conversation' },
 };
 
 // Icônes SVG (remplacent les emojis)
@@ -33,6 +34,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
     promote: <><path d="M12 19V5M6 11l6-6 6 6" /></>,
     demote: <><path d="M12 5v14M6 13l6 6 6-6" /></>,
     ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
+    chat: <><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2Z" /><path d="M8 8.5h8M8 12h5" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: '-3px', flexShrink: 0 }}>
@@ -42,7 +44,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
 }
 
 export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' }) {
-  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser } = useWorkshopStore();
+  const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation } = useWorkshopStore();
   const [tab, setTab] = useState<'activity' | 'products' | 'users'>(initialTab);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [fUser, setFUser] = useState('all');
@@ -52,6 +54,15 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
   const [uRole, setURole] = useState('all');
   const [delUser, setDelUser] = useState<{ id: string; label: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [conv, setConv] = useState<{ name: string; owner: string } | null>(null);
+  const [convMsgs, setConvMsgs] = useState<import('@/lib/types').ChatMessage[] | null>(null);
+
+  async function openConversation(id: string, name: string, owner: string) {
+    setConv({ name, owner });
+    setConvMsgs(null);
+    const msgs = await fetchConversation(id);
+    setConvMsgs(msgs);
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -206,7 +217,7 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
 
         {tab === 'products' && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead><tr><th style={th}>Produit</th><th style={th}>Domaine</th><th style={th}>Propriétaire</th><th style={th}>Statut</th><th style={th}>Mis à jour</th></tr></thead>
+            <thead><tr><th style={th}>Produit</th><th style={th}>Domaine</th><th style={th}>Propriétaire</th><th style={th}>Statut</th><th style={th}>Mis à jour</th><th style={{ ...th, textAlign: 'right' }}>Conversation</th></tr></thead>
             <tbody>
               {adminProducts.map(p => (
                 <tr key={p.id}>
@@ -218,10 +229,15 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
                       {p.status === 'completed' ? 'Terminé' : 'En cours'}
                     </span>
                   </td>
-                  <td style={td}>{fmt(p.updated_at)}</td>
+                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmt(p.updated_at)}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <button className="suggested-chip" onClick={() => openConversation(p.id, p.name || 'Sans nom', p.owner_email || '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <SIcon name="chat" size={14} /> Voir
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {adminProducts.length === 0 && <tr><td style={td} colSpan={5}>Aucun Data Product.</td></tr>}
+              {adminProducts.length === 0 && <tr><td style={td} colSpan={6}>Aucun Data Product.</td></tr>}
             </tbody>
           </table>
         )}
@@ -300,6 +316,43 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
               <button className="suggested-chip" onClick={() => setDelUser(null)}>Annuler</button>
               <button onClick={doDeleteUser} disabled={busyId === delUser.id} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{busyId === delUser.id ? '…' : 'Supprimer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : conversation (lecture seule) */}
+      {conv && (
+        <div onClick={() => { setConv(null); setConvMsgs(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 'min(760px, 96%)', maxHeight: '86%', display: 'flex', flexDirection: 'column', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ color: 'var(--primary)', display: 'flex' }}><SIcon name="chat" size={18} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{conv.owner} · lecture seule</div>
+              </div>
+              <button onClick={() => { setConv(null); setConvMsgs(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: 18, flex: 1, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--bg-elevated)' }}>
+              {convMsgs === null && <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 24 }}>Chargement…</div>}
+              {convMsgs && convMsgs.filter(m => !m.content.startsWith('[SYSTÈME]')).length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 24 }}>Aucun message dans cette conversation.</div>
+              )}
+              {convMsgs && convMsgs.filter(m => !m.content.startsWith('[SYSTÈME]')).map(m => {
+                const isUser = m.role === 'user';
+                const text = m.content.replace(/```json:extract[\s\S]*?```/g, '').trim();
+                if (!text) return null;
+                return (
+                  <div key={m.id} style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3, textAlign: isUser ? 'right' : 'left' }}>
+                      {isUser ? (conv.owner || 'Utilisateur') : 'Marty'} · étape {m.step}
+                    </div>
+                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.55, padding: '10px 14px', borderRadius: isUser ? '14px 4px 14px 14px' : '4px 14px 14px 14px', background: isUser ? 'var(--primary)' : 'var(--bg-surface)', color: isUser ? '#fff' : 'var(--text)', border: isUser ? 'none' : '1px solid var(--border)' }}>
+                      {text}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
