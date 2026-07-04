@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
+import { lintModel, applyPatches, qualityScore, type Finding, type Severity } from '@/lib/linter';
 import MermaidDiagram from './MermaidDiagram';
 import { transformMany } from '@/lib/naming';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-type Tab = 'overview' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'quality' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -30,6 +31,7 @@ export default function Deliverables() {
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
+    { key: 'quality', label: 'Qualité', icon: 'quality' },
     { key: 'report', label: 'Rapport détaillé (PDF)', icon: 'report' },
     { key: 'mcd', label: 'MCD / ERD', icon: 'mcd' },
     { key: 'dimensional', label: 'Étoile / Flocon', icon: 'dimensional' },
@@ -55,6 +57,7 @@ export default function Deliverables() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         {activeTab === 'overview' && <OverviewTab session={data} />}
+        {activeTab === 'quality' && <QualityTab />}
         {activeTab === 'report' && <ReportTab session={data} />}
         {activeTab === 'mcd' && <MCDTab session={data} />}
         {activeTab === 'dimensional' && <DimensionalTab session={data} />}
@@ -72,6 +75,7 @@ export default function Deliverables() {
 function DIcon({ name, size = 16 }: { name: string; size?: number }) {
   const p: Record<string, React.ReactNode> = {
     overview: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    quality: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
     report: <><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M8 13h8M8 17h5" /></>,
     mcd: <><rect x="3" y="4" width="8" height="6" rx="1" /><rect x="13" y="14" width="8" height="6" rx="1" /><path d="M7 10v2a2 2 0 0 0 2 2h4" /></>,
     dimensional: <><path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1" /></>,
@@ -273,6 +277,107 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
               );
             })}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Onglet Qualité (linter MCD : version actuelle → améliorée, au choix) ----
+const SEV_META: Record<Severity, { label: string; color: string; bg: string }> = {
+  error: { label: 'Erreur', color: 'var(--accent-red)', bg: 'rgba(220,38,38,0.08)' },
+  warning: { label: 'Avertissement', color: 'var(--accent-amber)', bg: 'rgba(217,119,6,0.08)' },
+  info: { label: 'Info', color: 'var(--accent-blue)', bg: 'rgba(37,99,235,0.08)' },
+};
+
+function QualityTab() {
+  const { session, updateSessionData } = useWorkshopStore();
+  const [tick, setTick] = useState(0);
+  const findings: Finding[] = useMemo(() => (session ? lintModel(session) : []), [session, tick]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Par défaut : on présélectionne les corrections (erreurs + avertissements corrigeables).
+  useEffect(() => {
+    setSelected(new Set(findings.filter(f => f.patch && f.severity !== 'info').map(f => f.id)));
+  }, [findings]);
+
+  const score = qualityScore(findings);
+  const nErr = findings.filter(f => f.severity === 'error').length;
+  const nWarn = findings.filter(f => f.severity === 'warning').length;
+  const nInfo = findings.filter(f => f.severity === 'info').length;
+  const fixable = findings.filter(f => f.patch);
+  const selCount = fixable.filter(f => selected.has(f.id)).length;
+
+  const toggle = (id: string) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  function apply() {
+    if (!session) return;
+    const patches = fixable.filter(f => selected.has(f.id)).map(f => f.patch!);
+    if (!patches.length) return;
+    const { entities, attributes } = applyPatches(session, patches);
+    updateSessionData({ entities, attributes });
+    setTick(t => t + 1);
+  }
+
+  const scoreColor = score >= 80 ? 'var(--accent-emerald)' : score >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)';
+
+  return (
+    <div className="fade-in">
+      <h2 style={{ fontSize: 22, marginBottom: 4 }}>Contrôle qualité du modèle</h2>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Comparez votre version à la version améliorée proposée, puis cochez ce que vous voulez appliquer.</p>
+
+      {/* Score + résumé */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 20px' }}>
+          <div style={{ fontSize: 34, fontWeight: 800, color: scoreColor }}>{score}<span style={{ fontSize: 16, color: 'var(--text-muted)' }}>/100</span></div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Score de qualité</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{nErr} erreur(s) · {nWarn} avertissement(s) · {nInfo} info(s)</div>
+          </div>
+        </div>
+        {fixable.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
+            <button className="suggested-chip" onClick={() => setSelected(new Set(fixable.map(f => f.id)))}>Tout sélectionner</button>
+            <button className="suggested-chip" onClick={() => setSelected(new Set())}>Aucun</button>
+            <button className="cta-btn" onClick={apply} disabled={selCount === 0} style={{ opacity: selCount ? 1 : 0.5 }}>Appliquer la sélection ({selCount})</button>
+          </div>
+        )}
+      </div>
+
+      {findings.length === 0 ? (
+        <div className="context-card" style={{ textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 30, marginBottom: 8 }}>✓</div>
+          <div style={{ fontWeight: 700 }}>Aucun problème détecté</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Votre modèle respecte les bonnes pratiques vérifiées.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {findings.map(f => {
+            const sev = SEV_META[f.severity];
+            const on = selected.has(f.id);
+            return (
+              <div key={f.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${sev.color}`, borderRadius: 10, padding: '12px 14px' }}>
+                {f.patch ? (
+                  <input type="checkbox" checked={on} onChange={() => toggle(f.id)} style={{ marginTop: 3, width: 16, height: 16, cursor: 'pointer' }} />
+                ) : <span style={{ width: 16 }} />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: sev.color, background: sev.bg, borderRadius: 5, padding: '1px 7px' }}>{sev.label}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{f.category}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600 }}>{f.entityName}{f.target ? ` · ${f.target}` : ''}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45 }}>{f.message}</div>
+                  {(f.current || f.suggested) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 12.5, flexWrap: 'wrap' }}>
+                      <span style={{ color: 'var(--accent-red)', textDecoration: 'line-through', background: 'rgba(220,38,38,0.06)', padding: '2px 8px', borderRadius: 6 }}>{f.current}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>→</span>
+                      <span style={{ color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-glow)', padding: '2px 8px', borderRadius: 6 }}>{f.suggested}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
