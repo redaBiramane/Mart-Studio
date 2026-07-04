@@ -4,14 +4,16 @@
 // ============================================================
 import * as Sentry from '@sentry/node';
 
+// DSN Sentry (public). Surchargeable via la variable d'env SENTRY_DSN.
+const DSN = process.env.SENTRY_DSN || 'https://edfe07c98d650503653cff2059af75b7@o4511674588397568.ingest.de.sentry.io/4511674591281232';
+
 let inited = false;
 function ensureInit() {
   if (inited) return;
   inited = true;
-  const dsn = process.env.SENTRY_DSN;
-  if (dsn) {
+  if (DSN) {
     Sentry.init({
-      dsn,
+      dsn: DSN,
       tracesSampleRate: 0, // pas de tracing perf (uniquement les erreurs)
       environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
     });
@@ -20,7 +22,7 @@ function ensureInit() {
 
 export function captureServerError(err: unknown, context?: Record<string, unknown>) {
   try {
-    if (!process.env.SENTRY_DSN) return;
+    if (!DSN) return;
     ensureInit();
     Sentry.captureException(err, context ? { extra: context } : undefined);
   } catch {
