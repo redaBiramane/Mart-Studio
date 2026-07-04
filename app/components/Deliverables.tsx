@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { WorkshopSession, Entity } from '@/lib/types';
 import { MATURITY_DIMENSIONS } from '@/lib/constants';
-import { lintModel, applyPatches, qualityScore, type Finding, type Severity } from '@/lib/linter';
+import { lintModel, applyPatches, qualityScore, type Finding, type Severity, type LinterPatch } from '@/lib/linter';
 import MermaidDiagram from './MermaidDiagram';
 import { transformMany } from '@/lib/naming';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -293,38 +293,32 @@ const SEV_META: Record<Severity, { label: string; color: string; bg: string }> =
 function QualityTab() {
   const { session, updateSessionData } = useWorkshopStore();
   const [tick, setTick] = useState(0);
-  const findings: Finding[] = useMemo(() => (session ? lintModel(session) : []), [session, tick]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [ignored, setIgnored] = useState<Set<string>>(new Set());
+  const allFindings: Finding[] = useMemo(() => (session ? lintModel(session) : []), [session, tick]);
+  const findings = allFindings.filter(f => !ignored.has(f.id));
 
-  // Par défaut : on présélectionne les corrections (erreurs + avertissements corrigeables).
-  useEffect(() => {
-    setSelected(new Set(findings.filter(f => f.patch && f.severity !== 'info').map(f => f.id)));
-  }, [findings]);
-
-  const score = qualityScore(findings);
+  const score = qualityScore(allFindings);
   const nErr = findings.filter(f => f.severity === 'error').length;
   const nWarn = findings.filter(f => f.severity === 'warning').length;
   const nInfo = findings.filter(f => f.severity === 'info').length;
   const fixable = findings.filter(f => f.patch);
-  const selCount = fixable.filter(f => selected.has(f.id)).length;
 
-  const toggle = (id: string) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-
-  function apply() {
-    if (!session) return;
-    const patches = fixable.filter(f => selected.has(f.id)).map(f => f.patch!);
-    if (!patches.length) return;
+  function applyPatchList(patches: LinterPatch[]) {
+    if (!session || !patches.length) return;
     const { entities, attributes } = applyPatches(session, patches);
     updateSessionData({ entities, attributes });
     setTick(t => t + 1);
   }
+  const validateOne = (f: Finding) => f.patch && applyPatchList([f.patch]);
+  const validateAll = () => applyPatchList(fixable.map(f => f.patch!));
+  const ignoreOne = (id: string) => setIgnored(s => new Set(s).add(id));
 
   const scoreColor = score >= 80 ? 'var(--accent-emerald)' : score >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)';
 
   return (
     <div className="fade-in">
       <h2 style={{ fontSize: 22, marginBottom: 4 }}>Contrôle qualité du modèle</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Comparez votre version à la version améliorée proposée, puis cochez ce que vous voulez appliquer.</p>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Pour chaque suggestion, comparez votre version à la version améliorée, puis <strong>Valider</strong> pour appliquer ou <strong>Ignorer</strong>.</p>
 
       {/* Score + résumé */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
@@ -336,10 +330,8 @@ function QualityTab() {
           </div>
         </div>
         {fixable.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
-            <button className="suggested-chip" onClick={() => setSelected(new Set(fixable.map(f => f.id)))}>Tout sélectionner</button>
-            <button className="suggested-chip" onClick={() => setSelected(new Set())}>Aucun</button>
-            <button className="cta-btn" onClick={apply} disabled={selCount === 0} style={{ opacity: selCount ? 1 : 0.5 }}>Appliquer la sélection ({selCount})</button>
+          <div style={{ marginLeft: 'auto' }}>
+            <button className="cta-btn" onClick={validateAll}>Tout valider ({fixable.length})</button>
           </div>
         )}
       </div>
@@ -354,13 +346,9 @@ function QualityTab() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {findings.map(f => {
             const sev = SEV_META[f.severity];
-            const on = selected.has(f.id);
             return (
-              <div key={f.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${sev.color}`, borderRadius: 10, padding: '12px 14px' }}>
-                {f.patch ? (
-                  <input type="checkbox" checked={on} onChange={() => toggle(f.id)} style={{ marginTop: 3, width: 16, height: 16, cursor: 'pointer' }} />
-                ) : <span style={{ width: 16 }} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div key={f.id} style={{ display: 'flex', gap: 14, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${sev.color}`, borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ flex: 1, minWidth: 240 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
                     <span style={{ fontSize: 10.5, fontWeight: 700, color: sev.color, background: sev.bg, borderRadius: 5, padding: '1px 7px' }}>{sev.label}</span>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{f.category}</span>
@@ -374,6 +362,12 @@ function QualityTab() {
                       <span style={{ color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-glow)', padding: '2px 8px', borderRadius: 6 }}>{f.suggested}</span>
                     </div>
                   )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  {f.patch && (
+                    <button onClick={() => validateOne(f)} style={{ cursor: 'pointer', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--primary)' }}>Valider</button>
+                  )}
+                  <button onClick={() => ignoreOne(f.id)} style={{ cursor: 'pointer', borderRadius: 8, padding: '7px 16px', fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', background: 'transparent', border: '1px solid var(--border)' }}>Ignorer</button>
                 </div>
               </div>
             );
