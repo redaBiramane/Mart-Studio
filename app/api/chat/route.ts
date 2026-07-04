@@ -8,6 +8,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createClient } from '@supabase/supabase-js';
 import { SYSTEM_PROMPT, getStepInstruction } from '@/lib/prompts/system-prompt';
+import { captureServerError } from '@/lib/sentry-server';
 
 export const maxDuration = 60;
 
@@ -200,11 +201,13 @@ export async function POST(req: Request) {
     maxOutputTokens: 6000,
     onError: ({ error }) => {
       console.error('[chat] streamText error:', error);
+      captureServerError(error, { where: 'chat.streamText', provider: llmSettings?.provider, model: llmSettings?.model });
     },
   });
 
   return result.toUIMessageStreamResponse({
     onError: (error) => {
+      captureServerError(error, { where: 'chat.stream' });
       const msg = error instanceof Error ? error.message : String(error);
       return `Erreur du fournisseur LLM : ${msg}`;
     },
