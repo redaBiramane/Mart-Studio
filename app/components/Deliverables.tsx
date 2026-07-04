@@ -1027,6 +1027,15 @@ function dedupeColumns(columns: ColumnDefinition[]): ColumnDefinition[] {
   });
 }
 
+// Identifiant sûr pour Mermaid : Mermaid ER refuse un nom vide ou commençant par
+// un chiffre (« Syntax error »). On nettoie, et on préfixe si nécessaire.
+function mmdIdent(raw: string, fallback: string): string {
+  let s = (raw || '').replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  if (!s) s = fallback;
+  if (/^[0-9]/.test(s)) s = 'n_' + s;
+  return s;
+}
+
 function generateMermaidERD(session: WorkshopSession): string {
   let code = 'erDiagram\n';
   
@@ -1067,10 +1076,8 @@ function generateMermaidERD(session: WorkshopSession): string {
 
   const mermaidFkMap = buildFkMap(session, entitiesToGenerate);
 
-  const validName = (n: string, fallback: string) => (n && /[a-zA-Z0-9]/.test(n) ? n : fallback);
-
   entitiesToGenerate.forEach((entity, i) => {
-    const codeName = validName(cleanEntityName(entity.name), `ENTITE_${i + 1}`);
+    const codeName = mmdIdent(cleanEntityName(entity.name), `ENTITE_${i + 1}`);
     // Use the same deduplicated column resolution as the SQL/dbt generators so the
     // diagram never shows duplicate attributes or columns.
     const cols = getTableColumns(entity, session, entitiesToGenerate, mermaidFkMap);
@@ -1078,8 +1085,8 @@ function generateMermaidERD(session: WorkshopSession): string {
       code += `    ${codeName} {\n`;
       cols.forEach((c, ci) => {
         const pkTag = c.isPk ? 'PK' : c.referencedTable ? 'FK' : '';
-        const mermaidType = validName(mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase(), 'varchar');
-        const colName = validName(c.name, `col_${ci + 1}`);
+        const mermaidType = mmdIdent(mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase(), 'varchar');
+        const colName = mmdIdent(c.name, `col_${ci + 1}`);
         code += `        ${mermaidType} ${colName}${pkTag ? ` "${pkTag}"` : ''}\n`;
       });
       code += `    }\n`;
@@ -1088,10 +1095,10 @@ function generateMermaidERD(session: WorkshopSession): string {
     }
   });
 
-  const entityCodeNames = new Set(entitiesToGenerate.map((e, i) => validName(cleanEntityName(e.name), `ENTITE_${i + 1}`)));
+  const entityCodeNames = new Set(entitiesToGenerate.map((e, i) => mmdIdent(cleanEntityName(e.name), `ENTITE_${i + 1}`)));
   session.relations.forEach(rel => {
-    const src = cleanEntityName(rel.sourceEntityName);
-    const tgt = cleanEntityName(rel.targetEntityName);
+    const src = mmdIdent(cleanEntityName(rel.sourceEntityName), '');
+    const tgt = mmdIdent(cleanEntityName(rel.targetEntityName), '');
     // Une relation vers une entité inexistante casserait le diagramme : on l'ignore.
     if (!entityCodeNames.has(src) || !entityCodeNames.has(tgt)) return;
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
@@ -1482,15 +1489,18 @@ function dimFactName(rawName: string, factNames: Set<string>): string {
 function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relations: WorkshopSession['relations'], factNames: Set<string>): string {
   let code = 'erDiagram\n';
   const fkMap = buildFkMap(session, entities);
-  entities.forEach(entity => {
-    const codeName = dimFactName(entity.name, factNames);
+  const declared = new Set<string>();
+  entities.forEach((entity, i) => {
+    const codeName = mmdIdent(dimFactName(entity.name, factNames), `TABLE_${i + 1}`);
+    declared.add(codeName);
     const cols = getTableColumns(entity, session, entities, fkMap);
     if (cols.length > 0) {
       code += `    ${codeName} {\n`;
-      cols.forEach(c => {
+      cols.forEach((c, ci) => {
         const pkTag = c.isPk ? 'PK' : c.referencedTable ? 'FK' : '';
-        const t = mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase();
-        code += `        ${t} ${c.name}${pkTag ? ` "${pkTag}"` : ''}\n`;
+        const t = mmdIdent(mapSqlType(c.type).replace(/\(.*\)/, '').toLowerCase(), 'varchar');
+        const colName = mmdIdent(c.name, `col_${ci + 1}`);
+        code += `        ${t} ${colName}${pkTag ? ` "${pkTag}"` : ''}\n`;
       });
       code += `    }\n`;
     } else {
@@ -1498,8 +1508,10 @@ function buildDimensionalErd(session: WorkshopSession, entities: Entity[], relat
     }
   });
   relations.forEach(rel => {
-    const src = dimFactName(rel.sourceEntityName, factNames);
-    const tgt = dimFactName(rel.targetEntityName, factNames);
+    const src = mmdIdent(dimFactName(rel.sourceEntityName, factNames), '');
+    const tgt = mmdIdent(dimFactName(rel.targetEntityName, factNames), '');
+    // On n'émet une relation que si ses deux extrémités sont des tables déclarées.
+    if (!declared.has(src) || !declared.has(tgt)) return;
     const card = rel.type === '1:1' ? '||--||' : rel.type === '1:N' ? '||--o{' : rel.type === 'N:1' ? '}o--||' : '}o--o{';
     const dlabel = (rel.description || 'lié à').replace(/["\n\r]/g, ' ').replace(/\s+/g, ' ').trim() || 'lié à';
     code += `    ${src} ${card} ${tgt} : "${dlabel}"\n`;

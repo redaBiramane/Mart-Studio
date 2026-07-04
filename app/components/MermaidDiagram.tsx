@@ -108,7 +108,9 @@ export default function MermaidDiagram({ code }: { code: string }) {
   if (error) {
     return (
       <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-muted)', fontSize: 13 }}>
-        Le diagramme n&apos;a pas pu être rendu automatiquement. Vous pouvez copier le code ci-dessous dans mermaid.live.
+        <div style={{ marginBottom: 10 }}>Le diagramme n&apos;a pas pu être rendu automatiquement. Vous pouvez copier le code ci-dessous dans mermaid.live.</div>
+        <div style={{ color: 'var(--accent-red)', fontSize: 12, marginBottom: 8 }}>{error}</div>
+        <pre style={{ background: '#0d1117', color: '#e6edf3', padding: 12, borderRadius: 6, overflow: 'auto', maxHeight: 320, fontSize: 12, lineHeight: 1.5, margin: 0 }}>{code}</pre>
       </div>
     );
   }
