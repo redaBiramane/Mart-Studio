@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType, ConnectionMode,
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
@@ -23,7 +23,36 @@ const VE_TIP_CSS = `
 .ve-tip-box { position: absolute; bottom: calc(100% + 8px); left: 50%; width: 250px; transform: translateX(-50%) translateY(4px); background: #0d1b2a; color: #e6edf3; font-size: 11.5px; font-weight: 500; line-height: 1.55; padding: 11px 13px; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.35); opacity: 0; visibility: hidden; transition: all .18s ease; z-index: 60; text-align: left; }
 .ve-tip-box::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #0d1b2a; }
 .ve-tip:hover .ve-tip-box, .ve-tip:focus .ve-tip-box { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+/* Poignées de connexion : plus grandes, visibles et faciles à saisir */
+.react-flow__handle { width: 15px; height: 15px; background: var(--primary); border: 2.5px solid var(--bg-surface); box-shadow: 0 0 0 1px var(--border-active); transition: transform .12s ease, box-shadow .12s ease; z-index: 5; }
+.react-flow__handle:hover { transform: scale(1.5); box-shadow: 0 0 0 5px var(--primary-glow); cursor: crosshair; }
+.react-flow__node:hover .react-flow__handle { box-shadow: 0 0 0 4px var(--primary-glow); }
+.react-flow__handle.connectingfrom, .react-flow__handle.connectingto { transform: scale(1.6); box-shadow: 0 0 0 6px var(--primary-glow); }
+.react-flow__connection-path { stroke: var(--primary); stroke-width: 2.4; stroke-dasharray: 6 4; }
+.react-flow__edge-path { transition: stroke-width .1s ease; }
+.react-flow__edge:hover .react-flow__edge-path { stroke-width: 3 !important; }
 `;
+
+// Champ texte « validé » : édite en local et n'écrit dans le store qu'à la
+// sortie du champ (blur) ou sur Entrée — évite de reconstruire tout le graphe
+// à chaque frappe (grosse source de lenteur avec beaucoup de tables/colonnes).
+function CommitInput({ value, onCommit, className, placeholder, style }: { value: string; onCommit: (v: string) => void; className?: string; placeholder?: string; style?: React.CSSProperties }) {
+  const [local, setLocal] = useState(value);
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setLocal(value); }, [value]);
+  return (
+    <input
+      className={className}
+      value={local}
+      placeholder={placeholder}
+      style={style}
+      onFocus={() => { focused.current = true; }}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { focused.current = false; if (local !== value) onCommit(local); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+    />
+  );
+}
 
 // Sélecteur de type uniforme (affichage majuscules, casse normalisée)
 function TypeSelect({ value, onChange, style }: { value: string; onChange: (v: string) => void; style?: React.CSSProperties }) {
@@ -49,21 +78,26 @@ type TableData = {
   onExpand: (entityId: string) => void;
 };
 
-function TableNode({ data }: NodeProps<Node<TableData>>) {
+const TableNode = memo(function TableNode({ data }: NodeProps<Node<TableData>>) {
   const { entity, attrs } = data;
   const [collapsed, setCollapsed] = useState(false);
+  // Poignées source+cible de chaque côté : on peut démarrer/terminer un lien
+  // depuis la gauche comme la droite (bien plus facile à connecter).
+  const handleStyle = (side: 'left' | 'right'): React.CSSProperties => ({ top: 18, [side]: -8 } as React.CSSProperties);
   return (
     <div style={{ minWidth: 285, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', overflow: 'hidden', fontSize: 12, cursor: 'grab' }}>
-      <Handle type="target" position={Position.Left} title="Tirer pour relier" style={{ background: 'var(--primary)', width: 14, height: 14, border: '2px solid var(--bg-surface)', left: -7 }} />
-      <Handle type="source" position={Position.Right} title="Tirer pour relier" style={{ background: 'var(--primary)', width: 14, height: 14, border: '2px solid var(--bg-surface)', right: -7 }} />
+      <Handle id="l" type="source" position={Position.Left} title="Tirer pour relier" style={handleStyle('left')} />
+      <Handle id="lt" type="target" position={Position.Left} title="Tirer pour relier" style={handleStyle('left')} />
+      <Handle id="r" type="source" position={Position.Right} title="Tirer pour relier" style={handleStyle('right')} />
+      <Handle id="rt" type="target" position={Position.Right} title="Tirer pour relier" style={handleStyle('right')} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: 'var(--primary-glow)', borderBottom: '1px solid var(--border)', cursor: 'grab' }}>
         <button className="nodrag" onClick={() => setCollapsed((c) => !c)} title={collapsed ? 'Déplier' : 'Replier'} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0, padding: 0 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6" /></svg>
         </button>
-        <input
+        <CommitInput
           className="nodrag"
           value={entity.name}
-          onChange={(e) => data.onRename(entity.id, e.target.value)}
+          onCommit={(v) => data.onRename(entity.id, v)}
           placeholder="NOM_TABLE"
           style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontWeight: 700, fontSize: 12.5, color: 'var(--primary-light)', textTransform: 'uppercase', outline: 'none' }}
         />
@@ -80,7 +114,7 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
               <button className="nodrag" onClick={() => data.onAttr(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Basculer clé primaire" style={{ width: 24, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>
                 {a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}
               </button>
-              <input className="nodrag" value={a.name} onChange={(e) => data.onAttr(a.id, { name: e.target.value })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 12.5, color: 'var(--text)', outline: 'none', padding: '2px 4px', borderRadius: 4 }} />
+              <CommitInput className="nodrag" value={a.name} onCommit={(v) => data.onAttr(a.id, { name: v })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 12.5, color: 'var(--text)', outline: 'none', padding: '2px 4px', borderRadius: 4 }} />
               <TypeSelect value={a.type} onChange={(v) => data.onAttr(a.id, { type: v })} style={{ padding: '4px 5px', minWidth: 82, maxWidth: 110 }} />
               <button className="nodrag" onClick={() => data.onDelAttr(a.id)} title="Supprimer la colonne" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
             </div>
@@ -90,7 +124,7 @@ function TableNode({ data }: NodeProps<Node<TableData>>) {
       )}
     </div>
   );
-}
+});
 
 const nodeTypes = { table: TableNode };
 
@@ -234,59 +268,70 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   );
 
   // ---- Mutations (écrivent dans le store → lues par le chatbot) ----
-  const addEntity = () => {
+  // Elles lisent l'état frais via getState() pour rester stables (useCallback [])
+  // et permettre la mémoïsation des nœuds (pas de re-render inutile en tapant).
+  const cur = () => useWorkshopStore.getState().session;
+  const addEntity = useCallback(() => {
+    const s = cur(); if (!s) return;
     const id = genId('e');
-    const entity: Entity = { id, name: `TABLE_${session.entities.length + 1}`, definition: '', description: '', example: '', responsible: '', type: 'transactional', lifecycle: 'created' };
-    setPositions((p) => ({ ...p, [id]: { x: 40 + (session.entities.length % 3) * 340, y: 40 + Math.floor(session.entities.length / 3) * 320 } }));
-    updateSessionData({ entities: [...session.entities, entity] });
-  };
-  const renameEntity = (id: string, name: string) => {
+    const entity: Entity = { id, name: `TABLE_${s.entities.length + 1}`, definition: '', description: '', example: '', responsible: '', type: 'transactional', lifecycle: 'created' };
+    setPositions((p) => ({ ...p, [id]: { x: 40 + (s.entities.length % 3) * 340, y: 40 + Math.floor(s.entities.length / 3) * 320 } }));
+    updateSessionData({ entities: [...s.entities, entity] });
+  }, [updateSessionData]);
+  const renameEntity = useCallback((id: string, name: string) => {
+    const s = cur(); if (!s) return;
     updateSessionData({
-      entities: session.entities.map((e) => (e.id === id ? { ...e, name } : e)),
-      relations: session.relations.map((r) => ({
+      entities: s.entities.map((e) => (e.id === id ? { ...e, name } : e)),
+      relations: s.relations.map((r) => ({
         ...r,
         sourceEntityName: r.sourceEntityId === id ? name : r.sourceEntityName,
         targetEntityName: r.targetEntityId === id ? name : r.targetEntityName,
       })),
     });
-  };
-  const deleteEntity = (id: string) => {
-    const ent = session.entities.find((e) => e.id === id);
+  }, [updateSessionData]);
+  const deleteEntity = useCallback((id: string) => {
+    const s = cur(); if (!s) return;
+    const ent = s.entities.find((e) => e.id === id);
     const nm = ent?.name?.toLowerCase();
     updateSessionData({
-      entities: session.entities.filter((e) => e.id !== id),
-      attributes: session.attributes.filter((a) => a.entityId !== id && a.entityId !== ent?.name),
+      entities: s.entities.filter((e) => e.id !== id),
+      attributes: s.attributes.filter((a) => a.entityId !== id && a.entityId !== ent?.name),
       // Retirer toute relation touchant cette table (par id OU par nom), sinon la
       // réconciliation la recréerait immédiatement.
-      relations: session.relations.filter((r) =>
+      relations: s.relations.filter((r) =>
         r.sourceEntityId !== id && r.targetEntityId !== id &&
         r.sourceEntityName?.toLowerCase() !== nm && r.targetEntityName?.toLowerCase() !== nm
       ),
     });
     setPositions((p) => { const n = { ...p }; delete n[id]; return n; });
-  };
-  const addAttribute = (entityId: string) => {
+  }, [updateSessionData]);
+  const addAttribute = useCallback((entityId: string) => {
+    const s = cur(); if (!s) return;
     const attr: Attribute = { id: genId('a'), entityId, name: 'nouvelle_colonne', type: 'varchar', description: '', isPrimaryKey: false, isForeignKey: false, isNaturalKey: false, isRequired: false, isSensitive: false, isHistorized: false };
-    updateSessionData({ attributes: [...session.attributes, attr] });
-  };
-  const patchAttribute = (attrId: string, patch: Partial<Attribute>) => {
-    updateSessionData({ attributes: session.attributes.map((a) => (a.id === attrId ? { ...a, ...patch } : a)) });
-  };
-  const deleteAttribute = (attrId: string) => {
-    updateSessionData({ attributes: session.attributes.filter((a) => a.id !== attrId) });
-  };
-  const addRelation = (sourceId: string, targetId: string) => {
+    updateSessionData({ attributes: [...s.attributes, attr] });
+  }, [updateSessionData]);
+  const patchAttribute = useCallback((attrId: string, patch: Partial<Attribute>) => {
+    const s = cur(); if (!s) return;
+    updateSessionData({ attributes: s.attributes.map((a) => (a.id === attrId ? { ...a, ...patch } : a)) });
+  }, [updateSessionData]);
+  const deleteAttribute = useCallback((attrId: string) => {
+    const s = cur(); if (!s) return;
+    updateSessionData({ attributes: s.attributes.filter((a) => a.id !== attrId) });
+  }, [updateSessionData]);
+  const addRelation = useCallback((sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
-    const s = session.entities.find((e) => e.id === sourceId);
-    const t = session.entities.find((e) => e.id === targetId);
+    const st = cur(); if (!st) return;
+    const s = st.entities.find((e) => e.id === sourceId);
+    const t = st.entities.find((e) => e.id === targetId);
     if (!s || !t) return;
-    if (session.relations.some((r) => r.sourceEntityId === sourceId && r.targetEntityId === targetId)) return;
+    if (st.relations.some((r) => r.sourceEntityId === sourceId && r.targetEntityId === targetId)) return;
     const rel: Relation = { id: genId('r'), sourceEntityId: sourceId, targetEntityId: targetId, sourceEntityName: s.name, targetEntityName: t.name, type: '1:N', isRequired: false, description: '', isHierarchy: false };
-    updateSessionData({ relations: [...session.relations, rel] });
-  };
-  const deleteRelation = (relId: string) => {
-    updateSessionData({ relations: session.relations.filter((r) => r.id !== relId) });
-  };
+    updateSessionData({ relations: [...st.relations, rel] });
+  }, [updateSessionData]);
+  const deleteRelation = useCallback((relId: string) => {
+    const s = cur(); if (!s) return;
+    updateSessionData({ relations: s.relations.filter((r) => r.id !== relId) });
+  }, [updateSessionData]);
 
   // Importer un script Snowflake / SQL / PROC SQL : crée tables, colonnes, PK/FK et relations.
   function importDDL() {
@@ -331,12 +376,23 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   }
 
   // ---- Construction nodes / edges depuis le modèle ----
+  // On mémoïse d'abord le `data` de chaque nœud (change seulement si les entités
+  // ou attributs changent), puis on assemble les nœuds avec leur position. Ainsi
+  // un simple déplacement ne recrée pas `data` → TableNode (mémoïsé) ne re-render pas.
+  const nodeData = useMemo(() => {
+    const m: Record<string, TableData> = {};
+    session.entities.forEach((e) => {
+      m[e.id] = { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: setDeleteTableId, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor };
+    });
+    return m;
+  }, [session.entities, session.attributes, attrsOf, renameEntity, addAttribute, patchAttribute, deleteAttribute]);
+
   const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => ({
     id: e.id,
     type: 'table',
     position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
-    data: { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: setDeleteTableId, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor },
-  })), [session.entities, session.attributes, positions, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
+    data: nodeData[e.id],
+  })), [session.entities, nodeData, positions]);
 
   const edges: Edge[] = useMemo(() => {
     // Les relations issues du chat peuvent référencer les entités par NOM (ou un id
@@ -359,6 +415,9 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           id: r.id,
           source,
           target,
+          // Routage cohérent : sortie à droite de la source, entrée à gauche de la cible.
+          sourceHandle: 'r',
+          targetHandle: 'lt',
           label: r.fkColumn ? `${r.type} · ${r.fkColumn}` : r.type,
           labelStyle: { fontSize: 11, fontWeight: 700, fill: sel ? 'var(--accent-amber)' : 'var(--primary)' },
           labelBgStyle: { fill: 'var(--bg-surface)' },
@@ -413,6 +472,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         onPaneClick={() => setSelectedRel(null)}
         onInit={(inst) => { rf.current = inst as unknown as typeof rf.current; }}
         connectionMode={ConnectionMode.Loose}
+        connectionRadius={55}
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
