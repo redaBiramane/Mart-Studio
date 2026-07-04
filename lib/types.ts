@@ -209,6 +209,9 @@ export interface WorkshopSession {
   
   // Chat
   messages: ChatMessage[];
+
+  // Contrôle qualité : identifiants des suggestions ignorées par l'utilisateur
+  dismissedFindings?: string[];
 }
 
 // ---- LLM Configuration ----

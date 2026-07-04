@@ -293,7 +293,7 @@ const SEV_META: Record<Severity, { label: string; color: string; bg: string }> =
 function QualityTab() {
   const { session, updateSessionData } = useWorkshopStore();
   const [tick, setTick] = useState(0);
-  const [ignored, setIgnored] = useState<Set<string>>(new Set());
+  const ignored = useMemo(() => new Set(session?.dismissedFindings ?? []), [session?.dismissedFindings]);
   const allFindings: Finding[] = useMemo(() => (session ? lintModel(session) : []), [session, tick]);
   const findings = allFindings.filter(f => !ignored.has(f.id));
 
@@ -311,7 +311,7 @@ function QualityTab() {
   }
   const validateOne = (f: Finding) => f.patch && applyPatchList([f.patch]);
   const validateAll = () => applyPatchList(fixable.map(f => f.patch!));
-  const ignoreOne = (id: string) => setIgnored(s => new Set(s).add(id));
+  const ignoreOne = (id: string) => updateSessionData({ dismissedFindings: [...ignored, id] });
 
   const scoreColor = score >= 80 ? 'var(--accent-emerald)' : score >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)';
 
