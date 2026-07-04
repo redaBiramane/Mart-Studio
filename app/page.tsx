@@ -411,7 +411,7 @@ export default function Home() {
           {currentPage === 'admin' && <AdminPanel />}
           {currentPage === 'supervision' && <Supervision initialTab={supervisionTab} />}
           {currentPage === 'questions' && <QuestionsAdmin />}
-          {currentPage === 'help' && <Help onOpenDocs={() => setCurrentPage('docs')} onStartWorkshop={startNewSession} onSuggestIdea={() => { setShowIdea(true); setIdeaSent(false); }} />}
+          {currentPage === 'help' && <Help onOpenDocs={() => setCurrentPage('docs')} onStartWorkshop={startNewSession} onSuggestIdea={() => { setShowIdea(true); setIdeaSent(false); }} isAdmin={isAdmin} />}
           {currentPage === 'docs' && <Documentation onStartWorkshop={startNewSession} />}
         </div>
       </div>

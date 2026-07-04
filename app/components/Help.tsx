@@ -1,9 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+import { report } from './ErrorReporter';
+
 interface HelpProps {
   onOpenDocs: () => void;
   onStartWorkshop: () => void;
   onSuggestIdea?: () => void;
+  isAdmin?: boolean;
 }
 
 const FAQ: { q: string; a: string }[] = [
@@ -22,7 +26,8 @@ const TIPS: string[] = [
   'Le bouton 💡 (en haut) permet de proposer une amélioration de la plateforme.',
 ];
 
-export default function Help({ onOpenDocs, onStartWorkshop, onSuggestIdea }: HelpProps) {
+export default function Help({ onOpenDocs, onStartWorkshop, onSuggestIdea, isAdmin }: HelpProps) {
+  const [tested, setTested] = useState(false);
   return (
     <div className="dashboard" style={{ maxWidth: 860, margin: '0 auto' }}>
       <div className="context-card" style={{ marginBottom: 24 }}>
@@ -69,6 +74,23 @@ export default function Help({ onOpenDocs, onStartWorkshop, onSuggestIdea }: Hel
           {TIPS.map((t) => <li key={t}>{t}</li>)}
         </ul>
       </div>
+
+      {/* Test Sentry (admin) */}
+      {isAdmin && (
+        <div className="context-card" style={{ marginBottom: 28, borderLeft: '3px solid var(--accent-amber)' }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>🛠️ Diagnostic — Monitoring (admin)</div>
+          <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 12 }}>
+            Envoie un événement de test à Sentry pour vérifier que le monitoring d&apos;erreurs fonctionne. L&apos;événement doit apparaître dans sentry.io → Issues en quelques secondes.
+          </div>
+          <button
+            className="suggested-chip"
+            onClick={() => { report('test-sentry', `Test Sentry depuis la page Aide — ${new Date().toISOString()}`); setTested(true); setTimeout(() => setTested(false), 4000); }}
+          >
+            Envoyer un événement de test
+          </button>
+          {tested && <span style={{ marginLeft: 12, fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>✓ Envoyé — vérifiez Sentry (Issues)</span>}
+        </div>
+      )}
 
       {/* Contact */}
       <div className="context-card" style={{ borderLeft: '3px solid var(--primary)' }}>
