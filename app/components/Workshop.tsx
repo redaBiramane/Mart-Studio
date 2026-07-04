@@ -13,7 +13,7 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions } = useWorkshopStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
@@ -54,11 +54,15 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
       return h;
     },
     body: () => {
-      const currentSession = useWorkshopStore.getState().session;
-      const llmSettings = useWorkshopStore.getState().llmSettings;
+      const state = useWorkshopStore.getState();
+      const currentSession = state.session;
+      const llmSettings = state.llmSettings;
+      const step = currentSession?.currentStep || 1;
+      const adminQuestions = (state.stepQuestions[step] || []).map((q) => q.text);
       return {
-        currentStep: currentSession?.currentStep || 1,
+        currentStep: step,
         mode: currentSession?.mode || 'batch',
+        adminQuestions,
         llmSettings,
         sessionData: currentSession ? {
           productName: currentSession.productName,
@@ -510,7 +514,9 @@ ${truncated}
   }
 
   // Suggested questions for current step
-  const suggestions = stepDef.questions.slice(0, 3);
+  // Questions pilotées par l'admin (fallback aux questions par défaut de l'étape).
+  const adminQs = (stepQuestions[currentStep] || []).map((q) => q.text);
+  const suggestions = (adminQs.length > 0 ? adminQs : stepDef.questions).slice(0, 3);
 
   // Filter system messages from display
   const displayMessages = messages.filter(m => !getMessageText(m).startsWith('[SYSTÈME]'));

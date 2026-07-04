@@ -246,6 +246,13 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface StepQuestion {
+  id: string;
+  step: number;
+  position: number;
+  text: string;
+}
+
 export interface AdminProduct {
   id: string;
   owner_email: string | null;
@@ -275,6 +282,7 @@ export interface WorkshopStore {
   adminProducts: AdminProduct[];
   adminProfiles: Profile[];
   activityLogs: ActivityLog[];
+  stepQuestions: Record<number, StepQuestion[]>;
 
   // Actions
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
@@ -301,4 +309,9 @@ export interface WorkshopStore {
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;
+  loadStepQuestions: () => Promise<void>;
+  addStepQuestion: (step: number, text: string) => Promise<void>;
+  updateStepQuestion: (id: string, text: string) => Promise<void>;
+  deleteStepQuestion: (id: string) => Promise<void>;
+  seedStepQuestions: (step: number, texts: string[]) => Promise<void>;
 }

@@ -90,6 +90,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       adminProducts: [],
       adminProfiles: [],
       activityLogs: [],
+      stepQuestions: {},
 
       setCurrentPage: (page) => set({ currentPage: page }),
 
@@ -112,6 +113,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           set({ user: { id: sUser.id, email: sUser.email || '' }, accessToken: data.session?.access_token ?? null });
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
+          await get().loadStepQuestions();
           if (prof?.role === 'admin') await get().loadAdminData();
         }
         supabase.auth.onAuthStateChange((_event, sess) => {
@@ -142,6 +144,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         set({ user: { id: data.user.id, email: data.user.email || '' }, accessToken: data.session?.access_token ?? null });
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
+        await get().loadStepQuestions();
         if (prof?.role === 'admin') await get().loadAdminData();
         await get().logActivity('login');
         return true;
@@ -231,6 +234,43 @@ export const useWorkshopStore = create<WorkshopStore>()(
         await get().logActivity(role === 'banned' ? 'ban_user' : 'set_role', `${id} → ${role}`);
         await get().loadAdminData();
         return null;
+      },
+
+      // ---- Questions de l'atelier (pilotées par l'admin) -------------------
+
+      loadStepQuestions: async () => {
+        if (!supabase) return;
+        const { data } = await supabase.from('step_questions').select('*').order('step').order('position');
+        if (!data) return;
+        const byStep: Record<number, import('./types').StepQuestion[]> = {};
+        data.forEach((q) => { (byStep[q.step] = byStep[q.step] || []).push(q); });
+        set({ stepQuestions: byStep });
+      },
+
+      addStepQuestion: async (step, text) => {
+        if (!supabase) return;
+        const pos = get().stepQuestions[step]?.length || 0;
+        await supabase.from('step_questions').insert({ step, position: pos, text });
+        await get().loadStepQuestions();
+      },
+
+      updateStepQuestion: async (id, text) => {
+        if (!supabase) return;
+        await supabase.from('step_questions').update({ text }).eq('id', id);
+        await get().loadStepQuestions();
+      },
+
+      deleteStepQuestion: async (id) => {
+        if (!supabase) return;
+        await supabase.from('step_questions').delete().eq('id', id);
+        await get().loadStepQuestions();
+      },
+
+      seedStepQuestions: async (step, texts) => {
+        if (!supabase) return;
+        const rows = texts.map((text, i) => ({ step, position: i, text }));
+        if (rows.length) await supabase.from('step_questions').insert(rows);
+        await get().loadStepQuestions();
       },
 
       deleteUser: async (id) => {

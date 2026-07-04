@@ -75,3 +75,26 @@ create policy "logs_insert_self" on public.activity_logs
 drop policy if exists "logs_select_admin" on public.activity_logs;
 create policy "logs_select_admin" on public.activity_logs
   for select using (public.is_admin());
+
+-- ------------------------------------------------------------
+-- step_questions — questions de l'atelier pilotées par l'admin
+-- ------------------------------------------------------------
+create table if not exists public.step_questions (
+  id uuid primary key default gen_random_uuid(),
+  step int not null check (step between 1 and 7),
+  position int not null default 0,
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.step_questions enable row level security;
+
+-- Lecture par tout utilisateur authentifié (Marty + atelier en ont besoin)
+drop policy if exists "step_questions_select_auth" on public.step_questions;
+create policy "step_questions_select_auth" on public.step_questions
+  for select using (auth.role() = 'authenticated');
+
+-- Écriture (add/update/delete) réservée à l'admin
+drop policy if exists "step_questions_write_admin" on public.step_questions;
+create policy "step_questions_write_admin" on public.step_questions
+  for all using (public.is_admin()) with check (public.is_admin());

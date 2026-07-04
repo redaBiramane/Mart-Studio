@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   } catch {
     return new Response('Requête invalide.', { status: 400 });
   }
-  const { messages, currentStep, sessionData, llmSettings, mode } = body;
+  const { messages, currentStep, sessionData, llmSettings, mode, adminQuestions } = body;
 
   // --- Authentification : obligatoire dès que Supabase est configuré ---
   // Empêche l'usage anonyme de la clé LLM serveur (abus / coûts).
@@ -106,7 +106,19 @@ export async function POST(req: Request) {
     }
   }
 
-  const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${stepInstruction}${modeInstruction}${collectedContext}`;
+  // Questions définies par l'administrateur pour cette étape (prioritaires).
+  let adminQuestionsBlock = '';
+  if (Array.isArray(adminQuestions) && adminQuestions.length > 0) {
+    const list = adminQuestions
+      .filter((q: unknown) => typeof q === 'string' && q.trim())
+      .map((q: string) => `- ${q.trim()}`)
+      .join('\n');
+    if (list) {
+      adminQuestionsBlock = `\n\n## Questions de cette étape (DÉFINIES PAR L'ADMINISTRATEUR — PRIORITAIRES)\nPose EXACTEMENT ces questions pour cette étape (tu peux les reformuler naturellement, mais couvre-les toutes et n'en ajoute pas d'autres) :\n${list}`;
+    }
+  }
+
+  const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${stepInstruction}${modeInstruction}${collectedContext}${adminQuestionsBlock}`;
 
   // Convert incoming messages to the format expected by streamText.
   // On filtre les messages vides : Anthropic (Claude) rejette tout bloc de
