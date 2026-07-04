@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       const entityById: Record<string, string> = {};
       (sessionData.entities || []).forEach((e: { id: string; name: string }) => { entityById[e.id] = e.name; });
       // Plafond pour éviter des payloads énormes (modèles à plusieurs centaines de colonnes).
-      const MAX_ATTRS = 400;
+      const MAX_ATTRS = 1000;
       const allAttrs = sessionData.attributes as Array<{ name: string; type: string; entityId: string; isPrimaryKey?: boolean }>;
       allAttrs.slice(0, MAX_ATTRS).forEach((a) => {
         const ent = entityById[a.entityId] || a.entityId || '—';
