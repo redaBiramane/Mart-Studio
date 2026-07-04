@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
+import { report } from './components/ErrorReporter';
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    // Point d'accroche pour un service de suivi d'erreurs (Sentry, etc.)
     console.error('[app] Erreur non gérée:', error);
+    report('react-boundary', error.message, error.stack);
   }, [error]);
 
   return (

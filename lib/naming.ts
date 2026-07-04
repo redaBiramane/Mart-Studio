@@ -7,13 +7,18 @@ const NAMING_API = 'https://www.fieldmapper.space/api/transform';
 
 // Transforme un seul nom. En cas d'erreur réseau, renvoie le nom d'origine.
 export async function transformName(keyword: string): Promise<string> {
+  // Timeout de 6 s : si l'API tierce ne répond pas, on renvoie le nom d'origine.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
   try {
-    const res = await fetch(`${NAMING_API}?keyword=${encodeURIComponent(keyword)}`);
+    const res = await fetch(`${NAMING_API}?keyword=${encodeURIComponent(keyword)}`, { signal: ctrl.signal });
     if (!res.ok) return keyword;
     const data = await res.json();
     return (data && typeof data.transformed === 'string' && data.transformed) || keyword;
   } catch {
     return keyword;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

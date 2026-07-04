@@ -86,12 +86,16 @@ export async function POST(req: Request) {
       const byEntity: Record<string, string[]> = {};
       const entityById: Record<string, string> = {};
       (sessionData.entities || []).forEach((e: { id: string; name: string }) => { entityById[e.id] = e.name; });
-      sessionData.attributes.forEach((a: { name: string; type: string; entityId: string; isPrimaryKey?: boolean }) => {
+      // Plafond pour éviter des payloads énormes (modèles à plusieurs centaines de colonnes).
+      const MAX_ATTRS = 400;
+      const allAttrs = sessionData.attributes as Array<{ name: string; type: string; entityId: string; isPrimaryKey?: boolean }>;
+      allAttrs.slice(0, MAX_ATTRS).forEach((a) => {
         const ent = entityById[a.entityId] || a.entityId || '—';
         (byEntity[ent] = byEntity[ent] || []).push(`${a.name}${a.isPrimaryKey ? ' (PK)' : ''}:${a.type}`);
       });
       const attrLines = Object.entries(byEntity).map(([ent, cols]) => `  - ${ent} : ${cols.join(', ')}`).join('\n');
-      parts.push(`**Attributs actuels par entité** (source de vérité — respecte ces éditions, n'écrase pas) :\n${attrLines}`);
+      const overflow = allAttrs.length > MAX_ATTRS ? `\n  … (${allAttrs.length - MAX_ATTRS} colonnes supplémentaires non listées)` : '';
+      parts.push(`**Attributs actuels par entité** (source de vérité — respecte ces éditions, n'écrase pas) :\n${attrLines}${overflow}`);
     }
     if (sessionData.kpis?.length > 0) {
       parts.push(`**KPIs**: ${sessionData.kpis.map((k: { name: string }) => k.name).join(', ')}`);
@@ -112,7 +116,13 @@ export async function POST(req: Request) {
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content || (m.parts?.filter((p: { type: string }) => p.type === 'text').map((p: { text: string }) => p.text).join('') ?? ''),
     }))
-    .filter((m: { content: string }) => typeof m.content === 'string' && m.content.trim().length > 0);
+    .filter((m: { content: string }) => typeof m.content === 'string' && m.content.trim().length > 0)
+    // Limite de payload : on ne garde que l'historique récent, chaque message tronqué.
+    .slice(-30)
+    .map((m: { role: 'user' | 'assistant' | 'system'; content: string }) => ({
+      role: m.role,
+      content: m.content.length > 8000 ? m.content.slice(0, 8000) + '…' : m.content,
+    }));
 
   let modelInstance;
 
