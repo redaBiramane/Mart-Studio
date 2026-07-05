@@ -100,7 +100,7 @@ const STYLE = `
 .gd-seg button.on { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(0,107,79,0.3); }
 /* Vue visuelle */
 .gd-visual { padding: 18px; animation: gdIn .4s ease; }
-.gd-visual svg { width: 100%; height: auto; display: block; }
+.gd-visual > svg { width: 100%; height: auto; display: block; }
 .gd-visual-hint { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
 .gd-visual-feats { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; margin-top: 14px; }
 .gd-visual-feats span { font-size: 12px; font-weight: 600; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; }
