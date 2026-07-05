@@ -350,7 +350,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     const rels = [...session.relations];
     const findEnt = (name: string) => entities.find((e) => e.name.toLowerCase() === name.toLowerCase());
 
-    let nbTables = 0, nbCols = 0;
+    let nbTables = 0, nbCols = 0, nbUpdated = 0;
     tables.forEach((t) => {
       let ent = findEnt(t.name);
       if (!ent) {
@@ -358,10 +358,17 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         entities.push(ent); nbTables++;
       }
       t.columns.forEach((c) => {
-        const exists = attributes.some((a) => (a.entityId === ent!.id || a.entityId === ent!.name) && a.name.toLowerCase() === c.name.toLowerCase());
-        if (!exists) {
+        const idx = attributes.findIndex((a) => (a.entityId === ent!.id || a.entityId === ent!.name) && a.name.toLowerCase() === c.name.toLowerCase());
+        if (idx === -1) {
           attributes.push({ id: genId('a'), entityId: ent!.id, name: c.name, type: c.type, description: '', isPrimaryKey: c.isPrimaryKey, isForeignKey: c.isForeignKey, isNaturalKey: false, isRequired: c.isPrimaryKey, isSensitive: false, isHistorized: false });
           nbCols++;
+        } else {
+          // Round-trip : la colonne existe déjà → on met à jour type / PK / FK si le DDL a changé.
+          const prev = attributes[idx];
+          const next = { ...prev, type: c.type || prev.type, isPrimaryKey: c.isPrimaryKey || prev.isPrimaryKey, isForeignKey: c.isForeignKey || prev.isForeignKey };
+          if (next.type !== prev.type || next.isPrimaryKey !== prev.isPrimaryKey || next.isForeignKey !== prev.isForeignKey) {
+            attributes[idx] = next; nbUpdated++;
+          }
         }
       });
     });
@@ -377,7 +384,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
 
     updateSessionData({ entities, attributes, relations: rels });
     lastArrangedId.current = null; // forcer un ré-agencement
-    setImportMsg(`✓ Importé : ${nbTables} table(s), ${nbCols} colonne(s), ${nbRels} relation(s).`);
+    setImportMsg(`✓ Synchronisé : ${nbTables} table(s), ${nbCols} colonne(s) ajoutée(s), ${nbUpdated} mise(s) à jour, ${nbRels} relation(s).`);
     setDdlText('');
     setTimeout(() => { setShowImport(false); setImportMsg(null); arrange(); }, 1400);
   }
@@ -661,7 +668,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
               <strong style={{ fontSize: 16 }}>Importer un script SQL / Snowflake</strong>
               <button onClick={() => setShowImport(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>×</button>
             </div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>Collez un ou plusieurs <code>CREATE TABLE</code> (Snowflake, SQL standard, PROC SQL). Les colonnes, types, clés <strong>PK</strong> et <strong>FK</strong> (et les relations) sont créés automatiquement.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>Collez un ou plusieurs <code>CREATE TABLE</code> (Snowflake, SQL standard, PROC SQL). Les colonnes, types, clés <strong>PK</strong> et <strong>FK</strong> (et les relations) sont créés automatiquement. Ré-importer un script <strong>met à jour</strong> les tables existantes (nouveaux champs ajoutés, types/clés resynchronisés) sans écraser le reste.</p>
             <textarea
               value={ddlText}
               onChange={(e) => setDdlText(e.target.value)}
