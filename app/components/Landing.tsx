@@ -534,24 +534,6 @@ export default function Landing({ onEnter }: LandingProps) {
               </div>
             ))}
           </div>
-          <div className="ml-feats">
-            <div className="ml-feat ml-reveal">
-              <div className="ml-feat-ico"><Icon name="import" /></div>
-              <div><h3>{L.importTitle}</h3><p>{L.importDesc}</p></div>
-            </div>
-            <div className="ml-feat ml-reveal" style={{ transitionDelay: '80ms' }}>
-              <div className="ml-feat-ico"><Icon name="entities" /></div>
-              <div><h3>{L.visualTitle}</h3><p>{L.visualDesc}</p></div>
-            </div>
-            <div className="ml-feat ml-reveal">
-              <div className="ml-feat-ico"><Icon name="relations" /></div>
-              <div><h3>{L.syncTitle}</h3><p>{L.syncDesc}</p></div>
-            </div>
-            <div className="ml-feat ml-reveal" style={{ transitionDelay: '80ms' }}>
-              <div className="ml-feat-ico"><Icon name="gov" /></div>
-              <div><h3>{L.govTitle}</h3><p>{L.govDesc}</p></div>
-            </div>
-          </div>
         </div>
       </section>
 
