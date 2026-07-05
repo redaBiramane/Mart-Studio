@@ -13,7 +13,24 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, undo, redo, past, future } = useWorkshopStore();
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
+
+  // Raccourcis clavier : Cmd/Ctrl+Z (annuler), Cmd/Ctrl+Shift+Z (rétablir),
+  // sauf pendant l'édition de texte (on laisse l'annulation native du champ).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.key.toLowerCase() !== 'z') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
@@ -585,6 +602,7 @@ ${truncated}
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)',
         }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setMenuOpen(o => !o)}
@@ -609,6 +627,27 @@ ${truncated}
                 </div>
               </>
             )}
+          </div>
+          <div style={{ display: 'inline-flex', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: 2, gap: 2 }}>
+            <button
+              onClick={() => undo()}
+              disabled={!canUndo}
+              title="Annuler (Cmd/Ctrl+Z)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 6, padding: '5px 9px', cursor: canUndo ? 'pointer' : 'not-allowed', fontSize: 12.5, fontWeight: 600, background: 'transparent', color: canUndo ? 'var(--text-secondary)' : 'var(--text-muted)', opacity: canUndo ? 1 : 0.45 }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9" /></svg>
+              Annuler
+            </button>
+            <button
+              onClick={() => redo()}
+              disabled={!canRedo}
+              title="Rétablir (Cmd/Ctrl+Shift+Z)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 6, padding: '5px 9px', cursor: canRedo ? 'pointer' : 'not-allowed', fontSize: 12.5, fontWeight: 600, background: 'transparent', color: canRedo ? 'var(--text-secondary)' : 'var(--text-muted)', opacity: canRedo ? 1 : 0.45 }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="m15 14 5-5-5-5" /><path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h6" /></svg>
+              Rétablir
+            </button>
+          </div>
           </div>
           <div style={{ display: 'inline-flex', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
             <button

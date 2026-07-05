@@ -274,6 +274,9 @@ export interface WorkshopStore {
   llmSettings: LLMSettings;
   isLoading: boolean;
   isSending: boolean;
+  // Historique d'annulation du modèle (hors messages) pour la session active
+  past: Partial<WorkshopSession>[];
+  future: Partial<WorkshopSession>[];
   currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help';
 
   // Auth / admin state
@@ -296,6 +299,8 @@ export interface WorkshopStore {
   setCurrentStep: (step: number) => void;
   addMessage: (message: ChatMessage) => void;
   updateSessionData: (data: Partial<WorkshopSession>) => void;
+  undo: () => void;
+  redo: () => void;
   updateLLMSettings: (settings: Partial<LLMSettings>) => void;
   completeSession: () => void;
   deleteSession: (id: string) => void;

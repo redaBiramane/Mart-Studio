@@ -58,6 +58,16 @@ const defaultLLMSettings = {
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
+// ---- Historique (undo/redo) ---------------------------------------------
+const HISTORY_MAX = 40;
+let lastSnapshotAt = 0; // pour regrouper les frappes rapides en un seul pas d'annulation
+// Instantané du MODÈLE (tout sauf les messages du chat), pour restaurer sans toucher la conversation.
+function modelSnapshot(s: WorkshopSession): Partial<WorkshopSession> {
+  const { messages: _messages, ...rest } = s;
+  void _messages;
+  return rest;
+}
+
 async function upsertProduct(session: WorkshopSession, userId: string, email: string) {
   if (!supabase) return;
   await supabase.from('data_products').upsert({
@@ -80,6 +90,8 @@ export const useWorkshopStore = create<WorkshopStore>()(
       llmSettings: defaultLLMSettings,
       isLoading: false,
       isSending: false,
+      past: [],
+      future: [],
       currentPage: 'dashboard',
 
       authReady: false,
@@ -364,9 +376,12 @@ export const useWorkshopStore = create<WorkshopStore>()(
 
       createSession: (mode: 'batch' | 'guided' = 'batch') => {
         const newSession = { ...createEmptySession(), mode };
+        lastSnapshotAt = 0;
         set((state) => ({
           session: newSession,
           sessions: [newSession, ...state.sessions],
+          past: [],
+          future: [],
         }));
         const { user } = get();
         if (user) {
@@ -379,7 +394,8 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const { sessions } = get();
         const found = sessions.find((s) => s.id === id);
         if (found) {
-          set({ session: found });
+          lastSnapshotAt = 0;
+          set({ session: found, past: [], future: [] });
         }
       },
 
@@ -395,9 +411,12 @@ export const useWorkshopStore = create<WorkshopStore>()(
           updatedAt: now,
           productName: `${src.productName || 'Data Product'} (copie)`,
         };
+        lastSnapshotAt = 0;
         set((state) => ({
           session: copy,
           sessions: [copy, ...state.sessions],
+          past: [],
+          future: [],
         }));
         const { user } = get();
         if (user) {
@@ -433,12 +452,54 @@ export const useWorkshopStore = create<WorkshopStore>()(
       updateSessionData: (data: Partial<WorkshopSession>) => {
         set((state) => {
           if (!state.session) return state;
+          // Historique : on capture l'état AVANT modification. Les frappes rapprochées
+          // (< 700 ms) sont regroupées en un seul pas d'annulation.
+          const now = Date.now();
+          let past = state.past;
+          if (now - lastSnapshotAt > 700) {
+            past = [...state.past, modelSnapshot(state.session)].slice(-HISTORY_MAX);
+          }
+          lastSnapshotAt = now;
           const updatedSession = { ...state.session, ...data, updatedAt: Date.now() };
           return {
             session: updatedSession,
             sessions: state.sessions.map((s) => (s.id === updatedSession.id ? updatedSession : s)),
+            past,
+            future: [], // toute nouvelle modification annule le « rétablir »
           };
         });
+        scheduleSave(get);
+      },
+
+      undo: () => {
+        set((state) => {
+          if (!state.session || state.past.length === 0) return state;
+          const prev = state.past[state.past.length - 1];
+          const restored = { ...state.session, ...prev, updatedAt: Date.now() };
+          return {
+            session: restored,
+            sessions: state.sessions.map((s) => (s.id === restored.id ? restored : s)),
+            past: state.past.slice(0, -1),
+            future: [modelSnapshot(state.session), ...state.future].slice(0, HISTORY_MAX),
+          };
+        });
+        lastSnapshotAt = 0; // la prochaine modification recréera un point d'annulation
+        scheduleSave(get);
+      },
+
+      redo: () => {
+        set((state) => {
+          if (!state.session || state.future.length === 0) return state;
+          const next = state.future[0];
+          const restored = { ...state.session, ...next, updatedAt: Date.now() };
+          return {
+            session: restored,
+            sessions: state.sessions.map((s) => (s.id === restored.id ? restored : s)),
+            past: [...state.past, modelSnapshot(state.session)].slice(-HISTORY_MAX),
+            future: state.future.slice(1),
+          };
+        });
+        lastSnapshotAt = 0;
         scheduleSave(get);
       },
 
