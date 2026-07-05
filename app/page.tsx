@@ -110,7 +110,9 @@ export default function Home() {
     if (isAdmin) {
       activityLogs.slice(0, 10).forEach((l) => {
         const isIdea = l.action === 'idea';
-        items.push({ id: `act-${l.id}`, icon: isIdea ? 'idea' : 'activity', title: isIdea ? '💡 Nouvelle idée' : `${t('notif.activity')} · ${l.action}`, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime(), go: goSupervision(isIdea ? 'ideas' : 'activity') });
+        const isReport = l.action === 'report_ai';
+        const title = isIdea ? '💡 Nouvelle idée' : isReport ? '⚠️ Signalement IA' : `${t('notif.activity')} · ${l.action}`;
+        items.push({ id: `act-${l.id}`, icon: isIdea ? 'idea' : 'activity', title, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime(), go: goSupervision(isIdea ? 'ideas' : 'activity') });
       });
     }
     // Réponses de l'admin aux idées de l'utilisateur courant → notif in-app

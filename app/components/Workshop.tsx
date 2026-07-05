@@ -50,6 +50,22 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [reportIncludeMsg, setReportIncludeMsg] = useState(true);
+  const [reportSent, setReportSent] = useState(false);
+
+  async function submitReport() {
+    const txt = reportText.trim();
+    if (!txt || !session) return;
+    const lastMarty = [...displayMessages].reverse().find(m => m.role === 'assistant');
+    const ctx = `[${session.productName || 'Data Product'} · étape ${currentStep}/${STEPS.length}]`;
+    const extra = reportIncludeMsg && lastMarty ? ` | Dernier message IA: ${getMessageText(lastMarty).replace(/```json:extract[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim().slice(0, 300)}` : '';
+    try { await useWorkshopStore.getState().logActivity('report_ai', `${ctx} ${txt}${extra}`); } catch { /* mode local : ignore */ }
+    setReportSent(true);
+    setReportText('');
+    setTimeout(() => { setShowReport(false); setReportSent(false); }, 1600);
+  }
   const [visual, setVisual] = useState(false);
 
   useEffect(() => {
@@ -591,6 +607,46 @@ ${truncated}
         </div>
       )}
 
+      {/* Signalement d'un problème IA (hallucination / comportement inattendu) */}
+      {showReport && (
+        <div onClick={() => setShowReport(false)} style={wsOverlay}>
+          <div onClick={e => e.stopPropagation()} style={{ ...wsModal, width: 'min(520px, 100%)' }}>
+            {reportSent ? (
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div style={{ fontSize: 30, marginBottom: 8 }}>✓</div>
+                <div style={{ fontWeight: 700 }}>Signalement envoyé</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Merci — l&apos;équipe l&apos;examinera pour améliorer Marty.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{ color: 'var(--primary)', display: 'flex' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg></span>
+                  <h3 style={{ fontSize: 17, margin: 0 }}>Signaler un problème IA</h3>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 12px' }}>
+                  Marty a inventé une information (hallucination), donné une réponse fausse ou eu un comportement inattendu ? Décrivez ce qui ne va pas — c&apos;est transmis à l&apos;équipe pour améliorer la qualité.
+                </p>
+                <textarea
+                  autoFocus
+                  value={reportText}
+                  onChange={e => setReportText(e.target.value)}
+                  placeholder="Ex. : Marty a créé une table « YASSIN » qui n'existe pas dans mon besoin / a affirmé une règle Bâle inexacte…"
+                  style={{ width: '100%', minHeight: 110, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-elevated)', color: 'var(--text)', fontSize: 13.5, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={reportIncludeMsg} onChange={e => setReportIncludeMsg(e.target.checked)} />
+                  Joindre le dernier message de Marty (aide au diagnostic)
+                </label>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+                  <button className="suggested-chip" onClick={() => setShowReport(false)}>Annuler</button>
+                  <button onClick={submitReport} disabled={!reportText.trim()} className="cta-btn" style={{ opacity: reportText.trim() ? 1 : 0.5 }}>Envoyer le signalement</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Confirmation : remise à zéro */}
       {showReset && (
         <div onClick={() => setShowReset(false)} style={wsOverlay}>
@@ -650,6 +706,10 @@ ${truncated}
               <>
                 <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
                 <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, minWidth: 240, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 41 }}>
+                  <button className="user-menu-item" onClick={() => { setShowReport(true); setMenuOpen(false); }} title="Signaler une réponse fausse, inventée (hallucination) ou un comportement inattendu de l'IA — envoyé à l'équipe" style={{ color: 'var(--primary)' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+                    Signaler un problème IA
+                  </button>
                   <button className="user-menu-item" onClick={() => { setShowReset(true); setMenuOpen(false); }} style={{ color: 'var(--accent-amber)' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg>
                     Remettre à zéro l&apos;atelier
