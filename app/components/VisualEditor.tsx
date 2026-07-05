@@ -130,7 +130,9 @@ const nodeTypes = { table: TableNode };
 
 export default function VisualEditor({ session }: { session: WorkshopSession }) {
   const { updateSessionData } = useWorkshopStore();
-  const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number }) => void } | null>(null);
+  const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number; nodes?: { id: string }[]; maxZoom?: number }) => void } | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const posKey = `mart-erd-pos-${session.id}`;
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>(() => {
     if (typeof window === 'undefined') return {};
@@ -387,12 +389,38 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     return m;
   }, [session.entities, session.attributes, attrsOf, renameEntity, addAttribute, patchAttribute, deleteAttribute]);
 
-  const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => ({
-    id: e.id,
-    type: 'table',
-    position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
-    data: nodeData[e.id],
-  })), [session.entities, nodeData, positions]);
+  // Recherche : tables dont le nom OU une colonne correspond au terme cherché.
+  const sq = search.trim().toLowerCase();
+  const matched = useMemo(() => {
+    if (!sq) return { ids: new Set<string>(), list: [] as { id: string; name: string; hitCols: string[] }[] };
+    const list: { id: string; name: string; hitCols: string[] }[] = [];
+    session.entities.forEach((e) => {
+      const cols = attrsOf(e).filter((a) => a.name.toLowerCase().includes(sq));
+      const nameHit = e.name.toLowerCase().includes(sq);
+      if (nameHit || cols.length) list.push({ id: e.id, name: e.name, hitCols: cols.map((c) => c.name) });
+    });
+    return { ids: new Set(list.map((l) => l.id)), list };
+  }, [sq, session.entities, session.attributes, attrsOf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const focusNode = useCallback((id: string) => {
+    setSelectedRel(null);
+    rf.current?.fitView({ nodes: [{ id }], duration: 500, padding: 0.35, maxZoom: 1.15 });
+  }, []);
+
+  const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => {
+    const style: React.CSSProperties = sq
+      ? matched.ids.has(e.id)
+        ? { boxShadow: '0 0 0 3px var(--primary), 0 0 26px rgba(0,107,79,0.35)', borderRadius: 12, zIndex: 10 }
+        : { opacity: 0.25 }
+      : {};
+    return {
+      id: e.id,
+      type: 'table',
+      position: positions[e.id] || { x: 40 + (i % 3) * 340, y: 40 + Math.floor(i / 3) * 320 },
+      data: nodeData[e.id],
+      style,
+    };
+  }), [session.entities, nodeData, positions, sq, matched]);
 
   const edges: Edge[] = useMemo(() => {
     // Les relations issues du chat peuvent référencer les entités par NOM (ou un id
@@ -498,6 +526,37 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           </svg>
           {fullscreen ? 'Réduire' : 'Plein écran'}
         </button>
+      </div>
+
+      {/* Recherche de table / colonne sur le canvas */}
+      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 6, width: 300 }}>
+        <div style={{ position: 'relative' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && matched.list[0]) { focusNode(matched.list[0].id); setSearchOpen(false); }
+              if (e.key === 'Escape') { setSearch(''); setSearchOpen(false); }
+            }}
+            placeholder="Rechercher une table / colonne…"
+            style={{ width: '100%', height: 40, padding: '0 34px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-surface)', color: 'var(--text)', fontSize: 13, outline: 'none', boxShadow: 'var(--shadow-md)' }}
+          />
+          {search && <button onClick={() => { setSearch(''); setSearchOpen(false); }} title="Effacer" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15 }}>✕</button>}
+        </div>
+        {sq && searchOpen && (
+          <div style={{ marginTop: 6, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-md)', maxHeight: 320, overflowY: 'auto' }}>
+            <div style={{ padding: '7px 12px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{matched.list.length} table(s) trouvée(s)</div>
+            {matched.list.length === 0 && <div style={{ padding: '12px', fontSize: 12.5, color: 'var(--text-muted)' }}>Aucun résultat.</div>}
+            {matched.list.map((m) => (
+              <button key={m.id} onClick={() => { focusNode(m.id); setSearchOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)' }}>
+                <div style={{ fontWeight: 700, fontSize: 12.5, textTransform: 'uppercase', color: 'var(--primary-light)' }}>{m.name}</div>
+                {m.hitCols.length > 0 && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>colonnes : {m.hitCols.slice(0, 5).join(', ')}{m.hitCols.length > 5 ? '…' : ''}</div>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Fenêtre : toutes les colonnes d'une table (édition tampon + Valider) */}
