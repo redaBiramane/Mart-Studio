@@ -223,6 +223,65 @@ export function lintModel(session: WorkshopSession): Finding[] {
     }
   });
 
+  // ---- 7) Cohérence de granularité ----
+  const factEntities = session.entities.filter((e) => ['transactional', 'event', 'aggregate'].includes(e.type));
+  const g = session.granularity;
+  const granDefined = !!g && (!!(g.observationUnit || '').trim() || !!(g.lineRepresents || '').trim() || !!(g.description || '').trim());
+  if (factEntities.length > 0 && !granDefined) {
+    const names = factEntities.slice(0, 3).map((e) => e.name).join(', ');
+    findings.push({
+      id: 'gran-missing', severity: 'warning', category: 'Granularité', entityName: session.productName || 'Modèle',
+      message: `Le modèle comporte des tables de faits (${names}${factEntities.length > 3 ? '…' : ''}) mais la granularité n'est pas définie : précisez ce que représente une ligne (le « grain »).`,
+      current: 'granularité non définie', suggested: 'à préciser (ex. « une ligne = une transaction »)',
+    });
+  }
+
+  // ---- 8) Anti-doublon inter-tables (dénormalisation involontaire) ----
+  // Colonnes descriptives (hors clés) répétées à l'identique dans plusieurs tables.
+  const AUDIT = /(^|_)(created_at|updated_at|date_maj|dt_maj|date_chargement|load_date|maj|etl|batch_id|source|ingestion)($|_)/i;
+  const colToEntities = new Map<string, Set<string>>();
+  session.entities.forEach((e) => {
+    attrsOf(e.id, e.name).forEach((a) => {
+      const n = a.name.trim().toLowerCase();
+      if (!n) return;
+      if (a.isPrimaryKey || a.isForeignKey) return;
+      if (/(^|_)id$|^id$|_id$|_code$|_key$/.test(n)) return; // clés / codes techniques
+      if (AUDIT.test(n)) return;
+      if (!colToEntities.has(n)) colToEntities.set(n, new Set());
+      colToEntities.get(n)!.add(e.name);
+    });
+  });
+  colToEntities.forEach((ents, col) => {
+    if (ents.size >= 3) {
+      const list = Array.from(ents);
+      findings.push({
+        id: `dupcol-${slug(col)}`, severity: 'info', category: 'Normalisation', entityName: list.slice(0, 4).join(', ') + (list.length > 4 ? '…' : ''), target: col,
+        message: `La colonne « ${col} » apparaît dans ${ents.size} tables (${list.slice(0, 4).join(', ')}${list.length > 4 ? '…' : ''}). Vérifiez si c'est voulu ou si elle devrait vivre dans une seule table reliée par clé.`,
+      });
+    }
+  });
+
+  // Tables quasi identiques (fort recouvrement de colonnes) — possible doublon.
+  const colSets = session.entities.map((e) => ({
+    name: e.name,
+    cols: new Set(attrsOf(e.id, e.name).map((a) => a.name.trim().toLowerCase()).filter(Boolean)),
+  })).filter((x) => x.cols.size >= 3);
+  for (let i = 0; i < colSets.length; i++) {
+    for (let j = i + 1; j < colSets.length; j++) {
+      const A = colSets[i], B = colSets[j];
+      let inter = 0;
+      A.cols.forEach((c) => { if (B.cols.has(c)) inter++; });
+      const union = A.cols.size + B.cols.size - inter;
+      const jaccard = union ? inter / union : 0;
+      if (jaccard >= 0.85) {
+        findings.push({
+          id: `duptbl-${slug(A.name)}-${slug(B.name)}`, severity: 'info', category: 'Normalisation', entityName: `${A.name} ≈ ${B.name}`,
+          message: `Les tables « ${A.name} » et « ${B.name} » ont ${Math.round(jaccard * 100)} % de colonnes en commun : possible doublon à fusionner ou à distinguer clairement.`,
+        });
+      }
+    }
+  }
+
   const order: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
   return findings.sort((a, b) => order[a.severity] - order[b.severity]);
 }
