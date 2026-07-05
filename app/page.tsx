@@ -5,6 +5,7 @@ import { useWorkshopStore } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import Dashboard from './components/Dashboard';
+import GlobalSearch from './components/GlobalSearch';
 import Workshop from './components/Workshop';
 import Deliverables from './components/Deliverables';
 import AdminPanel from './components/AdminPanel';
@@ -361,6 +362,7 @@ export default function Home() {
                 ✨ {t('action.newWorkshop')}
               </button>
             )}
+            <GlobalSearch onOpen={(id) => { useWorkshopStore.getState().loadSession(id); setCurrentPage('workshop'); }} />
             <button className="header-icon-btn" title={t('tooltip.idea')} onClick={() => { setShowIdea(true); setIdeaSent(false); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.3 1 2.5h6c0-1.2.3-1.8 1-2.5A6 6 0 0 0 12 3Z" /></svg>
             </button>
