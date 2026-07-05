@@ -168,6 +168,19 @@ const STYLE = `
   .mld-steps::before { display: none; }
   .mld-step { flex: 0 0 70px; }
 }
+/* Grille de fonctionnalités */
+.ml-fgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.ml-fcard { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; transition: transform .25s ease, box-shadow .25s ease, border-color .25s; position: relative; overflow: hidden; }
+.ml-fcard::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--primary), #3EE3D3); transform: scaleX(0); transform-origin: left; transition: transform .3s ease; }
+.ml-fcard:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: var(--border-active); }
+.ml-fcard:hover::before { transform: scaleX(1); }
+.ml-fcard-ico { width: 46px; height: 46px; border-radius: 13px; background: var(--primary-glow); color: var(--primary); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; transition: transform .25s ease; }
+.ml-fcard:hover .ml-fcard-ico { transform: scale(1.08) rotate(-4deg); }
+.ml-fcard h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 7px; }
+.ml-fcard p { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+@media (max-width: 980px) { .ml-fgrid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .ml-fgrid { grid-template-columns: 1fr; } }
+
 @media (prefers-reduced-motion: reduce) {
   .ml-reveal, .ml-chip, .ml-hero h1, .ml-hero-sub, .ml-hero-cta, .ml-kpis { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
   .ml-blob, .mld-ai, .mld-step-ico, .mld-arrow, .mld-bar span, .mld-wire { animation: none !important; }
@@ -193,6 +206,12 @@ function Icon({ name }: { name: string }) {
     import: <><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M12 12v5M9.5 14.5 12 17l2.5-2.5" /></>,
     gov: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
     arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+    chat: <><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2Z" /><path d="M8.5 8.5h7M8.5 12h4" /></>,
+    star: <path d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.3l6-.8Z" />,
+    history: <><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v4h4" /><path d="M12 8v4l3 2" /></>,
+    search: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
+    dashboard: <><path d="M4 13h6V4H4zM14 20h6v-9h-6zM14 4v4h6V4zM4 20h6v-4H4z" /></>,
+    report: <><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M8.5 13l2 2 3.5-4" /></>,
   };
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{p[name]}</svg>;
 }
@@ -231,8 +250,13 @@ export default function Landing({ onEnter }: LandingProps) {
     procSub: fr
       ? 'Passez du besoin métier au modèle technique (entités, relations, attributs) sans programmation.'
       : 'Go from business need to technical model (entities, relations, attributes) without programming.',
+    featTag: fr ? 'Une plateforme complète' : 'A complete platform',
+    featTitle: fr ? 'Tout pour concevoir, fiabiliser et livrer' : 'Everything to design, validate and ship',
+    featSub: fr
+      ? 'De la description en langage naturel au modèle contrôlé qualité — chat IA, éditeur visuel, linter et livrables, dans un seul outil.'
+      : 'From plain-language description to a quality-checked model — AI chat, visual editor, linter and deliverables, in one tool.',
     delivTag: fr ? 'Un pack complet de livrables' : 'A complete deliverables pack',
-    delivTitle: fr ? '6 livrables techniques générés' : '6 technical deliverables generated',
+    delivTitle: fr ? '8 livrables techniques générés' : '8 technical deliverables generated',
     delivSub: fr
       ? "Des documents prêts à l'emploi pour le développement et la documentation technique."
       : 'Ready-to-use documents for development and technical documentation.',
@@ -268,11 +292,23 @@ export default function Landing({ onEnter }: LandingProps) {
     diagNeedEx: fr ? '« Suivre nos clients, leurs crédits, les risques associés et les agences. »' : '“Track our customers, their loans, related risks and branches.”',
     diagSources: fr ? 'Sources de données' : 'Data sources',
     diagCore: fr ? 'MCD / ERD proposé' : 'Proposed ERD',
-    diagOut6: fr ? '6 livrables techniques' : '6 technical deliverables',
+    diagOut6: fr ? '8 livrables techniques' : '8 technical deliverables',
     export: fr ? 'Exporter' : 'Export',
   };
 
-  const delivColors = ['#3EE3D3', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#38BDF8'];
+  const delivColors = ['#3EE3D3', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#38BDF8', '#F43F5E', '#818CF8'];
+
+  // Fonctionnalités clés de la plateforme (section animée).
+  const platformFeatures = [
+    { ico: 'chat', t: fr ? 'Marty, Data Architect IA' : 'Marty, AI Data Architect', d: fr ? 'Décrivez votre besoin ; Marty conçoit entités, relations, attributs et types en 7 étapes guidées.' : 'Describe your need; Marty designs entities, relations, attributes and types in 7 guided steps.' },
+    { ico: 'entities', t: fr ? 'Éditeur visuel ERD' : 'Visual ERD editor', d: fr ? 'Glissez-déposez les tables, éditez les colonnes, tirez pour relier. Fluide même à 100+ tables.' : 'Drag & drop tables, edit columns, drag to connect. Smooth even at 100+ tables.' },
+    { ico: 'relations', t: fr ? 'Chat & Visuel synchronisés' : 'Chat & Visual in sync', d: fr ? 'Une seule source : ce que vous dessinez, Marty le lit ; ce qu\'il déduit apparaît sur le canvas.' : 'One source: what you draw feeds Marty; what it infers appears on the canvas.' },
+    { ico: 'gov', t: fr ? 'Contrôle qualité (linter)' : 'Quality control (linter)', d: fr ? 'Types incohérents, PK/FK manquantes, RGPD, doublons, intégrité référentielle, granularité — score /100 et corrections en un clic.' : 'Wrong types, missing PK/FK, GDPR, duplicates, referential integrity, granularity — a /100 score and one-click fixes.' },
+    { ico: 'history', t: fr ? 'Historique & annulation' : 'History & undo', d: fr ? 'Annulez ou rétablissez toute modification — même celles de Marty — en toute confiance (⌘Z).' : 'Undo or redo any change — even Marty\'s — with confidence (⌘Z).' },
+    { ico: 'search', t: fr ? 'Recherche & focus voisins' : 'Search & neighbor focus', d: fr ? 'Retrouvez une table ou une colonne, isolez une table et ses tables reliées. Pensé pour la grande échelle.' : 'Find a table or column, isolate a table and its related ones. Built for scale.' },
+    { ico: 'import', t: fr ? 'Import SQL & round-trip' : 'SQL import & round-trip', d: fr ? 'Collez un CREATE TABLE (Snowflake/SQL) ou un fichier SAS/CSV ; ré-importez pour resynchroniser sans écraser.' : 'Paste a CREATE TABLE (Snowflake/SQL) or a SAS/CSV file; re-import to resync without overwriting.' },
+    { ico: 'dashboard', t: fr ? 'Tableau de bord' : 'Dashboard', d: fr ? 'Score qualité, progression et taille de chaque Data Product d\'un coup d\'œil ; reprise en un clic.' : 'Quality score, progress and size of each Data Product at a glance; resume in one click.' },
+  ];
 
   const inputs = [
     fr ? 'Fichiers SAS' : 'SAS files', 'Excel',
@@ -302,7 +338,9 @@ export default function Landing({ onEnter }: LandingProps) {
     { ico: 'dbml', name: 'DBML', cat: L.catModel, desc: fr ? 'Code prêt à coller sur dbdiagram.io.' : 'Code ready to paste into dbdiagram.io.' },
     { ico: 'sql', name: 'SQL DDL', cat: L.catDev, desc: fr ? 'CREATE TABLE complets, clés et contraintes.' : 'Full CREATE TABLE, keys and constraints.' },
     { ico: 'dbt', name: 'dbt YAML', cat: L.catDev, desc: fr ? 'schema.yml avec tests (unique, not_null…).' : 'schema.yml with tests (unique, not_null…).' },
+    { ico: 'star', name: fr ? 'Étoile / Flocon' : 'Star / Snowflake', cat: L.catModel, desc: fr ? 'Modèle dimensionnel : faits & dimensions, schémas star et snowflake.' : 'Dimensional model: facts & dimensions, star and snowflake schemas.' },
     { ico: 'dict', name: fr ? 'Dictionnaire de données' : 'Data dictionary', cat: L.catDoc, desc: fr ? 'Type, PK/FK, sensibilité et description.' : 'Type, PK/FK, sensitivity and description.' },
+    { ico: 'report', name: fr ? 'Rapport détaillé (PDF)' : 'Detailed report (PDF)', cat: L.catDoc, desc: fr ? 'Rapport mis en page : couverture, tables, relations, aux couleurs de la marque.' : 'Laid-out report: cover, tables, relations, in brand colors.' },
     { ico: 'dad', name: fr ? 'Rapport DAD' : 'DAD report', cat: L.catDoc, desc: fr ? 'Score de maturité et préparation Design Authority.' : 'Maturity score and Design Authority readiness.' },
   ];
 
@@ -340,7 +378,7 @@ export default function Landing({ onEnter }: LandingProps) {
         </div>
         <div className="ml-kpis">
           <div className="ml-kpi"><div className="v">7</div><div className="l">{L.kSteps}</div></div>
-          <div className="ml-kpi"><div className="v">6</div><div className="l">{L.kDeliv}</div></div>
+          <div className="ml-kpi"><div className="v">8</div><div className="l">{L.kDeliv}</div></div>
           <div className="ml-kpi"><div className="v">0</div><div className="l">{L.kCode}</div></div>
         </div>
       </header>
@@ -399,8 +437,8 @@ export default function Landing({ onEnter }: LandingProps) {
               <div className="mld-lineage" aria-hidden="true">
                 <svg viewBox="0 0 54 300" preserveAspectRatio="none">
                   {delivColors.map((c, i) => {
-                    const y = 25 + i * 50;
-                    return <path key={c} className="mld-wire" d={`M0,150 C 27,150 27,${y} 54,${y}`} stroke={c} style={{ animationDelay: `${i * 0.12}s` }} />;
+                    const y = 18 + i * 38;
+                    return <path key={c} className="mld-wire" d={`M0,150 C 27,150 27,${y} 54,${y}`} stroke={c} style={{ animationDelay: `${i * 0.1}s` }} />;
                   })}
                 </svg>
               </div>
@@ -453,6 +491,24 @@ export default function Landing({ onEnter }: LandingProps) {
               <div className="ml-step-ico"><Icon name={s.ico} /></div>
               <div className="ml-step-num">{s.num}</div>
               <h3>{s.name}</h3>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FONCTIONNALITÉS DE LA PLATEFORME */}
+      <section className="ml-sec">
+        <div className="ml-head ml-reveal">
+          <div className="ml-tag">{L.featTag}</div>
+          <h2>{L.featTitle}</h2>
+          <p>{L.featSub}</p>
+        </div>
+        <div className="ml-fgrid">
+          {platformFeatures.map((f, i) => (
+            <div key={f.t} className="ml-fcard ml-reveal" style={{ transitionDelay: `${(i % 4) * 70}ms` }}>
+              <div className="ml-fcard-ico"><Icon name={f.ico} /></div>
+              <h3>{f.t}</h3>
+              <p>{f.d}</p>
             </div>
           ))}
         </div>
