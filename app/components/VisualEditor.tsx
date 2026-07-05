@@ -76,6 +76,7 @@ type TableData = {
   onAttr: (attrId: string, patch: Partial<Attribute>) => void;
   onDelAttr: (attrId: string) => void;
   onExpand: (entityId: string) => void;
+  onFocus: (entityId: string) => void;
 };
 
 const TableNode = memo(function TableNode({ data }: NodeProps<Node<TableData>>) {
@@ -102,6 +103,9 @@ const TableNode = memo(function TableNode({ data }: NodeProps<Node<TableData>>) 
           style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontWeight: 700, fontSize: 12.5, color: 'var(--primary-light)', textTransform: 'uppercase', outline: 'none' }}
         />
         <span style={{ fontSize: 10.5, color: 'var(--text-muted)', flexShrink: 0 }}>{attrs.length}</span>
+        <button className="nodrag" onClick={() => data.onFocus(entity.id)} title="Focus : cette table et ses voisines" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, flexShrink: 0, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M12 5V3M12 21v-2M5 12H3M21 12h-2" /></svg>
+        </button>
         <button className="nodrag" onClick={() => data.onExpand(entity.id)} title="Voir toutes les colonnes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, flexShrink: 0, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-secondary)', cursor: 'pointer' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
         </button>
@@ -133,6 +137,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number; nodes?: { id: string }[]; maxZoom?: number }) => void } | null>(null);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const posKey = `mart-erd-pos-${session.id}`;
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>(() => {
     if (typeof window === 'undefined') return {};
@@ -381,13 +386,42 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   // On mémoïse d'abord le `data` de chaque nœud (change seulement si les entités
   // ou attributs changent), puis on assemble les nœuds avec leur position. Ainsi
   // un simple déplacement ne recrée pas `data` → TableNode (mémoïsé) ne re-render pas.
+  // Voisins directs d'une table (résolus par id OU par nom, comme les relations).
+  const neighborsOf = useCallback((id: string): Set<string> => {
+    const set = new Set<string>([id]);
+    const self = session.entities.find((e) => e.id === id);
+    const nm = self?.name.toLowerCase();
+    const idOf = (idOrName?: string, name?: string) => {
+      const byId = session.entities.find((e) => e.id === idOrName);
+      if (byId) return byId.id;
+      const byName = session.entities.find((e) => e.name.toLowerCase() === (name || idOrName || '').toLowerCase());
+      return byName?.id;
+    };
+    session.relations.forEach((r) => {
+      const s = idOf(r.sourceEntityId, r.sourceEntityName);
+      const t = idOf(r.targetEntityId, r.targetEntityName);
+      const touches = s === id || t === id || r.sourceEntityName?.toLowerCase() === nm || r.targetEntityName?.toLowerCase() === nm;
+      if (touches) { if (s) set.add(s); if (t) set.add(t); }
+    });
+    return set;
+  }, [session.entities, session.relations]);
+
+  const focusNeighbors = useMemo(() => (focusId ? neighborsOf(focusId) : null), [focusId, neighborsOf]);
+
+  const onFocus = useCallback((id: string) => {
+    setSearch('');
+    setFocusId((cur) => (cur === id ? null : id));
+    const ids = Array.from(neighborsOf(id)).map((x) => ({ id: x }));
+    rf.current?.fitView({ nodes: ids, duration: 500, padding: 0.3, maxZoom: 1.15 });
+  }, [neighborsOf]);
+
   const nodeData = useMemo(() => {
     const m: Record<string, TableData> = {};
     session.entities.forEach((e) => {
-      m[e.id] = { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: setDeleteTableId, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor };
+      m[e.id] = { entity: e, attrs: attrsOf(e), onRename: renameEntity, onDelete: setDeleteTableId, onAddAttr: addAttribute, onAttr: patchAttribute, onDelAttr: deleteAttribute, onExpand: setColumnsFor, onFocus };
     });
     return m;
-  }, [session.entities, session.attributes, attrsOf, renameEntity, addAttribute, patchAttribute, deleteAttribute]);
+  }, [session.entities, session.attributes, attrsOf, renameEntity, addAttribute, patchAttribute, deleteAttribute, onFocus]);
 
   // Recherche : tables dont le nom OU une colonne correspond au terme cherché.
   const sq = search.trim().toLowerCase();
@@ -408,11 +442,16 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   }, []);
 
   const nodes: Node<TableData>[] = useMemo(() => session.entities.map((e, i) => {
-    const style: React.CSSProperties = sq
-      ? matched.ids.has(e.id)
+    let style: React.CSSProperties = {};
+    if (sq) {
+      style = matched.ids.has(e.id)
         ? { boxShadow: '0 0 0 3px var(--primary), 0 0 26px rgba(0,107,79,0.35)', borderRadius: 12, zIndex: 10 }
-        : { opacity: 0.25 }
-      : {};
+        : { opacity: 0.25 };
+    } else if (focusNeighbors) {
+      style = e.id === focusId
+        ? { boxShadow: '0 0 0 3px var(--primary), 0 0 26px rgba(0,107,79,0.35)', borderRadius: 12, zIndex: 10 }
+        : focusNeighbors.has(e.id) ? {} : { opacity: 0.12, pointerEvents: 'none' };
+    }
     return {
       id: e.id,
       type: 'table',
@@ -420,7 +459,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
       data: nodeData[e.id],
       style,
     };
-  }), [session.entities, nodeData, positions, sq, matched]);
+  }), [session.entities, nodeData, positions, sq, matched, focusNeighbors, focusId]);
 
   const edges: Edge[] = useMemo(() => {
     // Les relations issues du chat peuvent référencer les entités par NOM (ou un id
@@ -497,7 +536,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgeClick={(_, e) => setSelectedRel(e.id)}
-        onPaneClick={() => setSelectedRel(null)}
+        onPaneClick={() => { setSelectedRel(null); setFocusId(null); }}
         onInit={(inst) => { rf.current = inst as unknown as typeof rf.current; }}
         connectionMode={ConnectionMode.Loose}
         connectionRadius={55}
@@ -527,6 +566,14 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
           {fullscreen ? 'Réduire' : 'Plein écran'}
         </button>
       </div>
+
+      {/* Bandeau « focus voisins » actif */}
+      {focusId && (
+        <div style={{ position: 'absolute', top: 62, right: 12, zIndex: 6, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 10, padding: '7px 12px', boxShadow: 'var(--shadow-md)' }}>
+          <span style={{ fontSize: 12.5, color: 'var(--primary-light)', fontWeight: 600 }}>Focus : {session.entities.find((e) => e.id === focusId)?.name} + voisines</span>
+          <button onClick={() => setFocusId(null)} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)' }}>✕ Quitter</button>
+        </div>
+      )}
 
       {/* Recherche de table / colonne sur le canvas */}
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 6, width: 300 }}>
