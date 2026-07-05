@@ -639,7 +639,7 @@ a { color: inherit; text-decoration: none; }
 /* ============================================================
    CHAT PANEL
    ============================================================ */
-.chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
 .chat-messages {
   flex: 1; overflow-y: auto; padding: 24px 32px; display: flex;
   flex-direction: column; gap: 16px;

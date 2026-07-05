@@ -16,6 +16,14 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, undo, redo, past, future } = useWorkshopStore();
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
+  const [lastChange, setLastChange] = useState<{ entities: number; attributes: number; relations: number; kpis: number; rules: number; context: boolean } | null>(null);
+
+  // Le résumé des changements de Marty disparaît tout seul au bout de 14 s.
+  useEffect(() => {
+    if (!lastChange) return;
+    const t = setTimeout(() => setLastChange(null), 14000);
+    return () => clearTimeout(t);
+  }, [lastChange]);
 
   // Raccourcis clavier : Cmd/Ctrl+Z (annuler), Cmd/Ctrl+Shift+Z (rétablir),
   // sauf pendant l'édition de texte (on laisse l'annulation native du champ).
@@ -106,7 +114,24 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
           timestamp: Date.now(),
           step: currentStep,
         });
+        // Aperçu des changements de Marty : on mesure le modèle avant/après extraction
+        // pour proposer un résumé + une annulation en un clic (l'extraction = 1 pas d'undo).
+        const before = useWorkshopStore.getState().session;
         extractData(text);
+        const after = useWorkshopStore.getState().session;
+        if (before && after) {
+          const diff = {
+            entities: after.entities.length - before.entities.length,
+            attributes: after.attributes.length - before.attributes.length,
+            relations: after.relations.length - before.relations.length,
+            kpis: after.kpis.length - before.kpis.length,
+            rules: after.businessRules.length - before.businessRules.length,
+            context: after.contextSummary !== before.contextSummary || after.productName !== before.productName || after.objective !== before.objective,
+          };
+          if (diff.entities || diff.attributes || diff.relations || diff.kpis || diff.rules || diff.context) {
+            setLastChange(diff);
+          }
+        }
       }
     },
   });
@@ -679,6 +704,23 @@ ${truncated}
           </span>
           </div>
         </div>
+        {lastChange && (() => {
+          const parts: string[] = [];
+          if (lastChange.entities) parts.push(`${lastChange.entities > 0 ? '+' : ''}${lastChange.entities} table(s)`);
+          if (lastChange.attributes) parts.push(`${lastChange.attributes > 0 ? '+' : ''}${lastChange.attributes} colonne(s)`);
+          if (lastChange.relations) parts.push(`${lastChange.relations > 0 ? '+' : ''}${lastChange.relations} relation(s)`);
+          if (lastChange.kpis) parts.push(`${lastChange.kpis > 0 ? '+' : ''}${lastChange.kpis} KPI`);
+          if (lastChange.rules) parts.push(`${lastChange.rules > 0 ? '+' : ''}${lastChange.rules} règle(s)`);
+          if (lastChange.context) parts.push('contexte mis à jour');
+          return (
+            <div style={{ position: 'absolute', top: 66, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-active)', borderLeft: '3px solid var(--primary)', borderRadius: 10, padding: '10px 14px', boxShadow: 'var(--shadow-lg)', maxWidth: 'calc(100% - 40px)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a10 10 0 1 0 10 10" /><path d="M22 4 12 14.01l-3-3" /></svg>
+              <div style={{ fontSize: 13, color: 'var(--text)' }}><strong>Marty a mis à jour le modèle</strong> — {parts.join(' · ')}.</div>
+              <button onClick={() => { undo(); setLastChange(null); }} style={{ whiteSpace: 'nowrap', background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: 'var(--primary-light)' }}>↶ Annuler</button>
+              <button onClick={() => setLastChange(null)} title="Fermer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>✕</button>
+            </div>
+          );
+        })()}
         {visual ? (
           <VisualEditor session={session} />
         ) : (
