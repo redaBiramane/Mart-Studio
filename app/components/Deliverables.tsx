@@ -29,6 +29,14 @@ export default function Deliverables() {
 
   const data = enrichSession(session);
 
+  // Contrôle qualité pour la « validation avant génération » (onglets code).
+  const gateFindings = lintModel(session).filter((f) => !(session.dismissedFindings || []).includes(f.id));
+  const gateScore = qualityScore(gateFindings);
+  const gateErrors = gateFindings.filter((f) => f.severity === 'error').length;
+  const gateWarnings = gateFindings.filter((f) => f.severity === 'warning').length;
+  const genTabs: Tab[] = ['mcd', 'dimensional', 'dbml', 'sql', 'dbt'];
+  const showGate = genTabs.includes(activeTab) && (gateErrors > 0 || gateScore < 70);
+
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
     { key: 'quality', label: 'Qualité', icon: 'quality' },
@@ -56,6 +64,18 @@ export default function Deliverables() {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        {showGate && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: gateErrors > 0 ? 'rgba(220,38,38,0.07)' : 'rgba(217,119,6,0.07)', border: `1px solid ${gateErrors > 0 ? 'var(--accent-red)' : 'var(--accent-amber)'}`, borderRadius: 10, padding: '12px 16px', marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={gateErrors > 0 ? 'var(--accent-red)' : 'var(--accent-amber)'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+              <div style={{ fontSize: 13, lineHeight: 1.45 }}>
+                <strong>Qualité insuffisante avant génération</strong> — score {gateScore}/100 · {gateErrors} erreur(s), {gateWarnings} avertissement(s).{' '}
+                {gateErrors > 0 ? 'Corrigez les erreurs pour un livrable fiable.' : 'Le modèle peut être amélioré avant export.'}
+              </div>
+            </div>
+            <button className="cta-btn" style={{ whiteSpace: 'nowrap' }} onClick={() => setActiveTab('quality')}>Voir l&apos;onglet Qualité →</button>
+          </div>
+        )}
         {activeTab === 'overview' && <OverviewTab session={data} />}
         {activeTab === 'quality' && <QualityTab />}
         {activeTab === 'report' && <ReportTab session={data} />}
