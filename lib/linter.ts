@@ -4,7 +4,7 @@
 // Aucune modification n'est appliquée sans le choix de l'utilisateur.
 // ============================================================
 
-import type { WorkshopSession, Attribute } from './types';
+import type { WorkshopSession, Attribute, Entity } from './types';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -13,7 +13,13 @@ export type LinterPatch =
   | { kind: 'attrSensitive'; attrId: string }
   | { kind: 'attrPk'; attrId: string }
   | { kind: 'addPk'; entityId: string; name: string }
-  | { kind: 'removeAttr'; attrId: string };
+  | { kind: 'removeAttr'; attrId: string }
+  | { kind: 'addFkColumn'; entityId: string; name: string; type: string }
+  | { kind: 'addEntity'; name: string };
+
+function newId(p: string): string {
+  return `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
 
 export interface Finding {
   id: string;
@@ -131,6 +137,92 @@ export function lintModel(session: WorkshopSession): Finding[] {
     }
   });
 
+  // ---- 6) Intégrité référentielle des relations ----
+  const findEntity = (idOrName?: string, name?: string): Entity | undefined => {
+    const k = (v?: string) => (v || '').toLowerCase();
+    return session.entities.find(
+      (e) => (!!idOrName && (e.id === idOrName || k(e.name) === k(idOrName))) || (!!name && k(e.name) === k(name))
+    );
+  };
+  const pkOf = (e: Entity) => {
+    const a = attrsOf(e.id, e.name);
+    return a.find((x) => x.isPrimaryKey) || a.find((x) => /(^|_)id$|^id$/i.test(x.name));
+  };
+
+  session.relations.forEach((r) => {
+    const relLabel = `${r.sourceEntityName || '?'} → ${r.targetEntityName || '?'}`;
+    const S = findEntity(r.sourceEntityId, r.sourceEntityName);
+    const T = findEntity(r.targetEntityId, r.targetEntityName);
+
+    // a) Relation qui pointe vers une entité inexistante
+    if (!S && r.sourceEntityName) {
+      findings.push({
+        id: `relent-${r.id}-s`, severity: 'error', category: 'Intégrité', entityName: r.sourceEntityName,
+        message: `La relation ${relLabel} référence l'entité « ${r.sourceEntityName} » qui n'existe pas dans le modèle.`,
+        current: 'entité absente', suggested: `+ créer « ${r.sourceEntityName} »`, patch: { kind: 'addEntity', name: r.sourceEntityName },
+      });
+    }
+    if (!T && r.targetEntityName) {
+      findings.push({
+        id: `relent-${r.id}-t`, severity: 'error', category: 'Intégrité', entityName: r.targetEntityName,
+        message: `La relation ${relLabel} référence l'entité « ${r.targetEntityName} » qui n'existe pas dans le modèle.`,
+        current: 'entité absente', suggested: `+ créer « ${r.targetEntityName} »`, patch: { kind: 'addEntity', name: r.targetEntityName },
+      });
+    }
+    if (!S || !T) return;
+
+    // b) Relation N:N : une table d'association est nécessaire
+    if (r.type === 'N:N') {
+      findings.push({
+        id: `relnn-${r.id}`, severity: 'info', category: 'Intégrité', entityName: `${S.name} ↔ ${T.name}`,
+        message: `Relation N:N entre « ${S.name} » et « ${T.name} » : créez une table d'association portant les deux clés étrangères.`,
+      });
+      return;
+    }
+
+    // Côté « one » = porte la clé primaire référencée ; côté « many » = porte la clé étrangère.
+    const one = r.type === 'N:1' ? T : S;
+    const many = r.type === 'N:1' ? S : T;
+    if (one.id === many.id) return; // auto-relation (hiérarchie) : trop ambigu pour l'auto-contrôle
+
+    const onePk = pkOf(one);
+    const onePkType = onePk ? baseType(onePk.type) : 'bigint';
+    const oneSlug = slug(one.name);
+    const expectedFk = (r.fkColumn && r.fkColumn.trim()) || (onePk ? onePk.name : `${oneSlug}_id`);
+
+    const manyAttrs = attrsOf(many.id, many.name);
+    const fkCol = manyAttrs.find((a) => {
+      const n = a.name.toLowerCase();
+      return (
+        n === expectedFk.toLowerCase() ||
+        n === `${oneSlug}_id` ||
+        (!!onePk && n === onePk.name.toLowerCase()) ||
+        (n.includes(oneSlug) && /(^id_|_id$|^id$)/.test(n))
+      );
+    });
+
+    // c) Colonne de jointure (clé étrangère) manquante côté « many »
+    if (!fkCol) {
+      findings.push({
+        id: `relfk-${r.id}`, severity: 'warning', category: 'Intégrité', entityName: many.name, target: expectedFk,
+        message: `La relation ${S.name} → ${T.name} n'a pas de colonne de jointure dans « ${many.name} » (clé étrangère vers « ${one.name} »).`,
+        current: 'FK absente', suggested: `+ ${expectedFk} ${displayType(onePkType)} FK`,
+        patch: { kind: 'addFkColumn', entityId: many.id, name: expectedFk, type: onePkType },
+      });
+      return;
+    }
+
+    // d) Type de la clé étrangère incohérent avec la clé primaire référencée
+    if (onePk && baseType(fkCol.type) !== onePkType) {
+      findings.push({
+        id: `relfktype-${r.id}`, severity: 'warning', category: 'Intégrité', entityName: many.name, target: fkCol.name,
+        message: `« ${fkCol.name} » (clé étrangère vers « ${one.name} ») devrait avoir le même type que la clé primaire « ${onePk.name} ».`,
+        current: displayType(fkCol.type), suggested: displayType(onePkType),
+        patch: { kind: 'attrType', attrId: fkCol.id, type: onePkType },
+      });
+    }
+  });
+
   const order: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
   return findings.sort((a, b) => order[a.severity] - order[b.severity]);
 }
@@ -156,10 +248,27 @@ export function applyPatches(session: WorkshopSession, patches: LinterPatch[]): 
         break;
       case 'addPk':
         attributes = [...attributes, {
-          id: `a_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, entityId: p.entityId, name: p.name, type: 'bigint',
+          id: newId('a'), entityId: p.entityId, name: p.name, type: 'bigint',
           description: '', isPrimaryKey: true, isForeignKey: false, isNaturalKey: false, isRequired: true, isSensitive: false, isHistorized: false,
         }];
         break;
+      case 'addFkColumn':
+        attributes = [...attributes, {
+          id: newId('a'), entityId: p.entityId, name: p.name, type: p.type || 'bigint',
+          description: '', isPrimaryKey: false, isForeignKey: true, isNaturalKey: false, isRequired: false, isSensitive: false, isHistorized: false,
+        }];
+        break;
+      case 'addEntity': {
+        // Ne pas recréer une entité déjà présente (plusieurs relations peuvent la cibler).
+        if (entities.some((e) => e.name.toLowerCase() === p.name.toLowerCase())) break;
+        const eid = newId('e');
+        entities.push({ id: eid, name: p.name, definition: '', description: '', example: '', responsible: '', type: 'reference', lifecycle: 'created' });
+        attributes = [...attributes, {
+          id: newId('a'), entityId: eid, name: `${slug(p.name)}_id`, type: 'bigint',
+          description: '', isPrimaryKey: true, isForeignKey: false, isNaturalKey: false, isRequired: true, isSensitive: false, isHistorized: false,
+        }];
+        break;
+      }
     }
   });
 
