@@ -1,253 +1,284 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
+
 interface DocumentationProps {
   onStartWorkshop: () => void;
 }
 
+// ---- Structure de la doc (sert à la sidebar ET au sommaire de droite) ----
+const SECTIONS: { id: string; title: string }[] = [
+  { id: 'intro', title: 'Qu\'est-ce que Mart Studio ?' },
+  { id: 'demarrer', title: 'Démarrer : créer un Data Product' },
+  { id: 'marty', title: 'Concevoir avec Marty (chat)' },
+  { id: 'etapes', title: 'Les 7 étapes de l\'atelier' },
+  { id: 'visuel', title: 'L\'éditeur visuel' },
+  { id: 'import', title: 'Importer vos scripts (SAS / SQL / Snowflake)' },
+  { id: 'qualite', title: 'Contrôle qualité (linter)' },
+  { id: 'historique', title: 'Historique & aperçu des changements' },
+  { id: 'livrables', title: 'Livrables & génération' },
+  { id: 'contexte', title: 'Panneau « Données collectées »' },
+  { id: 'reglages', title: 'Langue, thème, idées' },
+  { id: 'conseils', title: 'Bonnes pratiques' },
+];
+
 const STEPS = [
-  { n: 1, icon: '🎯', title: 'Contexte', text: 'Vous décrivez votre produit data : nom, problème métier, objectif, domaine, Product Owner et Data Steward. Marty en fait une synthèse.' },
-  { n: 2, icon: '🧩', title: 'Entités', text: 'À partir de votre description, Marty conçoit le modèle complet : tables de faits et dimensions, leurs attributs (clés, types) et leurs relations.' },
-  { n: 3, icon: '🔗', title: 'Relations', text: 'Les liens entre entités sont précisés : cardinalités (1:1, 1:N, N:N), obligation et hiérarchies.' },
-  { n: 4, icon: '📋', title: 'Attributs', text: 'On complète les colonnes manquantes : clés primaires, types SQL, attributs sensibles ou historisés.' },
-  { n: 5, icon: '📊', title: 'KPI (optionnel)', text: 'Vous définissez les indicateurs à piloter (formule, fréquence, axes d\'analyse). Étape facultative : vous pouvez la passer.' },
-  { n: 6, icon: '⚖️', title: 'Règles métier (optionnel)', text: 'Les contraintes de gestion et de qualité (validations, calculs, exceptions). Étape facultative également.' },
-  { n: 7, icon: '🏁', title: 'Validation', text: 'Marty génère les sources de données, un score de maturité et le rapport de préparation DAD. Tout est prêt dans Livrables.' },
+  { n: 1, icon: '🎯', title: 'Contexte', text: 'Décrivez le produit : nom, problème métier, objectif, domaine, Product Owner, Data Steward. Marty en fait une synthèse.' },
+  { n: 2, icon: '🧩', title: 'Entités', text: 'À partir de votre description, Marty conçoit le modèle : tables de faits et dimensions, leurs attributs et relations.' },
+  { n: 3, icon: '🔗', title: 'Relations', text: 'Les liens entre entités : cardinalités (1:1, 1:N, N:N), obligation et hiérarchies.' },
+  { n: 4, icon: '📋', title: 'Attributs', text: 'On complète les colonnes : clés primaires, types SQL, attributs sensibles ou historisés.' },
+  { n: 5, icon: '📊', title: 'KPI (optionnel)', text: 'Les indicateurs à piloter (formule, fréquence, axes d\'analyse). Étape facultative.' },
+  { n: 6, icon: '⚖️', title: 'Règles métier (optionnel)', text: 'Contraintes de gestion et de qualité (validations, calculs, exceptions). Facultative.' },
+  { n: 7, icon: '🏁', title: 'Validation', text: 'Marty génère sources, score de maturité et rapport DAD. Tout est prêt dans Livrables.' },
 ];
 
 const DELIVERABLES = [
-  { icon: '🗺️', title: 'MCD / ERD', text: 'Le Modèle Conceptuel de Données au format Mermaid, à visualiser sur mermaid.live.' },
-  { icon: '🧬', title: 'DBML', text: 'Code prêt à coller sur dbdiagram.io pour un diagramme interactif et partageable.' },
-  { icon: '💾', title: 'SQL DDL', text: 'Les CREATE TABLE complets avec clés primaires, clés étrangères et contraintes — exécutables directement.' },
-  { icon: '🔧', title: 'dbt YAML', text: 'Le schema.yml dbt avec tests (unique, not_null, relationships) pour industrialiser la transformation.' },
-  { icon: '📖', title: 'Dictionnaire', text: 'Le dictionnaire de données : chaque attribut, son type, PK/FK, sensibilité et description.' },
-  { icon: '📋', title: 'Rapport DAD', text: 'Le score de maturité et la synthèse de préparation à la Design Authority (DAD).' },
+  { icon: '🗺️', title: 'MCD / ERD', text: 'Le Modèle Conceptuel de Données, rendu automatiquement en diagramme (Mermaid).' },
+  { icon: '✳️', title: 'Étoile / Flocon', text: 'Le modèle dimensionnel : classification automatique en faits et dimensions, schémas star & snowflake.' },
+  { icon: '🧬', title: 'DBML', text: 'Code prêt à coller sur dbdiagram.io pour un diagramme interactif partageable.' },
+  { icon: '💾', title: 'SQL DDL', text: 'Les CREATE TABLE complets (PK, FK, contraintes) — exécutables directement.' },
+  { icon: '🔧', title: 'dbt YAML', text: 'Le schema.yml dbt avec tests (unique, not_null, relationships).' },
+  { icon: '📖', title: 'Dictionnaire', text: 'Chaque attribut : type, PK/FK, sensibilité et description.' },
+  { icon: '📊', title: 'Rapport détaillé (PDF)', text: 'Un rapport mis en page (couverture, tables, relations) aux couleurs de la plateforme.' },
+  { icon: '📋', title: 'Rapport DAD', text: 'Score de maturité et synthèse de préparation à la Design Authority.' },
 ];
 
-const EXAMPLE_STEPS = [
-  {
-    n: 1, icon: '🎯', title: 'Contexte',
-    write: '« Data Product : Pilotage de la Production de Crédits. Objectif : suivre les dossiers de financement (montants demandés/accordés, taux d\'acceptation, délais) par canal, partenaire et produit. Domaine : financement à la consommation. Utilisateurs : direction commerciale, risque, pilotage. PO : Responsable Production. Data Steward : Data Steward Crédit. »',
-    produce: 'Une synthèse du contexte : nom, objectif, domaine, PO et Data Steward enregistrés dans « Données collectées ».',
-  },
-  {
-    n: 2, icon: '🧩', title: 'Entités',
-    write: '« Les objets : le dossier de crédit (avec montant et statut), le client, le produit de financement, le partenaire/apporteur, le canal de souscription, le conseiller, et la période. »',
-    produce: 'Marty déduit le modèle dimensionnel : 1 table de faits (Dossier) + 6 dimensions (Client, Produit, Partenaire, Canal, Conseiller, Période).',
-  },
-  {
-    n: 3, icon: '🔗', title: 'Relations',
-    write: '« Un client a plusieurs dossiers. Chaque dossier porte sur un produit, vient d\'un partenaire, d\'un canal, est traité par un conseiller, et rattaché à une période. »',
-    produce: 'Les relations 1:N reliant chaque dimension au fait Dossier, avec cardinalités et obligation.',
-  },
-  {
-    n: 4, icon: '📋', title: 'Attributs',
-    write: '« Dossier : id, montant demandé, montant accordé, statut, date de demande, date de décision. Client : id, nom, segment. Produit : id, libellé, taux. »',
-    produce: 'Pour chaque entité : la clé primaire, les colonnes métier typées (DECIMAL, DATE, VARCHAR…) et les clés étrangères déduites des relations.',
-  },
-  {
-    n: 5, icon: '🏁', title: 'Validation',
-    write: '« ok »',
-    produce: 'Marty génère les règles de gestion, les sources de données, le score de maturité et le rapport DAD — tout est prêt dans Livrables.',
-  },
+const QUALITY_RULES: { cat: string; sev: string; color: string; text: string }[] = [
+  { cat: 'Type de donnée', sev: 'Err./Avert.', color: 'var(--accent-amber)', text: 'Un type incohérent avec le nom (ex. email en DECIMAL, date_… en VARCHAR) est signalé et corrigé.' },
+  { cat: 'Clé primaire', sev: 'Erreur', color: 'var(--accent-red)', text: 'Une table sans clé primaire : marque un *_id existant en PK, ou en crée une.' },
+  { cat: 'RGPD / Sensibilité', sev: 'Avert.', color: 'var(--accent-amber)', text: 'Une donnée personnelle (nom, email, IBAN, date de naissance…) non marquée sensible.' },
+  { cat: 'Doublon', sev: 'Avert.', color: 'var(--accent-amber)', text: 'Une colonne en double au sein d\'une même table.' },
+  { cat: 'Intégrité référentielle', sev: 'Err./Avert.', color: 'var(--accent-red)', text: 'Relation vers une table inexistante (la crée), clé étrangère manquante (l\'ajoute), ou type de FK ≠ type de la PK référencée (l\'aligne).' },
+  { cat: 'Granularité', sev: 'Avert.', color: 'var(--accent-amber)', text: 'Des tables de faits sans grain défini (« que représente une ligne ? »).' },
+  { cat: 'Normalisation', sev: 'Info', color: 'var(--accent-blue)', text: 'Une colonne descriptive répétée dans plusieurs tables, ou deux tables quasi identiques (doublon potentiel).' },
 ];
 
-const FACT_COLUMNS: [string, string, string, string][] = [
-  ['dossier_id', 'BIGINT', 'PK', 'Clé primaire du dossier'],
-  ['montant_demande', 'DECIMAL', '', 'Montant demandé par le client'],
-  ['montant_accorde', 'DECIMAL', '', 'Montant finalement accordé'],
-  ['statut', 'VARCHAR', '', 'En cours / Accepté / Refusé'],
-  ['date_demande', 'DATE', '', 'Date de la demande'],
-  ['date_decision', 'DATE', '', 'Date de la décision'],
-  ['client_client_id', 'BIGINT', 'FK', 'Clé étrangère vers dim_client'],
-  ['produit_produit_id', 'BIGINT', 'FK', 'Clé étrangère vers dim_produit'],
-];
+const DOCS_CSS = `
+.md-docs { display: grid; grid-template-columns: 220px minmax(0,1fr) 210px; gap: 32px; max-width: 1240px; margin: 0 auto; align-items: start; }
+.md-nav, .md-toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; }
+.md-nav a, .md-toc a { display: block; padding: 6px 10px; border-radius: 7px; font-size: 12.5px; color: var(--text-secondary); text-decoration: none; line-height: 1.4; border-left: 2px solid transparent; }
+.md-nav a:hover, .md-toc a:hover { background: var(--bg-elevated); color: var(--text); }
+.md-nav a.active, .md-toc a.active { color: var(--primary-light); background: var(--primary-glow); border-left-color: var(--primary); font-weight: 600; }
+.md-navtitle { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin: 4px 10px 8px; }
+.md-sec { scroll-margin-top: 16px; margin-bottom: 40px; }
+.md-sec h2 { font-size: 24px; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.md-sec h3 { font-size: 16px; margin: 20px 0 8px; }
+.md-sec p { font-size: 14px; line-height: 1.65; color: var(--text-secondary); margin: 0 0 12px; }
+.md-sec li { font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 6px; }
+.md-sec code { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 12.5px; color: var(--primary-light); }
+.md-kbd { background: var(--bg-elevated); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; font-size: 12px; font-weight: 600; color: var(--text); }
+.md-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.md-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.md-callout { background: var(--primary-glow); border: 1px solid var(--border-active); border-left: 3px solid var(--primary); border-radius: 10px; padding: 12px 16px; font-size: 13.5px; color: var(--text); line-height: 1.6; }
+@media (max-width: 1100px) { .md-docs { grid-template-columns: 200px minmax(0,1fr); } .md-toc { display: none; } }
+@media (max-width: 780px) { .md-docs { grid-template-columns: 1fr; } .md-nav { display: none; } }
+`;
 
-const thStyle: React.CSSProperties = { textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' };
-const tdStyle: React.CSSProperties = { padding: '6px 10px', borderBottom: '1px solid var(--border)' };
+const thStyle: React.CSSProperties = { textAlign: 'left', padding: '7px 10px', borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 12 };
+const tdStyle: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid var(--border)', fontSize: 13 };
 
 export default function Documentation({ onStartWorkshop }: DocumentationProps) {
-  return (
-    <div className="dashboard" style={{ maxWidth: 960, margin: '0 auto' }}>
-      {/* Intro */}
-      <div className="context-card" style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, marginBottom: 8 }}>📖 Comment fonctionne Mart Studio</h2>
-        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          Mart Studio est un atelier de conception assisté par IA. Vous décrivez votre besoin métier
-          en langage naturel, et <strong>Marty</strong>, votre Senior Data Architect IA, vous guide en
-          <strong> 7 étapes</strong> (dont 2 optionnelles) pour transformer cette description en un <strong>modèle de données complet</strong> et
-          en livrables techniques prêts à l&apos;emploi (SQL, dbt, diagrammes, dictionnaire). Aucune connaissance
-          technique préalable n&apos;est requise.
-        </p>
-      </div>
+  const [active, setActive] = useState<string>('intro');
+  const mainRef = useRef<HTMLDivElement>(null);
 
-      {/* Deux modes : Chat et Visuel */}
-      <div className="context-card" style={{ marginBottom: 16, borderLeft: '3px solid var(--primary)' }}>
-        <h3 style={{ fontSize: 18, margin: '0 0 8px' }}>💬 &amp; ▦ Deux façons de concevoir — Chat et Visuel</h3>
-        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-          Dans <strong>DataForge</strong>, une bascule <strong>Chat ⇄ Visuel</strong> vous laisse travailler comme vous préférez :
-        </p>
-        <ul style={{ paddingLeft: 18, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, margin: '8px 0 0' }}>
-          <li><strong>Mode Chat</strong> : vous discutez avec Marty, il déduit et construit le modèle.</li>
-          <li><strong>Mode Visuel</strong> : un vrai éditeur de diagramme (type ERD) — <strong>glissez-déposez les tables</strong>, ajoutez des colonnes, marquez les <strong>PK/FK</strong>, et <strong>tirez d&apos;une table à l&apos;autre</strong> pour créer une relation (avec cardinalité et jointure sur colonnes). Bouton <strong>Arranger</strong> pour un agencement automatique lisible, et une fenêtre « toutes les colonnes » pour les tables volumineuses (jusqu&apos;à des centaines de colonnes).</li>
-          <li><strong>Les deux sont synchronisés en temps réel</strong> : ce que vous dessinez, Marty le lit ; ce que Marty déduit apparaît sur le canvas. Même source unique, qui alimente aussi les livrables.</li>
-        </ul>
-      </div>
+  // Scrollspy : met en surbrillance la section visible dans la sidebar et le sommaire.
+  useEffect(() => {
+    const els = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[];
+    if (!els.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: '-10% 0px -70% 0px', threshold: 0 }
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
 
-      {/* Import de scripts existants */}
-      <div className="context-card" style={{ marginBottom: 24, borderLeft: '3px solid var(--accent-blue)' }}>
-        <h3 style={{ fontSize: 18, margin: '0 0 8px' }}>📥 Importez vos scripts existants (SAS, SQL, Snowflake)</h3>
-        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-          Vous avez déjà des tables ? Pas besoin de tout ressaisir :
-        </p>
-        <ul style={{ paddingLeft: 18, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, margin: '8px 0 0' }}>
-          <li>Bouton <strong>« Importer SQL »</strong> (mode Visuel) : collez un ou plusieurs <code>CREATE TABLE</code> (<strong>Snowflake</strong>, SQL standard, PROC SQL) → les <strong>tables, colonnes, types, clés PK et FK</strong> et les <strong>relations</strong> sont créés automatiquement.</li>
-          <li>Import de fichiers <strong>SAS / SQL / CSV / Excel</strong> (bouton 📎 dans le chat) : Marty analyse le contenu et en <strong>déduit le modèle</strong>.</li>
-        </ul>
-      </div>
+  const go = (id: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActive(id);
+  };
 
-      {/* How it works */}
-      <h3 style={{ fontSize: 18, marginBottom: 16 }}>Le déroulé de l&apos;atelier</h3>
-      <div style={{ display: 'grid', gap: 12, marginBottom: 32 }}>
-        {STEPS.map(s => (
-          <div key={s.n} className="context-card" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-            <div style={{ fontSize: 28, lineHeight: 1 }}>{s.icon}</div>
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>Étape {s.n} — {s.title}</div>
-              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{s.text}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Deliverables */}
-      <h3 style={{ fontSize: 18, marginBottom: 16 }}>Les livrables générés</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, marginBottom: 32 }}>
-        {DELIVERABLES.map(d => (
-          <div key={d.title} className="context-card">
-            <div style={{ fontSize: 22, marginBottom: 6 }}>{d.icon}</div>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.title}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{d.text}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Complete worked example */}
-      <h3 style={{ fontSize: 18, marginBottom: 6 }}>📚 Exemple complet — atelier de A à Z</h3>
-      <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-        Un atelier réel déroulé étape par étape : ce que vous écrivez, ce que Marty produit, jusqu&apos;aux livrables.
-        Inspirez-vous-en pour votre propre Data Product.
-      </p>
-
-      <div className="context-card" style={{ marginBottom: 24, borderLeft: '3px solid var(--primary)' }}>
-        <div style={{ fontWeight: 800, fontSize: 16 }}>🎯 Cas : « Pilotage de la Production de Crédits »</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Domaine : financement à la consommation — suivre les dossiers de crédit, montants accordés, taux d&apos;acceptation par canal, partenaire et produit.</div>
-      </div>
-
-      {EXAMPLE_STEPS.map(s => (
-        <div key={s.n} className="context-card" style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>{s.icon} Étape {s.n} — {s.title}</div>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Vous écrivez</div>
-            <div className="transform-before" style={{ padding: 12, borderRadius: 8, marginTop: 4 }}>
-              <em style={{ color: 'var(--text-secondary)', fontSize: 13.5, lineHeight: 1.6 }}>{s.write}</em>
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Marty produit</div>
-            <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 4 }}>{s.produce}</div>
-          </div>
-        </div>
+  const NavList = ({ cls }: { cls: string }) => (
+    <>
+      {SECTIONS.map((s) => (
+        <a key={s.id} href={`#${s.id}`} className={`${cls} ${active === s.id ? 'active' : ''}`} onClick={go(s.id)}>{s.title}</a>
       ))}
+    </>
+  );
 
-      {/* Resulting model */}
-      <h4 style={{ fontSize: 16, margin: '24px 0 10px' }}>🧩 Le modèle obtenu (faits &amp; dimensions)</h4>
-      <div className="context-card" style={{ marginBottom: 14 }}>
-        <div style={{ marginBottom: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>⭐ Fait :</span>{' '}
-          <code>fact_dossier_credit</code> (la mesure : un dossier = un montant demandé/accordé à une date)
+  return (
+    <div className="dashboard">
+      <style dangerouslySetInnerHTML={{ __html: DOCS_CSS }} />
+
+      <div style={{ maxWidth: 1240, margin: '0 auto 20px' }}>
+        <h1 style={{ fontSize: 30, margin: '0 0 6px' }}>Documentation Mart Studio</h1>
+        <p style={{ fontSize: 15, color: 'var(--text-muted)', margin: 0 }}>Tout ce que la plateforme fait, et comment l&apos;utiliser — de la description en langage naturel au modèle de données livrable.</p>
+      </div>
+
+      <div className="md-docs">
+        {/* Sidebar gauche */}
+        <nav className="md-nav">
+          <div className="md-navtitle">Sur cette doc</div>
+          <NavList cls="" />
+        </nav>
+
+        {/* Contenu */}
+        <div ref={mainRef}>
+
+          <section id="intro" className="md-sec">
+            <h2>Qu&apos;est-ce que Mart Studio ?</h2>
+            <p>Mart Studio transforme une <strong>description métier en langage naturel</strong> en un <strong>modèle de données complet et livrable</strong> (MCD, SQL, dbt, dictionnaire…). Un assistant, <strong>Marty</strong>, vous guide étape par étape ; vous pouvez à tout moment basculer sur un <strong>éditeur visuel</strong> pour ajuster le modèle à la main.</p>
+            <p>L&apos;objectif : passer de l&apos;idée (« je veux piloter mes ventes ») à un modèle structuré, contrôlé qualité et prêt à être implémenté, sans partir d&apos;une page blanche.</p>
+            <div className="md-callout">En bref : <strong>vous décrivez</strong> → <strong>Marty modélise</strong> → <strong>vous ajustez</strong> (visuel + qualité) → <strong>vous exportez</strong> les livrables.</div>
+          </section>
+
+          <section id="demarrer" className="md-sec">
+            <h2>Démarrer : créer un Data Product</h2>
+            <p>Depuis <strong>Data Products</strong>, cliquez sur <strong>Nouveau</strong>. Un « Data Product » = un modèle de données autour d&apos;un besoin métier (ex. « Pilotage des Ventes »). Vous pouvez en gérer autant que vous voulez ; ils sont listés dans la barre latérale et sauvegardés automatiquement.</p>
+            <h3>Deux modes de conception</h3>
+            <ul>
+              <li><strong>Chat</strong> — vous dialoguez avec Marty qui pose les bonnes questions et construit le modèle.</li>
+              <li><strong>Visuel</strong> — vous manipulez directement les tables, colonnes et relations sur un canvas.</li>
+            </ul>
+            <p>Le bouton <strong>Chat / Visuel</strong> en haut de l&apos;atelier bascule entre les deux — c&apos;est <strong>le même modèle</strong> des deux côtés, toute modification est instantanément partagée.</p>
+            <button className="cta-btn" onClick={onStartWorkshop} style={{ marginTop: 4 }}>Ouvrir l&apos;atelier →</button>
+          </section>
+
+          <section id="marty" className="md-sec">
+            <h2>Concevoir avec Marty (chat)</h2>
+            <p>Marty est l&apos;assistant Data Architect. Vous répondez à ses questions <strong>en langage naturel</strong> — même une réponse partielle suffit : il structure, déduit les entités, relations et types, et remplit le modèle au fur et à mesure.</p>
+            <h3>Comment Marty écrit dans le modèle</h3>
+            <p>À chaque réponse, Marty <strong>extrait</strong> les informations et met à jour le modèle. Un bandeau récapitule alors ce qui a changé (<code>+3 tables · +12 colonnes · +2 relations</code>) avec un bouton <strong>↶ Annuler</strong> pour tout revenir en un clic si le résultat ne vous convient pas.</p>
+            <div className="md-callout">Astuce : soyez concret. Citez vos objets métier, vos KPIs et vos systèmes sources — Marty les capte dès votre première réponse.</div>
+          </section>
+
+          <section id="etapes" className="md-sec">
+            <h2>Les 7 étapes de l&apos;atelier</h2>
+            <p>L&apos;atelier suit un déroulé en 7 étapes (les étapes 5 et 6 sont facultatives). La barre de progression à gauche indique où vous en êtes.</p>
+            <div className="md-grid">
+              {STEPS.map((s) => (
+                <div key={s.n} className="md-card">
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{s.icon} {s.n}. {s.title}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="visuel" className="md-sec">
+            <h2>L&apos;éditeur visuel</h2>
+            <p>Le mode <strong>Visuel</strong> affiche votre modèle sous forme de tables reliées, façon diagramme entité-relation. Vous pouvez tout éditer directement.</p>
+            <h3>Relier deux tables</h3>
+            <p>Chaque table a des <strong>poignées de connexion</strong> sur ses bords gauche et droit (elles s&apos;agrandissent au survol). <strong>Tirez</strong> depuis le bord d&apos;une table vers une autre pour créer une relation — l&apos;accroche se fait automatiquement en approchant.</p>
+            <h3>Colonnes & tables</h3>
+            <ul>
+              <li><strong>+ colonne</strong> ajoute un champ ; cliquez <strong>PK</strong> pour la clé primaire, choisissez le <strong>type</strong> SQL.</li>
+              <li>Le nom se valide en sortant du champ ou avec <span className="md-kbd">Entrée</span> (saisie fluide, même avec beaucoup de tables).</li>
+              <li>L&apos;icône <strong>⧉</strong> ouvre <strong>toutes les colonnes</strong> d&apos;une table dans une fenêtre avec recherche.</li>
+              <li><strong>Arranger</strong> réorganise automatiquement la disposition des tables.</li>
+            </ul>
+            <h3>Naviguer à grande échelle (100+ tables)</h3>
+            <ul>
+              <li><strong>Recherche</strong> (en haut à droite du canvas) : tapez un nom de table ou de colonne → la liste des résultats apparaît, cliquez pour <strong>zoomer</strong> dessus. Les tables trouvées sont surlignées, les autres estompées.</li>
+              <li><strong>Focus voisins</strong> (icône ⊕ sur une table) : n&apos;affiche que cette table et ses <strong>tables directement reliées</strong>. Cliquez le fond pour quitter.</li>
+              <li><strong>Mini-carte</strong> et zoom en bas pour se repérer.</li>
+            </ul>
+          </section>
+
+          <section id="import" className="md-sec">
+            <h2>Importer vos scripts (SAS / SQL / Snowflake)</h2>
+            <p>Vous partez de tables existantes ? Dans le visuel, <strong>Importer SQL</strong> accepte un ou plusieurs <code>CREATE TABLE</code> (SQL standard, Snowflake, PROC SQL). Les tables, colonnes, types et clés <strong>PK / FK</strong> (ainsi que les relations) sont créés automatiquement.</p>
+            <h3>Round-trip : resynchroniser</h3>
+            <p>Ré-importer un script <strong>met à jour</strong> les tables déjà présentes au lieu de les dupliquer : nouveaux champs ajoutés, types et clés resynchronisés. Idéal pour garder le modèle aligné avec un DDL qui évolue.</p>
+            <div className="md-callout">Dans le chat, vous pouvez aussi <strong>joindre un fichier</strong> (script, requête, export) : Marty en déduit le modèle et émet les entités/attributs/relations.</div>
+          </section>
+
+          <section id="qualite" className="md-sec">
+            <h2>Contrôle qualité (linter)</h2>
+            <p>L&apos;onglet <strong>Qualité</strong> (dans Livrables) analyse votre modèle et affiche un <strong>score /100</strong> avec la liste des points à corriger. Pour chaque suggestion, vous comparez <span style={{ color: 'var(--accent-red)', textDecoration: 'line-through' }}>votre version</span> → <span style={{ color: 'var(--primary)', fontWeight: 700 }}>la version améliorée</span>, puis <strong>Valider</strong> (applique) ou <strong>Ignorer</strong> (masqué durablement).</p>
+            <h3>Ce que le linter vérifie</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr><th style={thStyle}>Catégorie</th><th style={thStyle}>Niveau</th><th style={thStyle}>Contrôle</th></tr></thead>
+                <tbody>
+                  {QUALITY_RULES.map((r) => (
+                    <tr key={r.cat}>
+                      <td style={{ ...tdStyle, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.cat}</td>
+                      <td style={{ ...tdStyle, color: r.color, fontWeight: 700, whiteSpace: 'nowrap' }}>{r.sev}</td>
+                      <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{r.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="md-callout" style={{ marginTop: 14 }}>Avant de générer un livrable, une <strong>bannière d&apos;alerte</strong> apparaît sur les onglets code (SQL, dbt…) si le modèle contient des erreurs ou si le score est bas — avec un lien direct vers l&apos;onglet Qualité.</div>
+          </section>
+
+          <section id="historique" className="md-sec">
+            <h2>Historique & aperçu des changements</h2>
+            <p>Toutes les modifications du modèle (Marty, éditeur visuel, panneau contexte, corrections qualité, import) sont <strong>annulables</strong>.</p>
+            <ul>
+              <li>Boutons <strong>Annuler / Rétablir</strong> dans l&apos;en-tête de l&apos;atelier.</li>
+              <li>Raccourcis <span className="md-kbd">⌘/Ctrl + Z</span> et <span className="md-kbd">⌘/Ctrl + Maj + Z</span>.</li>
+              <li>Une action de Marty = <strong>un seul pas d&apos;annulation</strong> ; la conversation n&apos;est jamais affectée.</li>
+            </ul>
+            <p>C&apos;est le filet de sécurité qui permet de laisser Marty modifier le modèle en confiance : si le résultat ne convient pas, un clic suffit à revenir en arrière.</p>
+          </section>
+
+          <section id="livrables" className="md-sec">
+            <h2>Livrables & génération</h2>
+            <p>L&apos;onglet <strong>Livrables</strong> génère automatiquement tous les artefacts à partir de votre modèle. Ils se mettent à jour dès que le modèle change.</p>
+            <div className="md-grid">
+              {DELIVERABLES.map((d) => (
+                <div key={d.title} className="md-card">
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.icon} {d.title}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{d.text}</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ marginTop: 14 }}>Les diagrammes (MCD, Étoile/Flocon) se <strong>téléchargent en PNG</strong> ; le code (SQL, dbt, DBML) se <strong>copie</strong> en un clic ; le rapport détaillé s&apos;<strong>exporte en PDF</strong>.</p>
+          </section>
+
+          <section id="contexte" className="md-sec">
+            <h2>Panneau « Données collectées »</h2>
+            <p>À droite de l&apos;atelier, ce panneau montre l&apos;état du modèle en temps réel : contexte, entités, relations, attributs, KPIs, règles, sources. Chaque section est <strong>cliquable</strong> pour ouvrir un mode <strong>Modifier</strong>.</p>
+            <h3>Recherche dans les modals</h3>
+            <p>Dans les fenêtres <strong>Modifier</strong> (Entités, Attributs, Relations), une <strong>barre de recherche</strong> filtre en direct : tapez un nom de table pour voir toutes ses colonnes, ou un nom de colonne pour ne garder que les tables concernées. Le compteur <code>(3 / 42)</code> indique les colonnes affichées sur le total — indispensable au-delà de quelques dizaines de tables.</p>
+          </section>
+
+          <section id="reglages" className="md-sec">
+            <h2>Langue, thème, idées</h2>
+            <ul>
+              <li><strong>🌐 Langue</strong> — bascule Français / Anglais depuis l&apos;en-tête.</li>
+              <li><strong>🌙 Thème</strong> — clair / sombre.</li>
+              <li><strong>🔔 Notifications</strong> — les réponses de l&apos;équipe à vos idées y apparaissent.</li>
+              <li><strong>💡 Idées d&apos;amélioration</strong> — proposez une amélioration de la plateforme ; l&apos;équipe peut vous répondre directement dans l&apos;app.</li>
+            </ul>
+          </section>
+
+          <section id="conseils" className="md-sec">
+            <h2>Bonnes pratiques</h2>
+            <ul>
+              <li><strong>Soyez concret dès le contexte</strong> : nommez vos objets métier, KPIs et systèmes sources — Marty gagne du temps sur les étapes suivantes.</li>
+              <li><strong>Nommez clairement vos colonnes</strong> : <code>montant</code>, <code>date_commande</code>, <code>client_id</code>… le linter en déduit les types et les clés.</li>
+              <li><strong>Passez par l&apos;onglet Qualité</strong> avant d&apos;exporter : corrigez les erreurs, vérifiez l&apos;intégrité référentielle.</li>
+              <li><strong>Alternez chat et visuel</strong> : laissez Marty poser la structure, ajustez finement au visuel.</li>
+              <li><strong>N&apos;ayez pas peur d&apos;essayer</strong> : tout est annulable (<span className="md-kbd">⌘Z</span>).</li>
+            </ul>
+            <button className="cta-btn" onClick={onStartWorkshop} style={{ marginTop: 8 }}>Commencer un Data Product →</button>
+          </section>
+
         </div>
-        <div>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>🧩 Dimensions :</span>{' '}
-          <code>dim_client</code>, <code>dim_produit</code>, <code>dim_partenaire</code>, <code>dim_canal</code>, <code>dim_conseiller</code>, <code>dim_periode</code>
-        </div>
-      </div>
 
-      <div className="context-card" style={{ marginBottom: 14, overflowX: 'auto' }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Table de faits — <code>fact_dossier_credit</code></div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-          <thead><tr>{['Attribut', 'Type', 'Clé', 'Description'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
-          <tbody>
-            {FACT_COLUMNS.map(c => (
-              <tr key={c[0]}>
-                <td style={tdStyle}><strong>{c[0]}</strong></td>
-                <td style={{ ...tdStyle, color: 'var(--accent-blue)' }}>{c[1]}</td>
-                <td style={tdStyle}>{c[2]}</td>
-                <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{c[3]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="context-card" style={{ marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>🔗 Relations</div>
-        <ul style={{ paddingLeft: 18, fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
-          <li>dim_client → fact_dossier_credit (1:N)</li>
-          <li>dim_produit → fact_dossier_credit (1:N)</li>
-          <li>dim_partenaire → fact_dossier_credit (1:N)</li>
-          <li>dim_canal → fact_dossier_credit (1:N)</li>
-          <li>dim_periode → fact_dossier_credit (1:N)</li>
-        </ul>
-      </div>
-
-      <div className="context-card" style={{ marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 KPIs &amp; ⚖️ Règles métier déduits</div>
-        <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          <strong>KPIs :</strong> Taux d&apos;acceptation (dossiers acceptés / total), Montant moyen accordé, Délai moyen de décision.<br />
-          <strong>Règles :</strong> montant_accorde ≤ montant_demande ; date_decision ≥ date_demande ; statut ∈ {'{'}En cours, Accepté, Refusé{'}'}.<br />
-          <strong>Sources :</strong> Système de gestion des dossiers (LOS), Référentiel partenaires.
-        </div>
-      </div>
-
-      {/* Deliverable snippet */}
-      <h4 style={{ fontSize: 16, margin: '24px 0 10px' }}>📦 Un extrait des livrables générés</h4>
-      <div className="context-card" style={{ marginBottom: 32 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>SQL DDL (extrait)</div>
-        <pre style={{ background: '#0d1117', color: '#c9d1d9', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 12.5, lineHeight: 1.5 }}>{`CREATE TABLE fact_dossier_credit (
-    dossier_id        BIGINT PRIMARY KEY, -- Clé primaire du dossier
-    montant_demande   DECIMAL(18,4) NOT NULL,
-    montant_accorde   DECIMAL(18,4),
-    statut            VARCHAR(255) NOT NULL,
-    date_demande      DATE NOT NULL,
-    date_decision     DATE,
-    client_client_id  BIGINT NOT NULL,    -- FK vers dim_client
-    produit_produit_id BIGINT NOT NULL,   -- FK vers dim_produit
-    CONSTRAINT fk_dossier_client  FOREIGN KEY (client_client_id)  REFERENCES dim_client(client_id),
-    CONSTRAINT fk_dossier_produit FOREIGN KEY (produit_produit_id) REFERENCES dim_produit(produit_id)
-);`}</pre>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-          + le diagramme MCD/ERD, le schéma en étoile/flocon, le DBML (dbdiagram.io), le schéma dbt,
-          le dictionnaire de données et le rapport DAD avec score de maturité — tous téléchargeables.
-        </div>
-      </div>
-
-      {/* Tips */}
-      <h3 style={{ fontSize: 18, marginBottom: 16 }}>Conseils pour de meilleurs résultats</h3>
-      <div className="context-card" style={{ marginBottom: 32 }}>
-        <ul style={{ paddingLeft: 18, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
-          <li>Décrivez le <strong>métier</strong>, pas la technique : Marty déduit le modèle.</li>
-          <li>Citez les <strong>objets manipulés</strong> (client, contrat, agence, période…) et les <strong>mesures</strong> à suivre.</li>
-          <li>Répondez à toutes les questions d&apos;une étape <strong>en un seul message</strong>.</li>
-          <li>Vous pouvez toujours cliquer sur <strong>« Donner plus d&apos;infos »</strong> pour affiner une étape.</li>
-          <li>Consultez le panneau <strong>« Données collectées »</strong> à droite : chaque section est cliquable pour voir le détail.</li>
-        </ul>
-      </div>
-
-      <div className="dashboard-cta-group">
-        <button className="cta-btn" onClick={onStartWorkshop}>
-          <span className="cta-btn-icon">✨</span>
-          Démarrer un atelier →
-        </button>
+        {/* Sommaire droite */}
+        <aside className="md-toc">
+          <div className="md-navtitle">Sur cette page</div>
+          <NavList cls="" />
+        </aside>
       </div>
     </div>
   );
