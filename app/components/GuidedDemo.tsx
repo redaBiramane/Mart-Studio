@@ -92,6 +92,19 @@ const STYLE = `
 .gd-erd-k { font: 800 9px Inter, sans-serif; fill: var(--primary); }
 .gd-erd-card { font: 700 10px Inter, sans-serif; fill: var(--text-muted); }
 
+/* Bascule Chat / Visuel */
+.gd-viewtoggle { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.gd-viewlabel { font-size: 12.5px; color: var(--text-muted); font-weight: 600; }
+.gd-seg { display: inline-flex; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+.gd-seg button { border: none; background: transparent; border-radius: 6px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: all .18s ease; }
+.gd-seg button.on { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(0,107,79,0.3); }
+/* Vue visuelle */
+.gd-visual { padding: 18px; animation: gdIn .4s ease; }
+.gd-visual svg { width: 100%; height: auto; display: block; }
+.gd-visual-hint { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
+.gd-visual-feats { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; margin-top: 14px; }
+.gd-visual-feats span { font-size: 12px; font-weight: 600; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; }
+
 @keyframes gdIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes gdBlink { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 @keyframes gdDraw { to { stroke-dashoffset: 0; } }
@@ -148,6 +161,7 @@ export default function GuidedDemo({ onStart }: Props) {
   const fr = lang === 'fr';
   const [step, setStep] = useState(0);
   const [auto, setAuto] = useState(false);
+  const [view, setView] = useState<'chat' | 'visual'>('chat');
   const started = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -224,6 +238,48 @@ export default function GuidedDemo({ onStart }: Props) {
           ))}
         </div>
 
+        {/* Bascule Chat / Visuel — comme dans l'application */}
+        <div className="gd-viewtoggle">
+          <span className="gd-viewlabel">{fr ? 'Deux façons de concevoir :' : 'Two ways to design:'}</span>
+          <div className="gd-seg">
+            <button className={view === 'chat' ? 'on' : ''} onClick={() => setView('chat')}>💬 {fr ? 'Chat' : 'Chat'}</button>
+            <button className={view === 'visual' ? 'on' : ''} onClick={() => setView('visual')}>▦ {fr ? 'Visuel' : 'Visual'}</button>
+          </div>
+        </div>
+
+        {view === 'visual' ? (
+          <div className="gd-visual">
+            <div className="gd-mcd-t"><I d={ICO.entities} />{fr ? 'Éditeur visuel — glisser-déposer, relier, éditer' : 'Visual editor — drag & drop, connect, edit'}</div>
+            {step < 1 ? (
+              <div className="gd-visual-hint">{fr ? 'Passez à l’étape « Entités » pour voir le modèle se dessiner ici, en direct.' : 'Go to the “Entities” step to watch the model take shape here, live.'}</div>
+            ) : (
+              <svg viewBox="0 0 720 320" role="img" aria-label={fr ? 'Éditeur visuel du modèle' : 'Visual model editor'}>
+                {step >= 2 && <>
+                  <path className="gd-erd-line" d="M110,118 C 130,180 210,150 265,175" style={{ animationDelay: '.1s' }} />
+                  <path className="gd-erd-line" d="M615,92 C 620,170 500,150 455,175" style={{ animationDelay: '.2s' }} />
+                  <path className="gd-erd-line" d="M455,235 C 490,235 500,225 520,222" style={{ animationDelay: '.3s' }} />
+                  <text className="gd-erd-card" x="118" y="140">1</text>
+                  <text className="gd-erd-card" x="250" y="168">N</text>
+                  <text className="gd-erd-card" x="600" y="118">1</text>
+                  <text className="gd-erd-card" x="470" y="168">N</text>
+                  <text className="gd-erd-card" x="465" y="228">1</text>
+                  <text className="gd-erd-card" x="512" y="212">N</text>
+                </>}
+                <ErdTable x={20} y={20} w={170} title="CLIENT" rows={step >= 3 ? [{ c: 'client_id', k: 'PK' }, { c: 'nom' }, { c: 'segment_client' }] : [{ c: 'client_id', k: 'PK' }]} />
+                <ErdTable x={530} y={20} w={170} title="AGENCE" rows={step >= 3 ? [{ c: 'agence_id', k: 'PK' }, { c: 'region_id', k: 'FK' }] : [{ c: 'agence_id', k: 'PK' }]} />
+                <ErdTable x={265} y={175} w={190} title="CREDIT" rows={step >= 3 ? [{ c: 'credit_id', k: 'PK' }, { c: 'client_id', k: 'FK' }, { c: 'agence_id', k: 'FK' }, { c: 'montant' }] : [{ c: 'credit_id', k: 'PK' }]} />
+                <ErdTable x={520} y={175} w={170} title="RISQUE" rows={step >= 3 ? [{ c: 'risque_id', k: 'PK' }, { c: 'credit_id', k: 'FK' }, { c: 'score_risque' }] : [{ c: 'risque_id', k: 'PK' }]} />
+              </svg>
+            )}
+            <div className="gd-visual-feats">
+              <span>🔗 {fr ? 'Tirez pour relier' : 'Drag to connect'}</span>
+              <span>✏️ {fr ? 'Éditez colonnes & clés' : 'Edit columns & keys'}</span>
+              <span>🔍 {fr ? 'Recherche & focus (100+ tables)' : 'Search & focus (100+ tables)'}</span>
+              <span>🛡️ {fr ? 'Contrôle qualité' : 'Quality control'}</span>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="gd-body">
           {/* Chat Marty */}
           <div className="gd-chat">
@@ -345,6 +401,8 @@ export default function GuidedDemo({ onStart }: Props) {
               <ErdTable x={520} y={175} w={170} title="RISQUE" rows={[{ c: 'risque_id', k: 'PK' }, { c: 'credit_id', k: 'FK' }, { c: 'score_risque' }]} />
             </svg>
           </div>
+        )}
+        </>
         )}
 
         {/* Contrôles */}
