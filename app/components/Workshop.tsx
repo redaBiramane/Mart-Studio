@@ -563,6 +563,15 @@ ${truncated}
   // Filter system messages from display
   const displayMessages = messages.filter(m => !getMessageText(m).startsWith('[SYSTÈME]'));
 
+  // Horodatage par message : les messages en direct (useChat) n'ont pas de date,
+  // on la récupère depuis la session persistée (par id). Sinon, « maintenant ».
+  const tsById = useMemo(() => {
+    const m: Record<string, number> = {};
+    (session?.messages || []).forEach((x) => { if (x.id) m[x.id] = x.timestamp; });
+    return m;
+  }, [session?.messages]);
+  const fmtDateTime = (ts: number) => new Date(ts).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
   // Only offer "Valider la réponse" once the user has actually answered in THIS
   // step. Data may already exist (deduced earlier), but we don't want the banner
   // to appear before the user has had a chance to type.
@@ -762,6 +771,9 @@ ${truncated}
                   ) : (
                     <div className="message-bubble" dangerouslySetInnerHTML={{ __html: html }} />
                   )}
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 4, textAlign: isAssistant ? 'left' : 'right' }}>
+                    {fmtDateTime(tsById[message.id] ?? Date.now())}
+                  </div>
                 </div>
               </div>
             );
