@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { useI18n, localeCode } from '@/lib/i18n';
+import { lintModel, qualityScore } from '@/lib/linter';
 
 function HowIcon({ name }: { name: string }) {
   const p: Record<string, React.ReactNode> = {
@@ -25,15 +27,60 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDeliverables, onViewDocs, onOpenDeliverables }: DashboardProps) {
-  const { sessions, deleteSession } = useWorkshopStore();
+  const { sessions, deleteSession, duplicateSession } = useWorkshopStore();
   const { t, lang } = useI18n();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+
+  const en = lang === 'en';
+  const L = {
+    resume: en ? 'Resume' : 'Reprendre', newWorkshop: en ? 'New workshop' : 'Nouvel atelier',
+    search: en ? 'Search a Data Product…' : 'Rechercher un Data Product…',
+    all: en ? 'All' : 'Tous', active: en ? 'In progress' : 'En cours', done: en ? 'Completed' : 'Terminés',
+    quality: en ? 'Quality' : 'Qualité', avgQuality: en ? 'Avg. quality' : 'Qualité moy.',
+    tables: en ? 'tables' : 'tables', cols: en ? 'cols' : 'col.', rels: en ? 'relations' : 'relations',
+    modified: en ? 'modified' : 'modifié', noResult: en ? 'No Data Product matches.' : 'Aucun Data Product ne correspond.',
+    duplicate: en ? 'Duplicate' : 'Dupliquer',
+  };
 
   const completedCount = sessions.filter(s => s.status === 'completed').length;
   const activeCount = sessions.filter(s => s.status === 'active').length;
 
+  // Dernier produit actif (le plus récemment modifié) → bouton « Reprendre ».
+  const lastActive = useMemo(() => {
+    return [...sessions].filter(s => s.status === 'active').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] || null;
+  }, [sessions]);
+
+  // Score qualité par session (mémoïsé) + moyenne.
+  const scoreOf = useMemo(() => {
+    const m: Record<string, number> = {};
+    sessions.forEach(s => { if (s.entities.length) m[s.id] = qualityScore(lintModel(s)); });
+    return m;
+  }, [sessions]);
+  const scored = Object.values(scoreOf);
+  const avgScore = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+
+  const visibleSessions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return sessions
+      .filter(s => filter === 'all' || s.status === filter)
+      .filter(s => !q || `${s.productName} ${s.domain}`.toLowerCase().includes(q))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }, [sessions, query, filter]);
+
   function formatDate(ts: number) {
     return new Date(ts).toLocaleDateString(localeCode(lang), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
+  function relTime(ts: number) {
+    const diff = Date.now() - (ts || 0);
+    const min = 60000, h = 3600000, d = 86400000;
+    if (diff < 2 * min) return en ? 'just now' : 'à l\'instant';
+    if (diff < h) return en ? `${Math.round(diff / min)}m ago` : `il y a ${Math.round(diff / min)} min`;
+    if (diff < d) return en ? `${Math.round(diff / h)}h ago` : `il y a ${Math.round(diff / h)} h`;
+    if (diff < 30 * d) return en ? `${Math.round(diff / d)}d ago` : `il y a ${Math.round(diff / d)} j`;
+    return formatDate(ts);
+  }
+  const scoreColor = (n: number) => (n >= 80 ? 'var(--accent-emerald)' : n >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)');
 
   return (
     <div className="dashboard">
@@ -48,10 +95,23 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
         <p>{t('dash.subtitle')}</p>
 
         <div className="dashboard-cta-group">
-          <button className="cta-btn" onClick={onStartWorkshop}>
-            <span className="cta-btn-icon">✨</span>
-            {t('dash.start')} →
-          </button>
+          {lastActive ? (
+            <button className="cta-btn" onClick={() => onOpenSession(lastActive.id)} title={lastActive.productName || ''}>
+              <span className="cta-btn-icon">▶</span>
+              {L.resume} : {(lastActive.productName || t('dash.newProduct')).slice(0, 32)} — {lastActive.currentStep}/7
+            </button>
+          ) : (
+            <button className="cta-btn" onClick={onStartWorkshop}>
+              <span className="cta-btn-icon">✨</span>
+              {t('dash.start')} →
+            </button>
+          )}
+          {lastActive && (
+            <button className="cta-btn cta-btn-secondary" onClick={onStartWorkshop}>
+              <span className="cta-btn-icon">✨</span>
+              {L.newWorkshop}
+            </button>
+          )}
           {completedCount > 0 && (
             <button className="cta-btn cta-btn-secondary" onClick={onViewDeliverables}>
               <span className="cta-btn-icon">📦</span>
@@ -116,34 +176,74 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
           <div className="stat-value">{completedCount}</div>
           <div className="stat-label">{t('dash.statCompleted')}</div>
         </div>
+        {avgScore !== null && (
+          <div className="stat-card">
+            <div className="stat-value" style={{ color: scoreColor(avgScore) }}>{avgScore}</div>
+            <div className="stat-label">{L.avgQuality}</div>
+          </div>
+        )}
       </div>
 
       {/* Sessions list */}
       {sessions.length > 0 && (
         <div className="sessions-section">
-          <h3>{t('dash.recentSessions')}</h3>
-          {sessions.map(s => (
-            <div key={s.id} className="session-card" onClick={() => onOpenSession(s.id)}>
-              <span className={`session-step-badge ${s.status === 'completed' ? 'session-status-completed' : ''}`}>
-                {s.status === 'completed' ? `✓ ${t('dash.completed')}` : `${t('dash.step')} ${s.currentStep}/7`}
-              </span>
-              <div className="session-info">
-                <div className="session-name">{s.productName || t('dash.newProduct')}</div>
-                <div className="session-meta">
-                  {s.domain && `${s.domain} · `}
-                  {t('dash.createdOn')} {formatDate(s.createdAt)}
-                  {s.entities.length > 0 && ` · ${s.entities.length} ${t('dash.entities')}`}
-                </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+            <h3 style={{ margin: 0 }}>{t('dash.recentSessions')}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={L.search} style={{ height: 36, padding: '0 12px 0 30px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text)', fontSize: 13, outline: 'none', width: 240, maxWidth: '60vw' }} />
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                <button className="suggested-chip" onClick={() => onOpenSession(s.id)} title={t('dash.workshop')}>🧠 {t('dash.workshop')}</button>
-                {s.entities.length > 0 && onOpenDeliverables && (
-                  <button className="suggested-chip" onClick={() => onOpenDeliverables(s.id)} title={t('dash.deliverables')}>📦 {t('dash.deliverables')}</button>
-                )}
-                <button className="session-delete" onClick={() => deleteSession(s.id)} title={t('dp.deleteTitle')}>✕</button>
+              <div style={{ display: 'inline-flex', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
+                {([['all', L.all], ['active', L.active], ['completed', L.done]] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setFilter(k)} style={{ border: 'none', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, background: filter === k ? 'var(--bg-surface)' : 'transparent', color: filter === k ? 'var(--text)' : 'var(--text-muted)', boxShadow: filter === k ? 'var(--shadow)' : 'none' }}>{lbl}</button>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
+
+          {visibleSessions.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13.5 }}>{L.noResult}</div>}
+
+          {visibleSessions.map(s => {
+            const score = scoreOf[s.id];
+            const pct = Math.round((s.currentStep / 7) * 100);
+            return (
+              <div key={s.id} className="session-card" style={{ display: 'block', cursor: 'pointer' }} onClick={() => onOpenSession(s.id)}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <span className={`session-step-badge ${s.status === 'completed' ? 'session-status-completed' : ''}`} style={{ flexShrink: 0 }}>
+                    {s.status === 'completed' ? `✓ ${t('dash.completed')}` : `${t('dash.step')} ${s.currentStep}/7`}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="session-name">{s.productName || t('dash.newProduct')}</div>
+                    <div className="session-meta">
+                      {s.domain && `${s.domain} · `}
+                      {L.modified} {relTime(s.updatedAt || s.createdAt)}
+                      {s.entities.length > 0 && ` · ${s.entities.length} ${L.tables} · ${s.attributes.length} ${L.cols} · ${s.relations.length} ${L.rels}`}
+                    </div>
+                  </div>
+                  {score !== undefined && (
+                    <span title={L.quality} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: scoreColor(score), background: 'var(--bg-elevated)', border: `1px solid ${scoreColor(score)}`, borderRadius: 999, padding: '2px 10px' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /></svg>
+                      {score}
+                    </span>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                    <button className="suggested-chip" onClick={() => onOpenSession(s.id)} title={t('dash.workshop')}>🧠 {t('dash.workshop')}</button>
+                    {s.entities.length > 0 && onOpenDeliverables && (
+                      <button className="suggested-chip" onClick={() => onOpenDeliverables(s.id)} title={t('dash.deliverables')}>📦 {t('dash.deliverables')}</button>
+                    )}
+                    <button className="suggested-chip" onClick={() => duplicateSession(s.id)} title={L.duplicate}>⧉</button>
+                    <button className="session-delete" onClick={() => deleteSession(s.id)} title={t('dp.deleteTitle')}>✕</button>
+                  </div>
+                </div>
+                {s.status !== 'completed' && (
+                  <div style={{ marginTop: 10, height: 5, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', borderRadius: 4, transition: 'width .3s' }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
