@@ -37,6 +37,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
     ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
     chat: <><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2Z" /><path d="M8 8.5h8M8 12h5" /></>,
     chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    alert: <><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: '-3px', flexShrink: 0 }}>
@@ -45,9 +46,9 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
   );
 }
 
-export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' }) {
+export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports' }) {
   const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData, replyToIdea } = useWorkshopStore();
-  const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas'>(initialTab);
+  const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports'>(initialTab);
   const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
 
   useEffect(() => {
@@ -157,10 +158,12 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
     { key: 'products', icon: 'box', label: `Data Products (${adminProducts.length})` },
     { key: 'users', icon: 'users', label: `Utilisateurs (${adminProfiles.length})` },
     { key: 'ideas', icon: 'idea', label: `Idées (${activityLogs.filter(l => l.action === 'idea').length})` },
+    { key: 'reports', icon: 'alert', label: `Signalements IA (${activityLogs.filter(l => l.action === 'report_ai').length})` },
     { key: 'stats', icon: 'chart', label: 'Statistiques' },
   ];
 
   const ideas = activityLogs.filter(l => l.action === 'idea');
+  const reports = activityLogs.filter(l => l.action === 'report_ai');
 
   // Filtres onglet Activité
   const activityUsers = Array.from(new Set(activityLogs.map(l => l.user_email).filter(Boolean))) as string[];
@@ -436,6 +439,38 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'reports' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 4px' }}>
+              Problèmes IA signalés par les utilisateurs (hallucinations, réponses fausses, comportements inattendus) via <strong>Options → Signaler un problème IA</strong>. {reports.length} au total.
+            </p>
+            {reports.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 }}>Aucun signalement pour le moment.</div>}
+            {reports.map(l => {
+              // Le détail contient « [Produit · étape N/7] description | Dernier message IA: … »
+              const raw = l.detail || '';
+              const ctxMatch = raw.match(/^\[(.*?)\]\s*/);
+              const ctx = ctxMatch ? ctxMatch[1] : '';
+              const rest = ctxMatch ? raw.slice(ctxMatch[0].length) : raw;
+              const [desc, martyMsg] = rest.split(/\s*\|\s*Dernier message IA:\s*/);
+              return (
+                <div key={l.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-red)', borderRadius: 10, padding: '12px 16px' }}>
+                  {ctx && <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', marginBottom: 6 }}>{ctx}</div>}
+                  <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{desc || '(vide)'}</div>
+                  {martyMsg && (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 11px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Dernier message de Marty : </span>{martyMsg}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><SIcon name="users" size={13} /> {l.user_email || '—'}</span>
+                    <span>· {fmt(l.created_at)}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

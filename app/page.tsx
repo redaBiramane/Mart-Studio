@@ -49,7 +49,7 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas'>('activity');
+  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports'>('activity');
   const [showModeModal, setShowModeModal] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifSeen, setNotifSeen] = useState(0);
@@ -98,7 +98,7 @@ export default function Home() {
     type Notif = { id: string; icon: string; title: string; desc: string; ts: number; go?: () => void };
     const items: Notif[] = [];
     const goProduct = (id: string, page: Page) => () => { useWorkshopStore.getState().loadSession(id); setCurrentPage(page); setNotifOpen(false); setSidebarOpen(false); };
-    const goSupervision = (tab: 'activity' | 'ideas') => () => { setSupervisionTab(tab); setCurrentPage('supervision'); setNotifOpen(false); setSidebarOpen(false); };
+    const goSupervision = (tab: 'activity' | 'ideas' | 'reports') => () => { setSupervisionTab(tab); setCurrentPage('supervision'); setNotifOpen(false); setSidebarOpen(false); };
     sessions.slice(0, 12).forEach((s) => {
       const name = s.productName || t('dash.newProduct');
       if (s.status === 'completed') {
@@ -112,7 +112,7 @@ export default function Home() {
         const isIdea = l.action === 'idea';
         const isReport = l.action === 'report_ai';
         const title = isIdea ? '💡 Nouvelle idée' : isReport ? '⚠️ Signalement IA' : `${t('notif.activity')} · ${l.action}`;
-        items.push({ id: `act-${l.id}`, icon: isIdea ? 'idea' : 'activity', title, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime(), go: goSupervision(isIdea ? 'ideas' : 'activity') });
+        items.push({ id: `act-${l.id}`, icon: isIdea ? 'idea' : 'activity', title, desc: `${l.user_email || ''}${l.detail ? ' — ' + l.detail : ''}`, ts: new Date(l.created_at).getTime(), go: goSupervision(isIdea ? 'ideas' : isReport ? 'reports' : 'activity') });
       });
     }
     // Réponses de l'admin aux idées de l'utilisateur courant → notif in-app
