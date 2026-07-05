@@ -18,6 +18,16 @@ function HowIcon({ name }: { name: string }) {
   );
 }
 
+const gGroup: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)', padding: '10px 12px 4px' };
+const gRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 10, padding: '8px 12px', cursor: 'pointer', color: 'var(--text)' };
+const gIco: React.CSSProperties = { width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
+const gTitle: React.CSSProperties = { display: 'block', fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+const gSub: React.CSSProperties = { display: 'block', fontSize: 12.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+const rowHover = {
+  onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'var(--bg-elevated)'; },
+  onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'transparent'; },
+};
+
 interface DashboardProps {
   onStartWorkshop: () => void;
   onOpenSession: (id: string) => void;
@@ -33,8 +43,13 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
   const en = lang === 'en';
+  const [gq, setGq] = useState('');
+  const [gopen, setGopen] = useState(false);
   const L = {
     resume: en ? 'Resume' : 'Reprendre', newWorkshop: en ? 'New workshop' : 'Nouvel atelier',
+    gsearch: en ? 'Search a table or column across all your Data Products…' : 'Rechercher une table ou une colonne dans tous vos Data Products…',
+    gProducts: en ? 'Data Products' : 'Data Products', gTables: en ? 'Tables' : 'Tables', gCols: en ? 'Columns' : 'Colonnes',
+    gNone: en ? 'No result.' : 'Aucun résultat.', gIn: en ? 'in' : 'dans',
     search: en ? 'Search a Data Product…' : 'Rechercher un Data Product…',
     all: en ? 'All' : 'Tous', active: en ? 'In progress' : 'En cours', done: en ? 'Completed' : 'Terminés',
     quality: en ? 'Quality' : 'Qualité', avgQuality: en ? 'Avg. quality' : 'Qualité moy.',
@@ -59,6 +74,40 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
   }, [sessions]);
   const scored = Object.values(scoreOf);
   const avgScore = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+
+  // Recherche globale : tables (entités) et colonnes (attributs) dans TOUS les produits.
+  const gResults = useMemo(() => {
+    const q = gq.trim().toLowerCase();
+    if (!q) return { products: [], tables: [], columns: [], total: 0 };
+    const products: { id: string; name: string }[] = [];
+    const tables: { id: string; name: string; product: string }[] = [];
+    const columns: { id: string; name: string; table: string; product: string; type: string }[] = [];
+    for (const s of sessions) {
+      const pname = s.productName || 'Data Product';
+      if (`${s.productName} ${s.domain}`.toLowerCase().includes(q) && products.length < 6) products.push({ id: s.id, name: pname });
+      const entName = new Map(s.entities.map(e => [e.id, e.name] as const));
+      for (const e of s.entities) {
+        if (e.name.toLowerCase().includes(q) && tables.length < 12) tables.push({ id: s.id, name: e.name, product: pname });
+      }
+      for (const a of s.attributes) {
+        if (a.name.toLowerCase().includes(q) && columns.length < 20) {
+          const tbl = entName.get(a.entityId) || a.entityId;
+          columns.push({ id: s.id, name: a.name, table: tbl, product: pname, type: a.type });
+        }
+      }
+    }
+    return { products, tables, columns, total: products.length + tables.length + columns.length };
+  }, [gq, sessions]);
+
+  // Surligne la partie du texte qui correspond à la recherche.
+  const highlight = (text: string) => {
+    const q = gq.trim();
+    if (!q) return text;
+    const i = text.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return text;
+    return (<>{text.slice(0, i)}<mark style={{ background: 'var(--primary-glow)', color: 'var(--primary)', borderRadius: 3, padding: '0 1px' }}>{text.slice(i, i + q.length)}</mark>{text.slice(i + q.length)}</>);
+  };
+  const openResult = (id: string) => { setGopen(false); setGq(''); onOpenSession(id); };
 
   const visibleSessions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -117,6 +166,53 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
               <span className="cta-btn-icon">📦</span>
               {t('dash.deliverables')}
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* Recherche globale : tables & colonnes dans tous les Data Products */}
+      <div style={{ position: 'relative', maxWidth: 680, margin: '0 auto 26px', width: '100%' }}>
+        {gopen && <div onClick={() => setGopen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20 }} />}
+        <div style={{ position: 'relative', zIndex: 21 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          <input
+            value={gq}
+            onChange={(e) => { setGq(e.target.value); setGopen(true); }}
+            onFocus={() => setGopen(true)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setGq(''); setGopen(false); } }}
+            placeholder={L.gsearch}
+            style={{ width: '100%', height: 52, padding: '0 44px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg-surface)', color: 'var(--text)', fontSize: 14.5, outline: 'none', boxShadow: gopen ? 'var(--shadow-lg)' : 'var(--shadow)' }}
+          />
+          {gq && <button onClick={() => { setGq(''); setGopen(false); }} title="Effacer" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>}
+
+          {gopen && gq.trim() && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', maxHeight: 440, overflowY: 'auto', padding: 6 }}>
+              {gResults.total === 0 && <div style={{ padding: 22, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13.5 }}>{L.gNone}</div>}
+
+              {gResults.products.length > 0 && <div style={gGroup}>{L.gProducts}</div>}
+              {gResults.products.map((r) => (
+                <button key={`p-${r.id}`} onClick={() => openResult(r.id)} {...rowHover} style={gRow}>
+                  <span style={{ ...gIco, background: 'var(--primary-glow)', color: 'var(--primary)' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /></svg></span>
+                  <span style={{ minWidth: 0 }}><span style={gTitle}>{highlight(r.name)}</span></span>
+                </button>
+              ))}
+
+              {gResults.tables.length > 0 && <div style={gGroup}>{L.gTables}</div>}
+              {gResults.tables.map((r, i) => (
+                <button key={`t-${r.id}-${r.name}-${i}`} onClick={() => openResult(r.id)} {...rowHover} style={gRow}>
+                  <span style={{ ...gIco, background: 'rgba(139,92,246,0.12)', color: '#8B5CF6' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="8.5" y="14" width="7" height="6" rx="1.5" /></svg></span>
+                  <span style={{ minWidth: 0 }}><span style={gTitle}>{highlight(r.name)}</span><span style={gSub}>{L.gIn} {r.product}</span></span>
+                </button>
+              ))}
+
+              {gResults.columns.length > 0 && <div style={gGroup}>{L.gCols}</div>}
+              {gResults.columns.map((r, i) => (
+                <button key={`c-${r.id}-${r.name}-${i}`} onClick={() => openResult(r.id)} {...rowHover} style={gRow}>
+                  <span style={{ ...gIco, background: 'rgba(16,185,129,0.12)', color: '#10B981' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10.5 13.5 4H6a2 2 0 0 0-2 2v7.5L10.5 20a2 2 0 0 0 2.8 0l6.7-6.7a2 2 0 0 0 0-2.8Z" /><circle cx="9" cy="9" r="1.4" /></svg></span>
+                  <span style={{ minWidth: 0 }}><span style={gTitle}>{highlight(r.name)} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{r.type}</span></span><span style={gSub}>{r.table} · {r.product}</span></span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
