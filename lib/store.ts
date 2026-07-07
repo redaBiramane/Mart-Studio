@@ -104,6 +104,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       activityLogs: [],
       myLogs: [],
       stepQuestions: {},
+      steps: null,
 
       setCurrentPage: (page) => set({ currentPage: page }),
 
@@ -127,6 +128,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
           await get().loadStepQuestions();
+          await get().loadSteps();
           await get().loadMyLogs();
           if (prof?.role === 'admin') await get().loadAdminData();
         }
@@ -159,6 +161,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
         await get().loadStepQuestions();
+        await get().loadSteps();
         await get().loadMyLogs();
         if (prof?.role === 'admin') await get().loadAdminData();
         await get().logActivity('login');
@@ -303,6 +306,21 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const byStep: Record<number, import('./types').StepQuestion[]> = {};
         data.forEach((q) => { (byStep[q.step] = byStep[q.step] || []).push(q); });
         set({ stepQuestions: byStep });
+      },
+
+      // Étapes de l'atelier configurables par l'admin (fallback = constante STEPS).
+      loadSteps: async () => {
+        if (!supabase) return;
+        const { data } = await supabase.from('app_config').select('value').eq('key', 'workshop_steps').maybeSingle();
+        const steps = data?.value;
+        if (Array.isArray(steps) && steps.length) set({ steps: steps as import('./types').StepDefinition[] });
+      },
+
+      saveSteps: async (steps) => {
+        set({ steps });
+        if (!supabase) return;
+        await supabase.from('app_config').upsert({ key: 'workshop_steps', value: steps, updated_at: new Date().toISOString() });
+        await get().logActivity('edit_steps', `${steps.length} étape(s)`);
       },
 
       addStepQuestion: async (step, text) => {

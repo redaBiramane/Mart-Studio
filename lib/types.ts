@@ -290,6 +290,7 @@ export interface WorkshopStore {
   activityLogs: ActivityLog[];
   myLogs: ActivityLog[];
   stepQuestions: Record<number, StepQuestion[]>;
+  steps: StepDefinition[] | null; // étapes configurées par l'admin (null = défaut)
 
   // Actions
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
@@ -328,4 +329,6 @@ export interface WorkshopStore {
   deleteStepQuestion: (id: string) => Promise<void>;
   seedStepQuestions: (step: number, texts: string[]) => Promise<void>;
   saveStepQuestions: (step: number, texts: string[]) => Promise<void>;
+  loadSteps: () => Promise<void>;
+  saveSteps: (steps: StepDefinition[]) => Promise<void>;
 }

@@ -111,3 +111,22 @@ create policy "logs_insert_self_or_admin" on public.activity_logs
 drop policy if exists "logs_select_self" on public.activity_logs;
 create policy "logs_select_self" on public.activity_logs
   for select using (user_id = auth.uid() or public.is_admin());
+
+-- ============================================================
+-- app_config : configuration globale (ex. étapes de l'atelier)
+-- Lecture par tout utilisateur authentifié, écriture réservée aux admins.
+-- ============================================================
+create table if not exists public.app_config (
+  key text primary key,
+  value jsonb,
+  updated_at timestamptz default now()
+);
+alter table public.app_config enable row level security;
+
+drop policy if exists "app_config_select_auth" on public.app_config;
+create policy "app_config_select_auth" on public.app_config
+  for select using (auth.role() = 'authenticated');
+
+drop policy if exists "app_config_write_admin" on public.app_config;
+create policy "app_config_write_admin" on public.app_config
+  for all using (public.is_admin()) with check (public.is_admin());

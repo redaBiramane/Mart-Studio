@@ -2,7 +2,22 @@
 // Mart Studio — Constants & Step Definitions
 // ============================================================
 
-import { StepDefinition } from './types';export const STEPS: StepDefinition[] = [
+import { StepDefinition, WorkshopSession } from './types';
+
+// Une étape est-elle « remplie » ? Basé sur la sémantique (key), pas sur la
+// position — indispensable pour que les étapes restent réordonnables/supprimables.
+export function stepHasData(step: StepDefinition | undefined, session: WorkshopSession): boolean {
+  switch (step?.key) {
+    case 'concepts': return session.entities.length > 0;
+    case 'relations': return session.relations.length > 0;
+    case 'attributes': return session.attributes.length > 0;
+    case 'kpis': return session.kpis.length > 0;
+    case 'rules': return session.businessRules.length > 0;
+    default: return true; // contexte, validation, étape personnalisée → pas de blocage
+  }
+}
+
+export const STEPS: StepDefinition[] = [
   {
     id: 1,
     key: 'context',

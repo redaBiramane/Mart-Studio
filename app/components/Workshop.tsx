@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useWorkshopStore } from '@/lib/store';
-import { STEPS } from '@/lib/constants';
+import { STEPS, stepHasData } from '@/lib/constants';
 import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 import VisualEditor from '@/app/components/VisualEditor';
@@ -18,7 +18,8 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, undo, redo, past, future } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future } = useWorkshopStore();
+  const effSteps = steps && steps.length ? steps : STEPS; // étapes configurées par l'admin, sinon défaut
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
   const [lastChange, setLastChange] = useState<{ entities: number; attributes: number; relations: number; kpis: number; rules: number; context: boolean } | null>(null);
@@ -103,7 +104,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     const txt = reportText.trim();
     if (!txt || !session) return;
     const lastMarty = [...displayMessages].reverse().find(m => m.role === 'assistant');
-    const ctx = `[${session.productName || 'Data Product'} · étape ${currentStep}/${STEPS.length}]`;
+    const ctx = `[${session.productName || 'Data Product'} · étape ${currentStep}/${effSteps.length}]`;
     const extra = reportIncludeMsg && lastMarty ? ` | Dernier message IA: ${getMessageText(lastMarty).replace(/```json:extract[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim().slice(0, 300)}` : '';
     try { await useWorkshopStore.getState().logActivity('report_ai', `${ctx} ${txt}${extra}`); } catch { /* mode local : ignore */ }
     setReportSent(true);
@@ -118,8 +119,9 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const currentStep = session?.currentStep || 1;
-  const stepDef = STEPS[currentStep - 1];
+  // Borne l'étape courante au nombre d'étapes configuré (l'admin a pu en retirer).
+  const currentStep = Math.min(Math.max(session?.currentStep || 1, 1), effSteps.length);
+  const stepDef = effSteps[currentStep - 1];
 
   const getMessageText = useCallback((message: any) => {
     if (!message || !message.parts) return '';
@@ -143,9 +145,17 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
       const currentSession = state.session;
       const llmSettings = state.llmSettings;
       const step = currentSession?.currentStep || 1;
-      const adminQuestions = (state.stepQuestions[step] || []).map((q) => q.text);
+      // Questions injectées à Marty : celles de l'étape configurée par l'admin,
+      // sinon l'ancienne surcharge (step_questions). Sinon rien (Marty libre).
+      const cfgSteps = state.steps;
+      const effList = cfgSteps && cfgSteps.length ? cfgSteps : STEPS;
+      const adminQuestions = cfgSteps && cfgSteps.length
+        ? (cfgSteps[step - 1]?.questions ?? [])
+        : (state.stepQuestions[step] || []).map((q) => q.text);
       return {
         currentStep: step,
+        stepKey: effList[step - 1]?.key,
+        totalSteps: effList.length,
         mode: currentSession?.mode || 'batch',
         adminQuestions,
         llmSettings,
@@ -216,7 +226,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
         const modeInstr = session.mode === 'guided'
           ? 'pose UNE SEULE question à la fois (mode guidé) : commence par la première question de cette étape et attends la réponse.'
           : 'affiche directement toutes les questions de cette étape en une seule fois.';
-        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur ${STEPS.length} : "${stepDef.title}". ${intro} ${modeInstr}` });
+        sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur ${effSteps.length} : "${stepDef.title}". ${intro} ${modeInstr}` });
       }
     }
   }, [session, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -469,16 +479,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
 
   function hasStepData(stepId: number): boolean {
     if (!session) return false;
-    switch (stepId) {
-      case 1: return !!session.productName;
-      case 2: return session.entities.length > 0;
-      case 3: return session.relations.length > 0;
-      case 4: return session.attributes.length > 0;
-      case 5: return session.kpis.length > 0;      // optionnel
-      case 6: return session.businessRules.length > 0; // optionnel
-      case 7: return session.maturityScores !== null;
-      default: return false;
-    }
+    return stepHasData(effSteps[stepId - 1], session);
   }
 
   function handleStepChange(step: number) {
@@ -615,10 +616,11 @@ ${truncated}
     );
   }
 
-  // Suggested questions for current step
-  // Questions pilotées par l'admin (fallback aux questions par défaut de l'étape).
-  const adminQs = (stepQuestions[currentStep] || []).map((q) => q.text);
-  const suggestions = (adminQs.length > 0 ? adminQs : stepDef.questions).slice(0, 3);
+  // Suggestions de questions pour l'étape courante. Si l'admin a configuré des
+  // étapes, on utilise leurs questions ; sinon, l'éventuelle surcharge héritée
+  // (step_questions) ou les questions par défaut de l'étape.
+  const legacyQs = (stepQuestions[currentStep] || []).map((q) => q.text);
+  const suggestions = (steps && steps.length ? stepDef.questions : (legacyQs.length > 0 ? legacyQs : stepDef.questions)).slice(0, 3);
 
   // Filter system messages from display
   const displayMessages = messages.filter(m => !getMessageText(m).startsWith('[SYSTÈME]'));
@@ -636,7 +638,7 @@ ${truncated}
   // step. Data may already exist (deduced earlier), but we don't want the banner
   // to appear before the user has had a chance to type.
   const userHasMessagedThisStep = displayMessages.some(m => m.role === 'user');
-  const isValidation = currentStep === STEPS.length;
+  const isValidation = currentStep === effSteps.length;
   // Validation : bouton toujours dispo. Étape optionnelle : on peut passer.
   // Étape requise : bandeau après que l'utilisateur a répondu et que des données existent.
   const showStepBanner = isValidation || stepDef.optional || (hasStepData(currentStep) && userHasMessagedThisStep);

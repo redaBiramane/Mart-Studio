@@ -47,7 +47,7 @@ const DICT: Dict = {
   'menu.llm': { fr: 'Configuration LLM', en: 'LLM Settings' },
   'menu.help': { fr: 'Aide', en: 'Help' },
   'menu.logout': { fr: 'Se déconnecter', en: 'Sign out' },
-  'nav.questions': { fr: "Questions de l'atelier", en: 'Workshop questions' },
+  'nav.questions': { fr: 'Étapes & questions', en: 'Steps & questions' },
   'role.admin': { fr: 'Administrateur', en: 'Administrator' },
   'role.user': { fr: 'Utilisateur', en: 'User' },
   'role.guest': { fr: 'Invité (mode local)', en: 'Guest (local mode)' },

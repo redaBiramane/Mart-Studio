@@ -72,7 +72,7 @@ Voici les structures exactes attendues pour chaque type :
   { "businessUnderstanding": 80, "modeling": 75, "documentation": 70, "governance": 60, "dataQuality": 65, "architecture": 70, "dadReadiness": 75 }
 `;
 
-export function getStepInstruction(step: number): string {
+export function getStepInstruction(step: number, opts?: { key?: string; total?: number }): string {
   const instructions: Record<number, string> = {
     1: `## Étape 1 / 7 — Contexte du produit Data
 
@@ -162,5 +162,16 @@ Tu N'as AUCUNE question à poser. Produis IMMÉDIATEMENT, sans attendre de répo
 Ne place aucun titre avant les blocs. La synthèse et les propositions sont en prose ; seul le bloc "maturity" (et une éventuelle PK manquante) sont extraits.`,
   };
 
-  return instructions[step] || '';
+  // Les étapes étant configurables (réordonnables/ajoutables) par l'admin, on
+  // résout le comportement d'extraction par la SÉMANTIQUE de l'étape (key), pas
+  // par sa position. Fallback sur la position si aucune key n'est fournie.
+  const keyToNum: Record<string, number> = { context: 1, concepts: 2, relations: 3, attributes: 4, kpis: 5, rules: 6, validation: 7 };
+  const key = opts?.key;
+  if (key === 'custom') {
+    return `## Étape ${step}${opts?.total ? ` / ${opts.total}` : ''} — Étape personnalisée
+
+Pose les questions de cette étape (fournies ci-dessous) et recueille les réponses de l'utilisateur, puis résume brièvement. N'émets un bloc json:extract QUE si le contenu correspond clairement à un élément réel du modèle (entité, relation, attribut, KPI, règle, source) confirmé par l'utilisateur. Sinon, contente-toi de dialoguer sans rien inventer.`;
+  }
+  const n = (key && keyToNum[key]) || step;
+  return instructions[n] || '';
 }

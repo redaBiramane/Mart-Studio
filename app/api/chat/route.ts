@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   } catch {
     return new Response('Requête invalide.', { status: 400 });
   }
-  const { messages, currentStep, sessionData, llmSettings, mode, adminQuestions } = body;
+  const { messages, currentStep, sessionData, llmSettings, mode, adminQuestions, stepKey, totalSteps } = body;
 
   // --- Authentification : obligatoire dès que Supabase est configuré ---
   // Empêche l'usage anonyme de la clé LLM serveur (abus / coûts).
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   }
 
   // Build the full system prompt with step-specific instructions
-  const stepInstruction = getStepInstruction(currentStep || 1);
+  const stepInstruction = getStepInstruction(currentStep || 1, { key: typeof stepKey === 'string' ? stepKey : undefined, total: typeof totalSteps === 'number' ? totalSteps : undefined });
 
   // Mode guidé : une seule question à la fois
   const modeInstruction = mode === 'guided'
