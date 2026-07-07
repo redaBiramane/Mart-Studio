@@ -12,7 +12,8 @@ import { parseDDL } from '@/lib/ddl';
 import { useWorkshopStore } from '@/lib/store';
 import type { WorkshopSession, Entity, Attribute, Relation } from '@/lib/types';
 
-const SQL_TYPES = ['bigint', 'int', 'varchar', 'text', 'decimal', 'numeric', 'date', 'timestamp', 'boolean', 'uuid'];
+// Types alignés sur la cible Snowflake (INT/BIGINT = NUMBER(38,0) ; STRING = VARCHAR…).
+const SQL_TYPES = ['number', 'int', 'bigint', 'decimal', 'float', 'varchar', 'string', 'text', 'boolean', 'date', 'timestamp', 'time', 'variant', 'uuid'];
 const REL_TYPES: Relation['type'][] = ['1:N', 'N:1', '1:1', 'N:N'];
 
 function genId(p: string) { return `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }

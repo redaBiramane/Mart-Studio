@@ -33,23 +33,31 @@ export interface Finding {
   patch?: LinterPatch;  // comment appliquer
 }
 
-// ---- Normalisation des types ----
+// ---- Normalisation des types (aligné Snowflake) ----
+// Snowflake : INT, INTEGER, BIGINT, SMALLINT, TINYINT, BYTEINT et NUMBER(p,0) sont
+// TOUS des synonymes de NUMBER(38,0) → on les regroupe dans la famille « int ».
+// Un NUMBER/DECIMAL/NUMERIC avec une échelle > 0 reste « decimal ».
 const TYPE_SYNONYMS: Record<string, string> = {
-  numeric: 'decimal', number: 'decimal', float: 'decimal', double: 'decimal', real: 'decimal', money: 'decimal',
-  integer: 'int', smallint: 'int', tinyint: 'int', serial: 'int',
-  string: 'varchar', text: 'varchar', char: 'varchar', nvarchar: 'varchar', nchar: 'varchar',
+  float: 'decimal', double: 'decimal', real: 'decimal', money: 'decimal', float8: 'decimal', float4: 'decimal',
+  integer: 'int', smallint: 'int', tinyint: 'int', byteint: 'int', serial: 'int', bigint: 'int', int2: 'int', int4: 'int', int8: 'int',
+  string: 'varchar', text: 'varchar', char: 'varchar', nvarchar: 'varchar', nchar: 'varchar', character: 'varchar',
   bool: 'boolean',
-  datetime: 'timestamp', timestamptz: 'timestamp', timestamp_ntz: 'timestamp',
+  datetime: 'timestamp', timestamptz: 'timestamp', timestamp_ntz: 'timestamp', timestamp_ltz: 'timestamp', timestamp_tz: 'timestamp',
 };
 function baseType(t: string): string {
-  const b = (t || '').toLowerCase().replace(/\(.*\)/, '').replace(/\s+/g, '').trim();
-  return TYPE_SYNONYMS[b] || b;
+  const raw = (t || '').toLowerCase().replace(/\s+/g, '').trim();
+  const m = raw.match(/^([a-z_0-9]+?)(?:\((\d+)(?:,(\d+))?\))?$/);
+  const base = m ? m[1] : raw.replace(/\(.*\)/, '');
+  const scale = m && m[3] !== undefined ? parseInt(m[3], 10) : (m && m[2] !== undefined ? 0 : undefined);
+  // NUMBER/NUMERIC/DECIMAL sans partie décimale = entier (comportement Snowflake).
+  if (['number', 'numeric', 'decimal'].includes(base)) return scale === 0 ? 'int' : 'decimal';
+  return TYPE_SYNONYMS[base] || base;
 }
 
 // ---- Inférence du type attendu d'après le nom ----
 function inferType(name: string): string | null {
   const n = name.toLowerCase();
-  if (/(^|_)(id)$|^id_|_id_/.test(n)) return 'bigint';
+  if (/(^|_)(id)$|^id_|_id_/.test(n)) return 'int';
   if (/mail|email|courriel/.test(n)) return 'varchar';
   if (/(^|_)(date|dt)(_|$)|_date$|date_|_naissance|_embauche|_souscription|_debut|_fin|_echeance|_decision|_demande/.test(n)) return 'date';
   if (/_at$|timestamp|horodatage/.test(n)) return 'timestamp';
@@ -90,15 +98,19 @@ export function lintModel(session: WorkshopSession): Finding[] {
       }
     }
 
-    // 2) Types suspects (inférence par le nom)
+    // 2) Types suspects (inférence par le nom). On compare des FAMILLES normalisées
+    // (Snowflake) : INT / BIGINT / NUMBER(38,0) sont équivalents → aucun signalement
+    // entre eux, donc aucun impact sur le score si l'utilisateur a choisi INT.
     attrs.forEach((a) => {
       const inferred = inferType(a.name);
-      if (inferred && baseType(a.type) !== inferred) {
-        const sev: Severity = (['decimal', 'int'].includes(baseType(a.type)) && ['varchar', 'date', 'boolean'].includes(inferred)) ? 'error' : 'warning';
+      const cur = baseType(a.type);
+      const inf = inferred ? baseType(inferred) : null;
+      if (inf && cur !== inf) {
+        const sev: Severity = (['decimal', 'int'].includes(cur) && ['varchar', 'date', 'boolean'].includes(inf)) ? 'error' : 'warning';
         findings.push({
           id: `type-${a.id}`, severity: sev, category: 'Type de donnée', entityName: e.name, target: a.name,
           message: `Le type de « ${a.name} » semble incorrect.`,
-          current: displayType(a.type), suggested: displayType(inferred), patch: { kind: 'attrType', attrId: a.id, type: inferred },
+          current: displayType(a.type), suggested: displayType(inferred as string), patch: { kind: 'attrType', attrId: a.id, type: inferred as string },
         });
       }
     });
