@@ -3,7 +3,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType, ConnectionMode,
-  getNodesBounds, getViewportForBounds,
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
 } from '@xyflow/react';
 import { toPng, toSvg } from 'html-to-image';
@@ -223,33 +222,28 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
   }, [session.entities, session.relations, session.attributes]);
 
-  // Export du diagramme (tout le graphe, fond blanc) en PNG haute définition ou SVG vectoriel.
+  // Export du diagramme complet : on ajuste la vue (fitView) pour afficher tout le
+  // graphe, puis on capture la zone visible. Robuste (aucun calcul de bornes fragile).
   const exportImage = useCallback(async (format: 'png' | 'svg') => {
-    const el = document.querySelector('.react-flow__viewport') as HTMLElement | null;
+    const el = document.querySelector('.react-flow') as HTMLElement | null;
     const nodes = rf.current?.getNodes() || [];
     if (!el || nodes.length === 0) return;
     setExporting(true);
-    // On retire temporairement les surbrillances (recherche/focus) pour une image propre.
     const prevSearch = search, prevFocus = focusId;
     setSearch(''); setFocusId(null);
+    // Exclut les contrôles, la mini-carte, le fond quadrillé et l'attribution de l'image.
+    const filter = (n: HTMLElement) => {
+      const c = n.classList;
+      return !c || !(c.contains('react-flow__controls') || c.contains('react-flow__minimap') || c.contains('react-flow__background') || c.contains('react-flow__attribution'));
+    };
     try {
-      await new Promise((r) => setTimeout(r, 120)); // laisse le rendu se stabiliser
-      const bounds = getNodesBounds(nodes);
-      // Image aux dimensions du graphe (marge incluse) pour ne rien rogner.
-      const margin = 60;
-      const imageWidth = Math.min(8000, Math.ceil(bounds.width) + margin * 2);
-      const imageHeight = Math.min(8000, Math.ceil(bounds.height) + margin * 2);
-      const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.05, 4, 0.06);
-      const opts = {
-        backgroundColor: '#ffffff',
-        width: imageWidth,
-        height: imageHeight,
-        style: { width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` },
-      };
-      const base = (session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product';
+      rf.current?.fitView({ padding: 0.12, duration: 0 });
+      await new Promise((r) => setTimeout(r, 350)); // laisse le fitView + rendu se stabiliser
+      const opts = { backgroundColor: '#ffffff', filter, cacheBust: true };
       const dataUrl = format === 'svg'
         ? await toSvg(el, opts)
-        : await toPng(el, { ...opts, pixelRatio: 2 }); // HD (résolution ×2)
+        : await toPng(el, { ...opts, pixelRatio: 2.5 }); // HD
+      const base = (session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product';
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `MCD_${base}.${format}`;
