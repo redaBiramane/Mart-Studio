@@ -684,6 +684,18 @@ ${truncated}
         </div>
       )}
 
+      {/* Aperçu plein écran d'une image jointe */}
+      {previewIdx !== null && pendingImages[previewIdx] && (
+        <div onClick={() => setPreviewIdx(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={pendingImages[previewIdx].url} alt={pendingImages[previewIdx].name} onClick={(ev) => ev.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '86vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.6)', cursor: 'default' }} />
+          <button type="button" onClick={() => setPreviewIdx(null)} title="Fermer" style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.18)', border: 'none', color: '#fff', width: 42, height: 42, borderRadius: '50%', cursor: 'pointer', fontSize: 20 }}>✕</button>
+          {pendingImages.length > 1 && (
+            <div style={{ position: 'fixed', bottom: 22, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.85)', fontSize: 13, background: 'rgba(0,0,0,0.4)', padding: '5px 12px', borderRadius: 999 }}>{previewIdx + 1} / {pendingImages.length} — {pendingImages[previewIdx].name}</div>
+          )}
+        </div>
+      )}
+
       {/* Signalement d'un problème IA (hallucination / comportement inattendu) */}
       {showReport && (
         <div onClick={() => setShowReport(false)} style={wsOverlay}>
@@ -1028,22 +1040,15 @@ ${truncated}
           )}
 
           {pendingImages.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 8px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, margin: '0 0 8px', alignItems: 'center' }}>
               {pendingImages.map((im, idx) => (
-                <div key={idx} style={{ position: 'relative' }}>
+                <div key={idx} className="ws-thumb" style={{ position: 'relative', width: 60, height: 60 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={im.url} alt={im.name} onClick={() => setPreviewIdx(idx)} title={`${im.name} — cliquer pour agrandir`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-active)', cursor: 'zoom-in', display: 'block' }} />
-                  <button type="button" onClick={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))} title="Retirer" style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-red)', color: '#fff', border: '2px solid var(--bg-surface)', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  <img src={im.url} alt={im.name} onClick={() => setPreviewIdx(idx)} title={`${im.name} — cliquer pour agrandir`} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-active)', cursor: 'zoom-in', display: 'block' }} />
+                  <button type="button" onClick={(ev) => { ev.stopPropagation(); setPendingImages((prev) => prev.filter((_, i) => i !== idx)); }} title="Retirer cette image" aria-label="Retirer" style={{ position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: '50%', background: 'rgba(15,23,42,0.72)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
               ))}
-              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{pendingImages.length}/{MAX_IMAGES} image(s) — envoyez pour que Marty les analyse</span>
-            </div>
-          )}
-          {previewIdx !== null && pendingImages[previewIdx] && (
-            <div onClick={() => setPreviewIdx(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pendingImages[previewIdx].url} alt={pendingImages[previewIdx].name} style={{ maxWidth: '92vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
-              <button type="button" onClick={() => setPreviewIdx(null)} title="Fermer" style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontSize: 20 }}>✕</button>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{pendingImages.length}/{MAX_IMAGES} image(s) — cliquez pour agrandir · envoyez pour analyser</span>
             </div>
           )}
 
