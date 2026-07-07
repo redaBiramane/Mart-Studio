@@ -49,8 +49,9 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
   const [input, setInput] = useState('');
-  const [pendingImage, setPendingImage] = useState<{ url: string; name: string; mediaType: string } | null>(null);
-  const [imgPreview, setImgPreview] = useState(false);
+  const [pendingImages, setPendingImages] = useState<{ url: string; name: string; mediaType: string }[]>([]);
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const MAX_IMAGES = 4;
   const { lang } = useI18n();
   const [micSupported, setMicSupported] = useState(false);
   const [listening, setListening] = useState(false);
@@ -492,20 +493,24 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if ((!input.trim() && !pendingImage) || isLoading) return;
+    if ((!input.trim() && pendingImages.length === 0) || isLoading) return;
 
     const userText = input.trim();
-    // Si une image est attachée, on ajoute une consigne d'analyse et on la joint.
-    const note = 'J\'ai joint une image d\'un modèle existant (MCD / ERD / schéma) : analyse-la et déduis-en les entités, leurs attributs (types SQL, PK/FK) et les relations (cardinalités), puis émets les blocs json:extract. N\'invente rien qui ne soit pas visible.';
-    const text = pendingImage ? (userText ? `${userText}\n\n${note}` : note) : userText;
+    const imgs = pendingImages;
+    // Si des images sont attachées, on ajoute une consigne d'analyse et on les joint.
+    const note = imgs.length > 1
+      ? `J'ai joint ${imgs.length} images d'un modèle existant (MCD / ERD / schémas) : analyse-les TOUTES et déduis-en les entités, leurs attributs (types SQL, PK/FK) et les relations (cardinalités), puis émets les blocs json:extract. N'invente rien qui ne soit pas visible.`
+      : 'J\'ai joint une image d\'un modèle existant (MCD / ERD / schéma) : analyse-la et déduis-en les entités, leurs attributs (types SQL, PK/FK) et les relations (cardinalités), puis émets les blocs json:extract. N\'invente rien qui ne soit pas visible.';
+    const text = imgs.length ? (userText ? `${userText}\n\n${note}` : note) : userText;
 
     if (session) {
       addMessage({ id: `user_${Date.now()}`, role: 'user', content: text, timestamp: Date.now(), step: currentStep });
     }
 
-    if (pendingImage) {
-      sendMessage({ text, files: [{ type: 'file', mediaType: pendingImage.mediaType, url: pendingImage.url, filename: pendingImage.name }] });
-      setPendingImage(null);
+    if (imgs.length) {
+      sendMessage({ text, files: imgs.map((im) => ({ type: 'file', mediaType: im.mediaType, url: im.url, filename: im.name })) });
+      setPendingImages([]);
+      setPreviewIdx(null);
     } else {
       sendMessage({ text });
     }
@@ -520,31 +525,39 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     }
   }
 
-  // Importer un fichier (SAS / SQL / CSV / Excel) et laisser Marty en déduire le modèle
+  const isImageFile = (f: File) => f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name);
+
+  // Importer un ou plusieurs fichiers (SAS/SQL/CSV/Excel ou images d'anciens MCD).
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !session) return;
-    const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
-    if (file.size > 3 * 1024 * 1024) {
-      setToast(isImage ? 'Image trop volumineuse (max 3 Mo).' : 'Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
-      e.target.value = '';
-      return;
-    }
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !session) return;
+    const images = files.filter(isImageFile);
     setImporting(true);
     try {
-      // Image (capture d'un ancien MCD / ERD / schéma) : on l'ATTACHE au champ,
-      // l'utilisateur ajoute éventuellement un message, puis envoie lui-même.
-      if (isImage) {
-        const dataUrl = await new Promise<string>((res, rej) => {
+      // Images (captures d'anciens MCD / ERD / schémas) : on les ATTACHE (plusieurs
+      // possibles) ; l'utilisateur ajoute un message puis envoie lui-même.
+      if (images.length) {
+        const room = MAX_IMAGES - pendingImages.length;
+        if (room <= 0) { setToast(`Maximum ${MAX_IMAGES} images par message.`); e.target.value = ''; setImporting(false); return; }
+        const toAdd = images.slice(0, room).filter((f) => f.size <= 3 * 1024 * 1024);
+        const skipped = images.length - toAdd.length;
+        const read = await Promise.all(toAdd.map((f) => new Promise<{ url: string; name: string; mediaType: string }>((res, rej) => {
           const r = new FileReader();
-          r.onload = () => res(r.result as string);
+          r.onload = () => res({ url: r.result as string, name: f.name, mediaType: f.type || 'image/png' });
           r.onerror = rej;
-          r.readAsDataURL(file);
-        });
-        setPendingImage({ url: dataUrl, name: file.name, mediaType: file.type || 'image/png' });
-        setToast('Image attachée — ajoutez un message si besoin, puis envoyez.');
+          r.readAsDataURL(f);
+        })));
+        setPendingImages((prev) => [...prev, ...read]);
+        setToast(skipped > 0 ? `${read.length} image(s) attachée(s) — ${skipped} ignorée(s) (trop lourdes ou > ${MAX_IMAGES}).` : `${read.length} image(s) attachée(s) — ajoutez un message si besoin, puis envoyez.`);
         textareaRef.current?.focus();
+        e.target.value = '';
+        setImporting(false);
         return;
+      }
+      const file = files[0];
+      if (file.size > 3 * 1024 * 1024) {
+        setToast('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
+        e.target.value = ''; setImporting(false); return;
       }
       let content = '';
       const name = file.name.toLowerCase();
@@ -1014,24 +1027,23 @@ ${truncated}
             </div>
           )}
 
-          {pendingImage && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 8px', padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-active)', borderRadius: 10, maxWidth: 'fit-content' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pendingImage.url} alt={pendingImage.name} onClick={() => setImgPreview(true)} title="Cliquer pour agrandir" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', cursor: 'zoom-in' }} />
-              <div style={{ fontSize: 12.5 }}>
-                <div style={{ fontWeight: 600, color: 'var(--text)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🖼️ {pendingImage.name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                  <button type="button" onClick={() => setImgPreview(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0, fontSize: 11, fontWeight: 600 }}>Voir l&apos;image</button> · envoyez pour que Marty l&apos;analyse
+          {pendingImages.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 8px', alignItems: 'center' }}>
+              {pendingImages.map((im, idx) => (
+                <div key={idx} style={{ position: 'relative' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={im.url} alt={im.name} onClick={() => setPreviewIdx(idx)} title={`${im.name} — cliquer pour agrandir`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-active)', cursor: 'zoom-in', display: 'block' }} />
+                  <button type="button" onClick={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))} title="Retirer" style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-red)', color: '#fff', border: '2px solid var(--bg-surface)', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
-              </div>
-              <button type="button" onClick={() => setPendingImage(null)} title="Retirer l'image" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, marginLeft: 4 }}>✕</button>
+              ))}
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{pendingImages.length}/{MAX_IMAGES} image(s) — envoyez pour que Marty les analyse</span>
             </div>
           )}
-          {imgPreview && pendingImage && (
-            <div onClick={() => setImgPreview(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
+          {previewIdx !== null && pendingImages[previewIdx] && (
+            <div onClick={() => setPreviewIdx(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pendingImage.url} alt={pendingImage.name} style={{ maxWidth: '92vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
-              <button type="button" onClick={() => setImgPreview(false)} title="Fermer" style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontSize: 20 }}>✕</button>
+              <img src={pendingImages[previewIdx].url} alt={pendingImages[previewIdx].name} style={{ maxWidth: '92vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
+              <button type="button" onClick={() => setPreviewIdx(null)} title="Fermer" style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontSize: 20 }}>✕</button>
             </div>
           )}
 
@@ -1040,6 +1052,7 @@ ${truncated}
               ref={fileInputRef}
               type="file"
               accept=".sas,.sql,.csv,.txt,.xlsx,.xls,.json,image/*,.png,.jpg,.jpeg,.webp"
+              multiple
               style={{ display: 'none' }}
               onChange={handleImportFile}
             />
@@ -1079,7 +1092,7 @@ ${truncated}
               rows={1}
               disabled={isLoading}
             />
-            <button type="submit" className="chat-send-btn" disabled={isLoading || (!input.trim() && !pendingImage)}>
+            <button type="submit" className="chat-send-btn" disabled={isLoading || (!input.trim() && pendingImages.length === 0)}>
               ➤
             </button>
           </form>
