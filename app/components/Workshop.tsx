@@ -614,6 +614,14 @@ ${truncated}
     setCurrentPage('products');
   }
 
+  // Horodatage par message (par id, depuis la session persistée). DÉFINI AVANT tout
+  // retour anticipé : un hook ne doit jamais être conditionnel (Rules of Hooks).
+  const tsById = useMemo(() => {
+    const m: Record<string, number> = {};
+    (session?.messages || []).forEach((x) => { if (x.id) m[x.id] = x.timestamp; });
+    return m;
+  }, [session?.messages]);
+
   if (!session) {
     const recent = useWorkshopStore.getState().sessions.slice(0, 4);
     return (
@@ -658,13 +666,6 @@ ${truncated}
   // Filter system messages from display
   const displayMessages = messages.filter(m => !getMessageText(m).startsWith('[SYSTÈME]'));
 
-  // Horodatage par message : les messages en direct (useChat) n'ont pas de date,
-  // on la récupère depuis la session persistée (par id). Sinon, « maintenant ».
-  const tsById = useMemo(() => {
-    const m: Record<string, number> = {};
-    (session?.messages || []).forEach((x) => { if (x.id) m[x.id] = x.timestamp; });
-    return m;
-  }, [session?.messages]);
   const fmtDateTime = (ts: number) => new Date(ts).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   // Only offer "Valider la réponse" once the user has actually answered in THIS
