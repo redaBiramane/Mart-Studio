@@ -464,7 +464,10 @@ function ReportTab({ session }: { session: WorkshopSession }) {
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <h2 style={{ fontSize: 22, margin: 0 }}>Rapport détaillé — {session.productName || 'Data Product'}</h2>
-        <button className="cta-btn" onClick={() => downloadReportPdf(session)}>📄 Télécharger en PDF</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="cta-btn" onClick={() => downloadReportPdf(session)}>📄 Télécharger en PDF</button>
+          <button className="cta-btn cta-btn-secondary" onClick={() => downloadReportWord(session)}>📝 Télécharger en Word</button>
+        </div>
       </div>
 
       <div className="context-card" style={card}>
@@ -1183,6 +1186,82 @@ function enrichSession(session: WorkshopSession): WorkshopSession {
 }
 
 // ---- Rapport détaillé PDF (jsPDF, téléchargement direct) -----------------
+
+// Export Word (.doc) : on génère un document HTML compatible Word (aucune
+// dépendance, ouvert nativement par Word et entièrement éditable).
+function downloadReportWord(session: WorkshopSession) {
+  const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+  const GREEN = '#006B4F';
+  const rows = (arr: string[][]) => arr.map(r => `<tr>${r.map((c, i) => `<td style="border:1px solid #d0d5dd;padding:5px 8px;font-size:10.5pt;${i === 1 ? 'color:#2563EB;' : ''}">${c}</td>`).join('')}</tr>`).join('');
+
+  let body = `<h1 style="color:${GREEN};font-size:20pt;margin:0 0 4pt;">Rapport détaillé — ${esc(session.productName || 'Data Product')}</h1>`;
+  body += `<p style="color:#667085;font-size:9pt;margin:0 0 16pt;">Généré par Mart Studio le ${esc(new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }))}</p>`;
+
+  // Contexte
+  body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">Contexte</h2>`;
+  body += `<p style="font-size:11pt;line-height:1.5;">
+    <b>Produit :</b> ${esc(session.productName || '—')}<br/>
+    <b>Domaine :</b> ${esc(session.domain || '—')}<br/>
+    <b>Product Owner :</b> ${esc(session.productOwner || '—')}<br/>
+    <b>Data Steward :</b> ${esc(session.dataSteward || '—')}<br/>
+    ${session.objective ? `<b>Objectif :</b> ${esc(session.objective)}<br/>` : ''}
+  </p>`;
+  if (session.contextSummary) body += `<p style="font-size:11pt;line-height:1.5;">${esc(session.contextSummary)}</p>`;
+
+  // Entités & attributs
+  body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">Entités &amp; attributs (${session.entities.length})</h2>`;
+  session.entities.forEach(e => {
+    body += `<p style="font-size:12pt;margin:12pt 0 4pt;"><b>${esc(e.name)}</b>${e.definition ? ` <span style="color:#667085;font-size:10pt;">— ${esc(e.definition)}</span>` : ''}</p>`;
+    body += `<table style="border-collapse:collapse;width:100%;">
+      <tr>${['Attribut', 'Type', 'Clé', 'Description'].map(hh => `<th style="border:1px solid #d0d5dd;background:#f2f4f7;padding:5px 8px;text-align:left;font-size:10pt;">${hh}</th>`).join('')}</tr>
+      ${rows(attrsOf(e).map(a => [esc(a.name), esc(a.type), `${a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : ''}${a.isSensitive ? ' (sensible)' : ''}`, esc(a.description)]))}
+    </table>`;
+  });
+
+  // Relations
+  if (session.relations.length) {
+    body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">Relations (${session.relations.length})</h2><ul style="font-size:11pt;line-height:1.5;">`;
+    session.relations.forEach(r => { body += `<li><b>${esc(r.sourceEntityName)} → ${esc(r.targetEntityName)}</b> (${esc(r.type)})${r.description ? ` — ${esc(r.description)}` : ''}</li>`; });
+    body += `</ul>`;
+  }
+  // KPIs
+  if (session.kpis.length) {
+    body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">KPIs (${session.kpis.length})</h2><ul style="font-size:11pt;line-height:1.5;">`;
+    session.kpis.forEach(k => { body += `<li><b>${esc(k.name)}</b>${k.formula ? ` — ${esc(k.formula)}` : ''}${k.description ? ` · ${esc(k.description)}` : ''}</li>`; });
+    body += `</ul>`;
+  }
+  // Règles métier
+  if (session.businessRules.length) {
+    body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">Règles métier (${session.businessRules.length})</h2><ul style="font-size:11pt;line-height:1.5;">`;
+    session.businessRules.forEach(r => { body += `<li><b>${esc(r.name)}</b> <i>${esc(r.type)}</i>${r.description ? ` — ${esc(r.description)}` : ''}</li>`; });
+    body += `</ul>`;
+  }
+  // Sources
+  if (session.dataSources.length) {
+    body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">Sources de données (${session.dataSources.length})</h2><ul style="font-size:11pt;line-height:1.5;">`;
+    session.dataSources.forEach(s => { body += `<li><b>${esc(s.name)}</b>${s.system ? ` — ${esc(s.system)}` : ''}${s.loadFrequency ? ` · ${esc(s.loadFrequency)}` : ''}</li>`; });
+    body += `</ul>`;
+  }
+  // Maturité
+  if (session.maturityScores) {
+    body += `<h2 style="color:${GREEN};font-size:14pt;border-bottom:2px solid ${GREEN};padding-bottom:3pt;">Score de maturité</h2><table style="border-collapse:collapse;width:100%;">`;
+    MATURITY_DIMENSIONS.forEach(dim => {
+      const v = session.maturityScores![dim.key as keyof typeof session.maturityScores];
+      body += `<tr><td style="border:1px solid #d0d5dd;padding:5px 8px;font-size:10.5pt;">${esc(dim.label)}</td><td style="border:1px solid #d0d5dd;padding:5px 8px;font-size:10.5pt;text-align:right;"><b>${esc(v)}/100</b></td></tr>`;
+    });
+    body += `</table>`;
+  }
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${esc(session.productName || 'Rapport')}</title></head><body style="font-family:Calibri,Arial,sans-serif;color:#101828;">${body}</body></html>`;
+  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Rapport_${(session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product'}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 async function downloadReportPdf(session: WorkshopSession) {
   const { jsPDF } = await import('jspdf');
