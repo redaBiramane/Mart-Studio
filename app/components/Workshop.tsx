@@ -772,7 +772,7 @@ ${truncated}
             <button
               onClick={() => undo()}
               disabled={!canUndo}
-              title="Annuler (Cmd/Ctrl+Z)"
+              title={canUndo ? 'Annuler la dernière modification du modèle (Cmd/Ctrl+Z)' : 'Rien à annuler — aucune modification du modèle pour l\'instant'}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 6, padding: '5px 9px', cursor: canUndo ? 'pointer' : 'not-allowed', fontSize: 12.5, fontWeight: 600, background: 'transparent', color: canUndo ? 'var(--text-secondary)' : 'var(--text-muted)', opacity: canUndo ? 1 : 0.45 }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9" /></svg>
@@ -781,7 +781,7 @@ ${truncated}
             <button
               onClick={() => redo()}
               disabled={!canRedo}
-              title="Rétablir (Cmd/Ctrl+Shift+Z)"
+              title={canRedo ? 'Rétablir (Cmd/Ctrl+Shift+Z)' : 'Rien à rétablir'}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 6, padding: '5px 9px', cursor: canRedo ? 'pointer' : 'not-allowed', fontSize: 12.5, fontWeight: 600, background: 'transparent', color: canRedo ? 'var(--text-secondary)' : 'var(--text-muted)', opacity: canRedo ? 1 : 0.45 }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="m15 14 5-5-5-5" /><path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h6" /></svg>

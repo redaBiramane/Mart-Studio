@@ -68,6 +68,9 @@ export default function QuestionsAdmin() {
           <p style={{ color: 'var(--text-secondary)', fontSize: 14.5, lineHeight: 1.6, margin: 0, maxWidth: 680 }}>
             Décidez du <strong>nombre d&apos;étapes</strong> et de leur contenu : ajoutez, supprimez, réordonnez, et définissez les <strong>questions</strong> que <strong>Marty</strong> pose à chacune. Les questions sont injectées dans le contexte de Marty (prioritaires) et affichées comme suggestions.
           </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.55, margin: '8px 0 0', maxWidth: 680 }}>
+            Le <strong>Rôle</strong> indique à quoi sert l&apos;étape, donc <strong>ce que Marty y collecte</strong> : « Entités » → les tables, « Relations » → les liens, « Attributs » → les colonnes, « Validation » → génère le rapport final. « Personnalisée » = étape de guidage libre (Marty pose vos questions sans rien inventer). Le comportement suit le rôle, pas la position — vous pouvez donc réordonner sans rien casser.
+          </p>
         </div>
         <button onClick={() => setCurrentPage('dashboard')} style={{ ...iconBtn, width: 'auto', padding: '6px 12px', fontSize: 12.5 }}>✕ Fermer</button>
       </div>
