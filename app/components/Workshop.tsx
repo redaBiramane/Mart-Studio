@@ -49,6 +49,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
   const [input, setInput] = useState('');
+  const [pendingImage, setPendingImage] = useState<{ url: string; name: string; mediaType: string } | null>(null);
   const { lang } = useI18n();
   const [micSupported, setMicSupported] = useState(false);
   const [listening, setListening] = useState(false);
@@ -490,24 +491,25 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    
-    if (session) {
-      addMessage({
-        id: `user_${Date.now()}`,
-        role: 'user',
-        content: input.trim(),
-        timestamp: Date.now(),
-        step: currentStep,
-      });
-    }
-    
-    sendMessage({ text: input.trim() });
-    setInput('');
+    if ((!input.trim() && !pendingImage) || isLoading) return;
 
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    const userText = input.trim();
+    // Si une image est attachée, on ajoute une consigne d'analyse et on la joint.
+    const note = 'J\'ai joint une image d\'un modèle existant (MCD / ERD / schéma) : analyse-la et déduis-en les entités, leurs attributs (types SQL, PK/FK) et les relations (cardinalités), puis émets les blocs json:extract. N\'invente rien qui ne soit pas visible.';
+    const text = pendingImage ? (userText ? `${userText}\n\n${note}` : note) : userText;
+
+    if (session) {
+      addMessage({ id: `user_${Date.now()}`, role: 'user', content: text, timestamp: Date.now(), step: currentStep });
     }
+
+    if (pendingImage) {
+      sendMessage({ text, files: [{ type: 'file', mediaType: pendingImage.mediaType, url: pendingImage.url, filename: pendingImage.name }] });
+      setPendingImage(null);
+    } else {
+      sendMessage({ text });
+    }
+    setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -529,7 +531,8 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     }
     setImporting(true);
     try {
-      // Image (capture d'un ancien MCD / ERD / schéma) : Marty la « lit » (vision).
+      // Image (capture d'un ancien MCD / ERD / schéma) : on l'ATTACHE au champ,
+      // l'utilisateur ajoute éventuellement un message, puis envoie lui-même.
       if (isImage) {
         const dataUrl = await new Promise<string>((res, rej) => {
           const r = new FileReader();
@@ -537,14 +540,9 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
           r.onerror = rej;
           r.readAsDataURL(file);
         });
-        const imgPrompt = `[SYSTÈME] [IMAGE IMPORTÉE: ${file.name}]
-Voici une image d'un modèle de données existant (MCD / ERD, schéma, diagramme ou tableau de colonnes). ANALYSE l'image et DÉDUIS-EN le modèle :
-- les ENTITÉS (tables) visibles ;
-- leurs ATTRIBUTS (colonnes) avec le type SQL et les clés (PK / FK) ;
-- les RELATIONS entre tables, avec leurs cardinalités (1:1, 1:N, N:N).
-Émets les blocs json:extract correspondants (un "entity" par table, un "attribute" par colonne, un "relation" par lien). N'invente rien qui ne soit pas visible sur l'image ; si un élément est illisible, signale-le. Termine par une courte synthèse en français de ce que tu as lu.`;
-        sendMessage({ text: imgPrompt, files: [{ type: 'file', mediaType: file.type || 'image/png', url: dataUrl, filename: file.name }] });
-        setToast('Image envoyée à Marty — il l\'analyse…');
+        setPendingImage({ url: dataUrl, name: file.name, mediaType: file.type || 'image/png' });
+        setToast('Image attachée — ajoutez un message si besoin, puis envoyez.');
+        textareaRef.current?.focus();
         return;
       }
       let content = '';
@@ -1015,6 +1013,18 @@ ${truncated}
             </div>
           )}
 
+          {pendingImage && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 8px', padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-active)', borderRadius: 10, maxWidth: 'fit-content' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pendingImage.url} alt={pendingImage.name} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+              <div style={{ fontSize: 12.5 }}>
+                <div style={{ fontWeight: 600, color: 'var(--text)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🖼️ {pendingImage.name}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Image jointe — envoyez pour que Marty l&apos;analyse</div>
+              </div>
+              <button type="button" onClick={() => setPendingImage(null)} title="Retirer l'image" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, marginLeft: 4 }}>✕</button>
+            </div>
+          )}
+
           <form onSubmit={onSubmit} className="chat-input-wrapper">
             <input
               ref={fileInputRef}
@@ -1059,7 +1069,7 @@ ${truncated}
               rows={1}
               disabled={isLoading}
             />
-            <button type="submit" className="chat-send-btn" disabled={isLoading || !input.trim()}>
+            <button type="submit" className="chat-send-btn" disabled={isLoading || (!input.trim() && !pendingImage)}>
               ➤
             </button>
           </form>
