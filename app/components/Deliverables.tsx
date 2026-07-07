@@ -877,6 +877,14 @@ function cleanTableName(name: string): string {
   return name.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
 }
 
+// Nom de colonne de clé étrangère. Évite le doublon « client_client_id » quand la
+// clé primaire référencée contient déjà le nom de la table (ex. client → client_id).
+function fkColName(refTable: string, refPk: string): string {
+  const t = refTable.toLowerCase(), p = refPk.toLowerCase();
+  if (p === `${t}_id` || p.startsWith(`${t}_`)) return refPk;
+  return `${refTable}_${refPk}`;
+}
+
 function getPrimaryKeyOfEntity(
   nameOrId: string,
   session: WorkshopSession,
@@ -907,7 +915,7 @@ function buildFkMap(session: WorkshopSession, entitiesToGenerate: Entity[]): Map
       const key = ent ? ent.id : rel.targetEntityName;
       const existing = fkMap.get(key) || [];
       existing.push({
-        columnName: `${srcTable}_${srcPk}`,
+        columnName: fkColName(srcTable, srcPk),
         referencedTable: srcTable,
         referencedColumn: srcPk,
         isUnique: false,
@@ -920,7 +928,7 @@ function buildFkMap(session: WorkshopSession, entitiesToGenerate: Entity[]): Map
       const key = ent ? ent.id : rel.sourceEntityName;
       const existing = fkMap.get(key) || [];
       existing.push({
-        columnName: `${tgtTable}_${tgtPk}`,
+        columnName: fkColName(tgtTable, tgtPk),
         referencedTable: tgtTable,
         referencedColumn: tgtPk,
         isUnique: false,
@@ -933,7 +941,7 @@ function buildFkMap(session: WorkshopSession, entitiesToGenerate: Entity[]): Map
       const key = ent ? ent.id : rel.targetEntityName;
       const existing = fkMap.get(key) || [];
       existing.push({
-        columnName: `${srcTable}_${srcPk}`,
+        columnName: fkColName(srcTable, srcPk),
         referencedTable: srcTable,
         referencedColumn: srcPk,
         isUnique: true,
