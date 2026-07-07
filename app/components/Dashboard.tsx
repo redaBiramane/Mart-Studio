@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { useI18n, localeCode } from '@/lib/i18n';
 import { lintModel, qualityScore } from '@/lib/linter';
+import ModelShowcase from './ModelShowcase';
 
 function HowIcon({ name }: { name: string }) {
   const p: Record<string, React.ReactNode> = {
@@ -253,6 +254,11 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
           <div className="empty-state-text">{t('dash.emptyText')}</div>
         </div>
       )}
+
+      {/* Choix du modèle IA */}
+      <div style={{ margin: '40px 0 8px' }}>
+        <ModelShowcase />
+      </div>
     </div>
   );
 }

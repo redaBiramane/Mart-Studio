@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useI18n } from '@/lib/i18n';
 import GuidedDemo from './GuidedDemo';
+import ModelShowcase from './ModelShowcase';
 
 interface LandingProps {
   onEnter: (mode: 'login' | 'signup') => void;
@@ -535,6 +536,11 @@ export default function Landing({ onEnter }: LandingProps) {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* CHOIX DU MODÈLE IA */}
+      <section className="ml-sec">
+        <div className="ml-reveal"><ModelShowcase /></div>
       </section>
 
       {/* FINAL CTA */}
