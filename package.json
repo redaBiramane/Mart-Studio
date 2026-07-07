@@ -21,6 +21,7 @@
     "@xyflow/react": "^12.11.1",
     "ai": "^6.0.211",
     "file-saver": "^2.0.5",
+    "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "mermaid": "^11.16.0",

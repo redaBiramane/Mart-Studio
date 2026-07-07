@@ -3,8 +3,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType, ConnectionMode,
+  getNodesBounds, getViewportForBounds,
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
 } from '@xyflow/react';
+import { toPng } from 'html-to-image';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import { parseDDL } from '@/lib/ddl';
@@ -134,7 +136,8 @@ const nodeTypes = { table: TableNode };
 
 export default function VisualEditor({ session }: { session: WorkshopSession }) {
   const { updateSessionData } = useWorkshopStore();
-  const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number; nodes?: { id: string }[]; maxZoom?: number }) => void } | null>(null);
+  const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number; nodes?: { id: string }[]; maxZoom?: number }) => void; getNodes: () => Node<TableData>[] } | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -217,6 +220,41 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     setPositions(next);
     setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
   }, [session.entities, session.relations, session.attributes]);
+
+  // Export du diagramme en image PNG haute définition (tout le graphe, fond blanc).
+  const exportImage = useCallback(async () => {
+    const el = document.querySelector('.react-flow__viewport') as HTMLElement | null;
+    const nodes = rf.current?.getNodes() || [];
+    if (!el || nodes.length === 0) return;
+    setExporting(true);
+    // On retire temporairement les surbrillances (recherche/focus) pour une image propre.
+    const prevSearch = search, prevFocus = focusId;
+    setSearch(''); setFocusId(null);
+    try {
+      await new Promise((r) => setTimeout(r, 60)); // laisse le rendu se stabiliser
+      const bounds = getNodesBounds(nodes);
+      const pad = 0.08;
+      const imageWidth = Math.min(6000, Math.round(bounds.width * (1 + pad * 2)) + 80);
+      const imageHeight = Math.min(6000, Math.round(bounds.height * (1 + pad * 2)) + 80);
+      const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.2, 4, pad);
+      const dataUrl = await toPng(el, {
+        backgroundColor: '#ffffff',
+        width: imageWidth,
+        height: imageHeight,
+        pixelRatio: 2, // HD (résolution ×2)
+        style: { width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` },
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `MCD_${(session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product'}.png`;
+      a.click();
+    } catch {
+      /* export impossible : on ignore silencieusement */
+    } finally {
+      setSearch(prevSearch); setFocusId(prevFocus);
+      setExporting(false);
+    }
+  }, [search, focusId, session.productName]);
 
   // Agencement automatique une fois par Data Product : à l'ouverture du Visuel ET
   // quand on change de session sans quitter le Visuel (le composant ne se re-monte pas).
@@ -565,6 +603,10 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         <button onClick={arrange} title="Réorganiser les tables" style={toolBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
           Arranger
+        </button>
+        <button onClick={exportImage} disabled={exporting} title="Télécharger le diagramme en image PNG haute définition" style={{ ...toolBtn, color: 'var(--primary)', borderColor: 'var(--border-active)', opacity: exporting ? 0.6 : 1 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /><path d="M12 3v13M8 12l4 4 4-4" /></svg>
+          {exporting ? 'Export…' : 'Télécharger (PNG HD)'}
         </button>
         <button onClick={() => setFullscreen((f) => !f)} title={fullscreen ? 'Réduire' : 'Plein écran'} style={toolBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
