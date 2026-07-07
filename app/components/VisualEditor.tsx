@@ -222,31 +222,46 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
   }, [session.entities, session.relations, session.attributes]);
 
-  // Export du diagramme complet : on ajuste la vue (fitView) pour afficher tout le
-  // graphe, puis on capture la zone visible. Robuste (aucun calcul de bornes fragile).
+  // Export déterministe : on calcule la boîte englobante réelle (positions +
+  // tailles DOM des tables) et on capture le VIEWPORT avec une transformation
+  // explicite. Indépendant de l'état d'affichage (zoom/scroll) → jamais rogné.
   const exportImage = useCallback(async (format: 'png' | 'svg') => {
-    const el = document.querySelector('.react-flow') as HTMLElement | null;
+    const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null;
     const nodes = rf.current?.getNodes() || [];
-    if (!el || nodes.length === 0) return;
+    if (!vp || nodes.length === 0) return;
     setExporting(true);
     const prevSearch = search, prevFocus = focusId;
     setSearch(''); setFocusId(null);
-    // Exclut les contrôles, la mini-carte, le fond quadrillé et l'attribution de l'image.
-    const filter = (n: HTMLElement) => {
-      const c = n.classList;
-      return !c || !(c.contains('react-flow__controls') || c.contains('react-flow__minimap') || c.contains('react-flow__background') || c.contains('react-flow__attribution'));
-    };
     try {
-      // Ajuste la vue à tout le graphe, puis attend 2 frames + un délai que la
-      // transformation soit réellement appliquée au DOM avant la capture.
-      rf.current?.fitView({ padding: 0.18, duration: 0 });
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
-      await new Promise((r) => setTimeout(r, 500));
-      const w = el.clientWidth, h = el.clientHeight;
-      const opts = { backgroundColor: '#ffffff', filter, cacheBust: true, width: w, height: h, style: { width: `${w}px`, height: `${h}px` } };
+      await new Promise((r) => setTimeout(r, 120)); // laisse le rendu se stabiliser
+      // Boîte englobante en coordonnées « flow » (position = coin haut-gauche).
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of nodes) {
+        const dom = vp.querySelector(`.react-flow__node[data-id="${CSS.escape(n.id)}"]`) as HTMLElement | null;
+        const w = (n as { measured?: { width?: number } }).measured?.width ?? dom?.offsetWidth ?? 290;
+        const h = (n as { measured?: { height?: number } }).measured?.height ?? dom?.offsetHeight ?? 130;
+        minX = Math.min(minX, n.position.x); minY = Math.min(minY, n.position.y);
+        maxX = Math.max(maxX, n.position.x + w); maxY = Math.max(maxY, n.position.y + h);
+      }
+      if (!isFinite(minX)) { setExporting(false); return; }
+      const margin = 60;
+      const boundsW = maxX - minX, boundsH = maxY - minY;
+      // Réduit l'échelle si le graphe est très grand (limite de taille de canvas).
+      const scale = Math.min(1, 5000 / (boundsW + margin * 2), 5000 / (boundsH + margin * 2));
+      const imgW = Math.ceil((boundsW + margin * 2) * scale);
+      const imgH = Math.ceil((boundsH + margin * 2) * scale);
+      const tx = (-minX + margin) * scale;
+      const ty = (-minY + margin) * scale;
+      const opts = {
+        backgroundColor: '#ffffff',
+        width: imgW,
+        height: imgH,
+        cacheBust: true,
+        style: { width: `${imgW}px`, height: `${imgH}px`, transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: '0 0' },
+      };
       const dataUrl = format === 'svg'
-        ? await toSvg(el, opts)
-        : await toPng(el, { ...opts, pixelRatio: 2.5 }); // HD
+        ? await toSvg(vp, opts)
+        : await toPng(vp, { ...opts, pixelRatio: 2 }); // HD
       const base = (session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product';
       const a = document.createElement('a');
       a.href = dataUrl;
