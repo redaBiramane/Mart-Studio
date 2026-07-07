@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
+
+const CARD_W = 180, GAP = 14, STEP = CARD_W + GAP;
 
 // Icône fournisseur (marque stylisée, teintée à la couleur de l'éditeur).
 function VendorIcon({ vendor, color }: { vendor: string; color: string }) {
@@ -39,7 +41,7 @@ const CSS = `
 .msc-pill.trait { color: var(--primary); background: var(--primary-glow); border-color: var(--border-active); }
 @keyframes mscGlow { 0%,100% { box-shadow: 0 0 0 2px var(--primary), 0 14px 40px var(--primary-glow); } 50% { box-shadow: 0 0 0 2px var(--primary), 0 14px 54px var(--primary-glow); } }
 .msc-card.active { animation: mscGlow 2.4s ease-in-out infinite; }
-@media (max-width: 640px) { .msc-head h2 { font-size: 24px; } .msc-card { width: 150px; } }
+@media (max-width: 640px) { .msc-head h2 { font-size: 24px; } }
 @media (prefers-reduced-motion: reduce) { .msc-track, .msc-card { transition: none; } .msc-card.active { animation: none; } }
 `;
 
@@ -55,18 +57,30 @@ export default function ModelShowcase() {
     { name: 'Claude Haiku 4.5', vendor: 'Anthropic', color: '#D97757', trait: fr ? 'Ultra-rapide' : 'Ultra-fast' },
   ], [fr]);
 
-  // On duplique la liste pour un défilement sans à-coups.
-  const loop = useMemo(() => [...models, ...models], [models]);
   const [active, setActive] = useState(2);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageW, setStageW] = useState(0);
+
+  // Largeur du conteneur (pour centrer la carte active en pixels — indispensable :
+  // un translateX en % serait relatif au rail, pas au conteneur).
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const update = () => setStageW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = setInterval(() => setActive((a) => (a + 1) % loop.length), 2600);
+    const id = setInterval(() => setActive((a) => (a + 1) % models.length), 2600);
     return () => clearInterval(id);
-  }, [loop.length]);
+  }, [models.length]);
 
-  const cur = loop[active % loop.length];
-  const step = 194; // largeur carte (180) + gap (14)
+  const cur = models[active];
+  const offset = stageW / 2 - (active * STEP + CARD_W / 2);
 
   return (
     <div className="msc">
@@ -78,10 +92,10 @@ export default function ModelShowcase() {
           : 'Pick the AI model that fits your work — top performance or lower cost — and switch anytime. No lock-in.'}</p>
       </div>
 
-      <div className="msc-stage">
+      <div className="msc-stage" ref={stageRef}>
         <div className="msc-badge">{fr ? 'VOTRE CHOIX' : 'YOUR CHOICE'}</div>
-        <div className="msc-track" style={{ transform: `translateX(calc(50% - ${(active + 0.5) * step}px))` }}>
-          {loop.map((m, i) => (
+        <div className="msc-track" style={{ transform: `translateX(${offset}px)` }}>
+          {models.map((m, i) => (
             <div key={i} className={`msc-card ${i === active ? 'active' : ''}`}>
               <VendorIcon vendor={m.vendor} color={m.color} />
               <div style={{ minWidth: 0 }}>
