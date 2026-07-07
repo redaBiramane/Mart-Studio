@@ -289,7 +289,7 @@ export default function Home() {
           </div>
         </nav>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '10px 12px 4px' }}>
+        <div className="sidebar-brandfoot">
           <Image src="/sofinco-logo.svg" alt="Sofinco" width={92} height={20} style={{ width: 92, height: 20, opacity: 0.7 }} />
           <span style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 0.3 }}>Personal Finance &amp; Mobility</span>
         </div>

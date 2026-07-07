@@ -689,7 +689,7 @@ ${truncated}
 
       <div className="chat-panel">
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
           padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -759,8 +759,8 @@ ${truncated}
               Visuel
             </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Propulsé par</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span className="ws-poweredby" style={{ fontSize: 11, color: 'var(--text-muted)' }}>Propulsé par</span>
           <span
             title={`Fournisseur : ${llmSettings.provider}`}
             style={{
