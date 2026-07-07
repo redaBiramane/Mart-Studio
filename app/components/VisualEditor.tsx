@@ -237,9 +237,13 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
       return !c || !(c.contains('react-flow__controls') || c.contains('react-flow__minimap') || c.contains('react-flow__background') || c.contains('react-flow__attribution'));
     };
     try {
-      rf.current?.fitView({ padding: 0.12, duration: 0 });
-      await new Promise((r) => setTimeout(r, 350)); // laisse le fitView + rendu se stabiliser
-      const opts = { backgroundColor: '#ffffff', filter, cacheBust: true };
+      // Ajuste la vue à tout le graphe, puis attend 2 frames + un délai que la
+      // transformation soit réellement appliquée au DOM avant la capture.
+      rf.current?.fitView({ padding: 0.18, duration: 0 });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+      await new Promise((r) => setTimeout(r, 500));
+      const w = el.clientWidth, h = el.clientHeight;
+      const opts = { backgroundColor: '#ffffff', filter, cacheBust: true, width: w, height: h, style: { width: `${w}px`, height: `${h}px` } };
       const dataUrl = format === 'svg'
         ? await toSvg(el, opts)
         : await toPng(el, { ...opts, pixelRatio: 2.5 }); // HD
