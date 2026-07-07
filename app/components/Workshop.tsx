@@ -95,6 +95,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastKind, setToastKind] = useState<'info' | 'warn'>('warn');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -538,7 +539,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
       // possibles) ; l'utilisateur ajoute un message puis envoie lui-même.
       if (images.length) {
         const room = MAX_IMAGES - pendingImages.length;
-        if (room <= 0) { setToast(`Maximum ${MAX_IMAGES} images par message.`); e.target.value = ''; setImporting(false); return; }
+        if (room <= 0) { setToastKind('warn'); setToast(`Maximum ${MAX_IMAGES} images par message.`); e.target.value = ''; setImporting(false); return; }
         const toAdd = images.slice(0, room).filter((f) => f.size <= 3 * 1024 * 1024);
         const skipped = images.length - toAdd.length;
         const read = await Promise.all(toAdd.map((f) => new Promise<{ url: string; name: string; mediaType: string }>((res, rej) => {
@@ -548,6 +549,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
           r.readAsDataURL(f);
         })));
         setPendingImages((prev) => [...prev, ...read]);
+        setToastKind(skipped > 0 ? 'warn' : 'info');
         setToast(skipped > 0 ? `${read.length} image(s) attachée(s) — ${skipped} ignorée(s) (trop lourdes ou > ${MAX_IMAGES}).` : `${read.length} image(s) attachée(s) — ajoutez un message si besoin, puis envoyez.`);
         textareaRef.current?.focus();
         e.target.value = '';
@@ -556,7 +558,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
       }
       const file = files[0];
       if (file.size > 3 * 1024 * 1024) {
-        setToast('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
+        setToastKind('warn'); setToast('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
         e.target.value = ''; setImporting(false); return;
       }
       let content = '';
@@ -582,7 +584,7 @@ ${truncated}
 \`\`\``;
       sendMessage({ text: prompt });
     } catch {
-      setToast('Impossible de lire ce fichier.');
+      setToastKind('warn'); setToast('Impossible de lire ce fichier.');
     } finally {
       setImporting(false);
       e.target.value = '';
@@ -677,10 +679,14 @@ ${truncated}
   return (
     <div className="workshop-layout">
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: 'var(--bg-code, #1f2430)', color: '#fff', padding: '12px 18px', borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.35)', fontSize: 13.5, maxWidth: 'min(520px, 90vw)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+        <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: 'var(--bg-code, #1f2430)', color: '#fff', padding: '11px 16px', borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.35)', fontSize: 13.5, maxWidth: 'min(520px, 90vw)', display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
+          {toastKind === 'info' ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.2 2.2 4.8-5" /></svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+          )}
           <span>{toast}</span>
-          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16, marginLeft: 4 }}>✕</button>
+          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16, marginLeft: 4, pointerEvents: 'auto' }}>✕</button>
         </div>
       )}
 
