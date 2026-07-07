@@ -25,16 +25,17 @@ const CSS = `
 .msc-head h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.1; margin: 0; }
 .msc-head h2 .msc-accent { color: var(--primary); }
 .msc-head p { font-size: 15px; color: var(--text-secondary); line-height: 1.6; max-width: 560px; margin: 12px auto 0; }
-.msc-stage { position: relative; overflow: hidden; padding: 40px 0 8px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-surface); }
-.msc-stage::before, .msc-stage::after { content: ''; position: absolute; top: 0; bottom: 0; width: 90px; z-index: 3; pointer-events: none; }
-.msc-stage::before { left: 0; background: linear-gradient(90deg, var(--bg-surface), transparent); }
-.msc-stage::after { right: 0; background: linear-gradient(270deg, var(--bg-surface), transparent); }
+.msc-stage { position: relative; padding: 28px 0 20px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-surface); }
+.msc-viewport { position: relative; overflow: hidden; padding: 16px 0 6px; }
+.msc-viewport::before, .msc-viewport::after { content: ''; position: absolute; top: 0; bottom: 0; width: 80px; z-index: 3; pointer-events: none; }
+.msc-viewport::before { left: 0; background: linear-gradient(90deg, var(--bg-surface), transparent); }
+.msc-viewport::after { right: 0; background: linear-gradient(270deg, var(--bg-surface), transparent); }
 .msc-track { display: flex; gap: 14px; width: max-content; transition: transform .6s cubic-bezier(.22,.61,.36,1); }
 .msc-card { width: 180px; flex-shrink: 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 11px; opacity: .5; transform: scale(.9); transition: all .5s cubic-bezier(.22,.61,.36,1); }
 .msc-card.active { opacity: 1; transform: scale(1.06); border-color: var(--border-active); box-shadow: 0 0 0 2px var(--primary), 0 14px 40px var(--primary-glow); }
 .msc-card .msc-name { font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .msc-card .msc-vendor { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
-.msc-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); z-index: 4; background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: 0.8px; padding: 5px 12px; border-radius: 999px; box-shadow: 0 6px 18px var(--primary-glow); }
+.msc-badge { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 4; background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: 0.8px; padding: 5px 12px; border-radius: 999px; box-shadow: 0 6px 18px var(--primary-glow); white-space: nowrap; }
 .msc-pills { display: flex; gap: 10px; justify-content: center; margin-top: 22px; flex-wrap: wrap; }
 .msc-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); }
 .msc-pill.ok { color: var(--accent-emerald); background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); }
@@ -92,18 +93,20 @@ export default function ModelShowcase() {
           : 'Pick the AI model that fits your work — top performance or lower cost — and switch anytime. No lock-in.'}</p>
       </div>
 
-      <div className="msc-stage" ref={stageRef}>
+      <div className="msc-stage">
         <div className="msc-badge">{fr ? 'VOTRE CHOIX' : 'YOUR CHOICE'}</div>
-        <div className="msc-track" style={{ transform: `translateX(${offset}px)` }}>
-          {models.map((m, i) => (
-            <div key={i} className={`msc-card ${i === active ? 'active' : ''}`}>
-              <VendorIcon vendor={m.vendor} color={m.color} />
-              <div style={{ minWidth: 0 }}>
-                <div className="msc-name">{m.name}</div>
-                <div className="msc-vendor">{m.vendor}</div>
+        <div className="msc-viewport" ref={stageRef}>
+          <div className="msc-track" style={{ transform: `translateX(${offset}px)` }}>
+            {models.map((m, i) => (
+              <div key={i} className={`msc-card ${i === active ? 'active' : ''}`}>
+                <VendorIcon vendor={m.vendor} color={m.color} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="msc-name">{m.name}</div>
+                  <div className="msc-vendor">{m.vendor}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
