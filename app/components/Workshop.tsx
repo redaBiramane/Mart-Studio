@@ -176,7 +176,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     },
   }), []);
 
-  const { messages, setMessages, status, sendMessage, error } = useChat({
+  const { messages, setMessages, status, sendMessage, stop, error } = useChat({
     transport,
     onFinish: ({ message }) => {
       if (session) {
@@ -1030,10 +1030,11 @@ ${truncated}
             </div>
           )}
 
-          {suggestions.length > 0 && displayMessages.length < 3 && (
+          {suggestions.length > 0 && displayMessages.length < 3 && !isLoading && (
             <div className="suggested-chips">
               {suggestions.map((q, i) => (
-                <button key={i} className="suggested-chip" onClick={() => {
+                <button key={i} className="suggested-chip" disabled={isLoading} onClick={() => {
+                  if (isLoading) return;
                   if (session) {
                     addMessage({ id: `user_${Date.now()}`, role: 'user', content: q, timestamp: Date.now(), step: currentStep });
                   }
@@ -1099,13 +1100,19 @@ ${truncated}
               value={input}
               onChange={handleTextareaInput}
               onKeyDown={handleKeyDown}
-              placeholder="Décrivez votre Data Product, ou importez un fichier (📎)…"
+              placeholder={isLoading ? 'Marty réfléchit… (patientez ou cliquez ■ pour arrêter)' : 'Décrivez votre Data Product, ou importez un fichier (📎)…'}
               rows={1}
               disabled={isLoading}
             />
-            <button type="submit" className="chat-send-btn" disabled={isLoading || (!input.trim() && pendingImages.length === 0)}>
-              ➤
-            </button>
+            {isLoading ? (
+              <button type="button" className="chat-send-btn" onClick={() => stop()} title="Arrêter la génération" style={{ background: 'var(--accent-red)', color: '#fff' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+              </button>
+            ) : (
+              <button type="submit" className="chat-send-btn" disabled={!input.trim() && pendingImages.length === 0}>
+                ➤
+              </button>
+            )}
           </form>
         </div>
         </>
