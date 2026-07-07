@@ -6,7 +6,7 @@ import {
   getNodesBounds, getViewportForBounds,
   type Node, type Edge, type NodeProps, type Connection, type NodeChange, type EdgeChange,
 } from '@xyflow/react';
-import { toPng } from 'html-to-image';
+import { toPng, toSvg } from 'html-to-image';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import { parseDDL } from '@/lib/ddl';
@@ -19,6 +19,7 @@ const REL_TYPES: Relation['type'][] = ['1:N', 'N:1', '1:1', 'N:N'];
 function genId(p: string) { return `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
 
 const toolBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontWeight: 600 };
+const expItem: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 8, padding: '9px 11px', cursor: 'pointer', color: 'var(--text)', fontSize: 13 };
 
 const VE_TIP_CSS = `
 .ve-tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--primary-glow); color: var(--primary); font-size: 10px; font-weight: 800; cursor: help; border: 1px solid var(--border-active); outline: none; }
@@ -138,6 +139,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   const { updateSessionData } = useWorkshopStore();
   const rf = useRef<{ fitView: (o?: { padding?: number; duration?: number; nodes?: { id: string }[]; maxZoom?: number }) => void; getNodes: () => Node<TableData>[] } | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportMenu, setExportMenu] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -221,8 +223,8 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     setTimeout(() => rf.current?.fitView({ padding: 0.15, duration: 400 }), 60);
   }, [session.entities, session.relations, session.attributes]);
 
-  // Export du diagramme en image PNG haute définition (tout le graphe, fond blanc).
-  const exportImage = useCallback(async () => {
+  // Export du diagramme (tout le graphe, fond blanc) en PNG haute définition ou SVG vectoriel.
+  const exportImage = useCallback(async (format: 'png' | 'svg') => {
     const el = document.querySelector('.react-flow__viewport') as HTMLElement | null;
     const nodes = rf.current?.getNodes() || [];
     if (!el || nodes.length === 0) return;
@@ -231,28 +233,33 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     const prevSearch = search, prevFocus = focusId;
     setSearch(''); setFocusId(null);
     try {
-      await new Promise((r) => setTimeout(r, 60)); // laisse le rendu se stabiliser
+      await new Promise((r) => setTimeout(r, 120)); // laisse le rendu se stabiliser
       const bounds = getNodesBounds(nodes);
-      const pad = 0.08;
-      const imageWidth = Math.min(6000, Math.round(bounds.width * (1 + pad * 2)) + 80);
-      const imageHeight = Math.min(6000, Math.round(bounds.height * (1 + pad * 2)) + 80);
-      const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.2, 4, pad);
-      const dataUrl = await toPng(el, {
+      // Image aux dimensions du graphe (marge incluse) pour ne rien rogner.
+      const margin = 60;
+      const imageWidth = Math.min(8000, Math.ceil(bounds.width) + margin * 2);
+      const imageHeight = Math.min(8000, Math.ceil(bounds.height) + margin * 2);
+      const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.05, 4, 0.06);
+      const opts = {
         backgroundColor: '#ffffff',
         width: imageWidth,
         height: imageHeight,
-        pixelRatio: 2, // HD (résolution ×2)
         style: { width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` },
-      });
+      };
+      const base = (session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product';
+      const dataUrl = format === 'svg'
+        ? await toSvg(el, opts)
+        : await toPng(el, { ...opts, pixelRatio: 2 }); // HD (résolution ×2)
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = `MCD_${(session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product'}.png`;
+      a.download = `MCD_${base}.${format}`;
       a.click();
     } catch {
       /* export impossible : on ignore silencieusement */
     } finally {
       setSearch(prevSearch); setFocusId(prevFocus);
       setExporting(false);
+      setExportMenu(false);
     }
   }, [search, focusId, session.productName]);
 
@@ -594,6 +601,28 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         <MiniMap pannable zoomable nodeColor="var(--primary)" style={{ background: 'var(--bg-elevated)' }} />
       </ReactFlow>
 
+      {/* Export du diagramme (bas centre) — PNG HD ou SVG vectoriel */}
+      <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 5 }}>
+        {exportMenu && <div onClick={() => setExportMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 4 }} />}
+        {exportMenu && (
+          <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)', minWidth: 220, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 6 }}>
+            <button onClick={() => exportImage('png')} disabled={exporting} className="nodrag" onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-elevated)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} style={expItem}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="1.6" /><path d="m21 15-5-5L5 21" /></svg>
+              <span><strong>PNG</strong> — image HD <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(présentations, mail)</span></span>
+            </button>
+            <button onClick={() => exportImage('svg')} disabled={exporting} className="nodrag" onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-elevated)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} style={expItem}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16" /></svg>
+              <span><strong>SVG</strong> — vectoriel <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(doc, zoom infini)</span></span>
+            </button>
+          </div>
+        )}
+        <button onClick={() => setExportMenu((o) => !o)} disabled={exporting} title="Télécharger le diagramme" style={{ ...toolBtn, boxShadow: 'var(--shadow-md)', color: 'var(--primary)', borderColor: 'var(--border-active)', opacity: exporting ? 0.6 : 1 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /><path d="M12 3v13M8 12l4 4 4-4" /></svg>
+          {exporting ? 'Export…' : 'Télécharger'}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: exportMenu ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+      </div>
+
       <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button className="cta-btn" onClick={addEntity} style={{ padding: '8px 14px' }}>+ Table</button>
         <button onClick={() => { setShowImport(true); setImportMsg(null); }} title="Coller un script Snowflake / SQL" style={{ ...toolBtn, color: 'var(--primary)', borderColor: 'var(--border-active)' }}>
@@ -603,10 +632,6 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
         <button onClick={arrange} title="Réorganiser les tables" style={toolBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
           Arranger
-        </button>
-        <button onClick={exportImage} disabled={exporting} title="Télécharger le diagramme en image PNG haute définition" style={{ ...toolBtn, color: 'var(--primary)', borderColor: 'var(--border-active)', opacity: exporting ? 0.6 : 1 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /><path d="M12 3v13M8 12l4 4 4-4" /></svg>
-          {exporting ? 'Export…' : 'Télécharger (PNG HD)'}
         </button>
         <button onClick={() => setFullscreen((f) => !f)} title={fullscreen ? 'Réduire' : 'Plein écran'} style={toolBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
