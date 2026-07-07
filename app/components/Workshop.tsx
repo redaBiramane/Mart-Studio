@@ -521,13 +521,32 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !session) return;
+    const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
     if (file.size > 3 * 1024 * 1024) {
-      setToast('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
+      setToast(isImage ? 'Image trop volumineuse (max 3 Mo).' : 'Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
       e.target.value = '';
       return;
     }
     setImporting(true);
     try {
+      // Image (capture d'un ancien MCD / ERD / schéma) : Marty la « lit » (vision).
+      if (isImage) {
+        const dataUrl = await new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result as string);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const imgPrompt = `[SYSTÈME] [IMAGE IMPORTÉE: ${file.name}]
+Voici une image d'un modèle de données existant (MCD / ERD, schéma, diagramme ou tableau de colonnes). ANALYSE l'image et DÉDUIS-EN le modèle :
+- les ENTITÉS (tables) visibles ;
+- leurs ATTRIBUTS (colonnes) avec le type SQL et les clés (PK / FK) ;
+- les RELATIONS entre tables, avec leurs cardinalités (1:1, 1:N, N:N).
+Émets les blocs json:extract correspondants (un "entity" par table, un "attribute" par colonne, un "relation" par lien). N'invente rien qui ne soit pas visible sur l'image ; si un élément est illisible, signale-le. Termine par une courte synthèse en français de ce que tu as lu.`;
+        sendMessage({ text: imgPrompt, files: [{ type: 'file', mediaType: file.type || 'image/png', url: dataUrl, filename: file.name }] });
+        setToast('Image envoyée à Marty — il l\'analyse…');
+        return;
+      }
       let content = '';
       const name = file.name.toLowerCase();
       if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
@@ -1000,14 +1019,14 @@ ${truncated}
             <input
               ref={fileInputRef}
               type="file"
-              accept=".sas,.sql,.csv,.txt,.xlsx,.xls,.json"
+              accept=".sas,.sql,.csv,.txt,.xlsx,.xls,.json,image/*,.png,.jpg,.jpeg,.webp"
               style={{ display: 'none' }}
               onChange={handleImportFile}
             />
             <button
               type="button"
               className="chat-send-btn"
-              title="Importer un fichier (SAS, SQL, CSV, Excel) — Marty en déduit le modèle"
+              title="Importer un fichier (SAS, SQL, CSV, Excel) ou une image d'un ancien MCD/ERD — Marty en déduit le modèle"
               disabled={isLoading || importing}
               onClick={() => fileInputRef.current?.click()}
               style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}

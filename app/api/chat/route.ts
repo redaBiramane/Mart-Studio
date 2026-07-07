@@ -2,7 +2,7 @@
 // Mart Studio — AI Chat API Route
 // ============================================================
 
-import { streamText } from 'ai';
+import { streamText, type ModelMessage } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -122,20 +122,31 @@ export async function POST(req: Request) {
   const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${stepInstruction}${modeInstruction}${collectedContext}${adminQuestionsBlock}`;
 
   // Convert incoming messages to the format expected by streamText.
-  // On filtre les messages vides : Anthropic (Claude) rejette tout bloc de
-  // texte vide ("text content blocks must be non-empty").
+  // On préserve les images (parts de type "file" media image) sous forme de
+  // contenu multimodal, pour que Marty (vision) lise les captures de MCD/ERD.
+  // On filtre les messages vides : Anthropic (Claude) rejette tout bloc vide.
+  type InPart = { type: string; text?: string; url?: string; mediaType?: string };
+  type OutContent = string | Array<{ type: 'text'; text: string } | { type: 'image'; image: string }>;
+  const trunc = (t: string) => (t.length > 8000 ? t.slice(0, 8000) + '…' : t);
   const formattedMessages = messages
-    .map((m: { role: string; content?: string; parts?: Array<{ type: string; text: string }> }) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content || (m.parts?.filter((p: { type: string }) => p.type === 'text').map((p: { text: string }) => p.text).join('') ?? ''),
-    }))
-    .filter((m: { content: string }) => typeof m.content === 'string' && m.content.trim().length > 0)
-    // Limite de payload : on ne garde que l'historique récent, chaque message tronqué.
-    .slice(-30)
-    .map((m: { role: 'user' | 'assistant' | 'system'; content: string }) => ({
-      role: m.role,
-      content: m.content.length > 8000 ? m.content.slice(0, 8000) + '…' : m.content,
-    }));
+    .map((m: { role: string; content?: string; parts?: InPart[] }) => {
+      const parts = m.parts || [];
+      const text = m.content || parts.filter((p) => p.type === 'text').map((p) => p.text || '').join('');
+      const images = parts.filter((p) => p.type === 'file' && (p.mediaType || '').startsWith('image/') && p.url).slice(0, 4);
+      let content: OutContent;
+      if (images.length) {
+        const arr: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [];
+        if (text.trim()) arr.push({ type: 'text', text: trunc(text) });
+        images.forEach((p) => arr.push({ type: 'image', image: p.url as string }));
+        content = arr;
+      } else {
+        content = trunc(text);
+      }
+      return { role: m.role as 'user' | 'assistant' | 'system', content };
+    })
+    .filter((m) => (Array.isArray(m.content) ? m.content.length > 0 : m.content.trim().length > 0))
+    // Limite de payload : on ne garde que l'historique récent.
+    .slice(-30) as ModelMessage[];
 
   let modelInstance;
 
