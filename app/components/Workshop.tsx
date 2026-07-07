@@ -8,6 +8,11 @@ import { STEPS } from '@/lib/constants';
 import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 import VisualEditor from '@/app/components/VisualEditor';
+import { useI18n } from '@/lib/i18n';
+
+// Types minimaux pour l'API Web Speech (reconnaissance vocale du navigateur).
+type SpeechResultEvent = { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> };
+type SpeechRec = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((e: SpeechResultEvent) => void) | null; onend: (() => void) | null; onerror: (() => void) | null; start: () => void; stop: () => void };
 
 const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
@@ -43,6 +48,45 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showContext, setShowContext] = useState(true);
   const [input, setInput] = useState('');
+  const { lang } = useI18n();
+  const [micSupported, setMicSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRec | null>(null);
+
+  useEffect(() => {
+    const w = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+    setMicSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+
+  // Saisie vocale : la parole est transcrite en direct dans le champ de message.
+  const toggleMic = useCallback(() => {
+    if (listening) { recognitionRef.current?.stop(); return; }
+    const w = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = lang === 'en' ? 'en-US' : 'fr-FR';
+    rec.continuous = true;
+    rec.interimResults = true;
+    let base = '';
+    setInput((cur) => { base = cur ? cur.trim() + ' ' : ''; return cur; });
+    let finalText = base;
+    rec.onresult = (e: SpeechResultEvent) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript + ' '; else interim += r[0].transcript;
+      }
+      setInput((finalText + interim).replace(/\s+/g, ' ').trimStart());
+      const el = textareaRef.current;
+      if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px'; }
+    };
+    rec.onend = () => { setListening(false); recognitionRef.current = null; };
+    rec.onerror = () => { setListening(false); };
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  }, [listening, lang]);
   const hasInitialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -968,6 +1012,22 @@ ${truncated}
             >
               {importing ? '⏳' : '📎'}
             </button>
+            {micSupported && (
+              <button
+                type="button"
+                className="chat-send-btn"
+                title={listening ? 'Arrêter la dictée' : 'Parler à Marty (saisie vocale)'}
+                disabled={isLoading}
+                onClick={toggleMic}
+                style={{ background: listening ? 'var(--accent-red)' : 'var(--bg-input)', color: listening ? '#fff' : 'var(--text-secondary)', animation: listening ? 'micPulse 1.3s ease-in-out infinite' : 'none' }}
+              >
+                {listening ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+                )}
+              </button>
+            )}
             <textarea
               ref={textareaRef}
               className="chat-input"
