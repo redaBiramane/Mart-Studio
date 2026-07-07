@@ -50,6 +50,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const [showContext, setShowContext] = useState(true);
   const [input, setInput] = useState('');
   const [pendingImage, setPendingImage] = useState<{ url: string; name: string; mediaType: string } | null>(null);
+  const [imgPreview, setImgPreview] = useState(false);
   const { lang } = useI18n();
   const [micSupported, setMicSupported] = useState(false);
   const [listening, setListening] = useState(false);
@@ -1016,12 +1017,21 @@ ${truncated}
           {pendingImage && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 8px', padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-active)', borderRadius: 10, maxWidth: 'fit-content' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pendingImage.url} alt={pendingImage.name} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+              <img src={pendingImage.url} alt={pendingImage.name} onClick={() => setImgPreview(true)} title="Cliquer pour agrandir" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', cursor: 'zoom-in' }} />
               <div style={{ fontSize: 12.5 }}>
                 <div style={{ fontWeight: 600, color: 'var(--text)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🖼️ {pendingImage.name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Image jointe — envoyez pour que Marty l&apos;analyse</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                  <button type="button" onClick={() => setImgPreview(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0, fontSize: 11, fontWeight: 600 }}>Voir l&apos;image</button> · envoyez pour que Marty l&apos;analyse
+                </div>
               </div>
               <button type="button" onClick={() => setPendingImage(null)} title="Retirer l'image" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, marginLeft: 4 }}>✕</button>
+            </div>
+          )}
+          {imgPreview && pendingImage && (
+            <div onClick={() => setImgPreview(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pendingImage.url} alt={pendingImage.name} style={{ maxWidth: '92vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
+              <button type="button" onClick={() => setImgPreview(false)} title="Fermer" style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontSize: 20 }}>✕</button>
             </div>
           )}
 
