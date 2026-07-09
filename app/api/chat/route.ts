@@ -59,6 +59,8 @@ export async function POST(req: Request) {
   // Mode guidé : une seule question à la fois
   const modeInstruction = mode === 'guided'
     ? `\n\n## MODE GUIDÉ (prioritaire)\nPose UNE SEULE question à la fois. Attends la réponse de l'utilisateur avant de poser la suivante. N'affiche JAMAIS toutes les questions de l'étape d'un coup. Quand tu as couvert toutes les questions de l'étape, produis les blocs json:extract et une courte synthèse. Reste bref et conversationnel.`
+    : mode === 'expert'
+    ? `\n\n## MODE EXPERT / AUTONOME (prioritaire)\nL'utilisateur possède DÉJÀ des éléments (script SQL/SAS, DDL, description, MCD/ERD, fichiers/images). Ne présente PAS la liste des questions de l'étape. À la place :\n1. Invite-le une seule fois à te donner TOUT ce qu'il a (colle son script/DDL, sa description, ou importe un fichier/une image).\n2. Dès qu'il fournit quelque chose, EXTRAIS le MAXIMUM immédiatement — tous les types pertinents à la fois (context, entity, relation, attribute, kpi, rule, source…), pas seulement ceux de l'étape courante.\n3. Ensuite, pose UNIQUEMENT des questions CIBLÉES sur les éléments réellement MANQUANTS ou ambigus (ex. « il manque la clé primaire de X », « quelle cardinalité entre Y et Z ? »). N'énumère pas les questions standard de l'étape.\nReste concis et efficace ; laisse un maximum de liberté à l'utilisateur.`
     : '';
   
   // Build context from collected session data

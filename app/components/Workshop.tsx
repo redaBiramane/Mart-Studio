@@ -233,6 +233,8 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
       const intro = cur === 1 ? 'Présente-toi en une phrase, puis' : 'Sans te re-présenter,';
       const modeInstr = session.mode === 'guided'
         ? 'pose UNE SEULE question à la fois (mode guidé) : commence par la première question de cette étape et attends la réponse.'
+        : session.mode === 'expert'
+        ? 'mode EXPERT : n\'énumère pas les questions ; invite l\'utilisateur à te donner tout ce qu\'il a (script, DDL, description, ou fichier/image à importer), extrais le maximum, et ne questionne que sur ce qui manque.'
         : 'affiche directement toutes les questions de cette étape en une seule fois.';
       sendMessage({ text: `[SYSTÈME] Démarre l'étape ${cur} sur ${effSteps.length} : "${def?.title || ''}". ${intro} ${modeInstr}` });
     }
@@ -255,6 +257,8 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
         const intro = currentStep === 1 ? 'Présente-toi en une phrase, puis' : 'Sans te re-présenter,';
         const modeInstr = session.mode === 'guided'
           ? 'pose UNE SEULE question à la fois (mode guidé) : commence par la première question de cette étape et attends la réponse.'
+          : session.mode === 'expert'
+          ? 'mode EXPERT : n\'énumère pas les questions ; invite l\'utilisateur à te donner tout ce qu\'il a (script, DDL, description, ou fichier/image à importer), extrais le maximum, et ne questionne que sur ce qui manque.'
           : 'affiche directement toutes les questions de cette étape en une seule fois.';
         sendMessage({ text: `[SYSTÈME] Démarre l'étape ${currentStep} sur ${effSteps.length} : "${stepDef.title}". ${intro} ${modeInstr}` });
       }

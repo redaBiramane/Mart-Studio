@@ -68,7 +68,7 @@ export default function Home() {
   }, [setLang]);
 
   const startNewSession = () => setShowModeModal(true);
-  function createWithMode(mode: 'batch' | 'guided') {
+  function createWithMode(mode: 'batch' | 'guided' | 'expert') {
     useWorkshopStore.getState().createSession(mode);
     setShowModeModal(false);
     setCurrentPage('workshop');
@@ -438,19 +438,24 @@ export default function Home() {
 
       {showModeModal && (
         <div onClick={() => setShowModeModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(640px, 100%)', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(820px, 100%)', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
             <h2 style={{ fontSize: 20, marginBottom: 6 }}>{t('mode.title')}</h2>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>{t('mode.subtitle')}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16 }}>
               <button onClick={() => createWithMode('batch')} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--bg-elevated)', border: '2px solid var(--border)', borderRadius: 12, padding: 20 }}>
                 <div style={{ fontSize: 26, marginBottom: 8 }}>📋</div>
                 <div style={{ fontWeight: 700, marginBottom: 6 }}>{t('mode.batchTitle')}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('mode.batchDesc')}</div>
               </button>
-              <button onClick={() => createWithMode('guided')} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--primary-glow)', border: '2px solid var(--border-active)', borderRadius: 12, padding: 20 }}>
+              <button onClick={() => createWithMode('guided')} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--bg-elevated)', border: '2px solid var(--border)', borderRadius: 12, padding: 20 }}>
                 <div style={{ fontSize: 26, marginBottom: 8 }}>💬</div>
-                <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--primary-light)' }}>{t('mode.guidedTitle')}</div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t('mode.guidedTitle')}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('mode.guidedDesc')}</div>
+              </button>
+              <button onClick={() => createWithMode('expert')} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--primary-glow)', border: '2px solid var(--border-active)', borderRadius: 12, padding: 20 }}>
+                <div style={{ fontSize: 26, marginBottom: 8 }}>⚡</div>
+                <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--primary-light)' }}>{t('mode.expertTitle')}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('mode.expertDesc')}</div>
               </button>
             </div>
             <div style={{ textAlign: 'right', marginTop: 16 }}>

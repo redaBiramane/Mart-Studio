@@ -158,7 +158,7 @@ export interface WorkshopSession {
   updatedAt: number;
   currentStep: number;
   status: 'active' | 'completed';
-  mode: 'batch' | 'guided';
+  mode: 'batch' | 'guided' | 'expert';
 
   // Step 1: Context
   productName: string;
@@ -294,7 +294,7 @@ export interface WorkshopStore {
 
   // Actions
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
-  createSession: (mode?: 'batch' | 'guided') => void;
+  createSession: (mode?: 'batch' | 'guided' | 'expert') => void;
   loadSession: (id: string) => void;
   duplicateSession: (id: string) => void;
   setCurrentStep: (step: number) => void;

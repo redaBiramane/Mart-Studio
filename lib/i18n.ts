@@ -79,6 +79,8 @@ const DICT: Dict = {
   'mode.batchDesc': { fr: 'Marty affiche toutes les questions d’une étape d’un coup. Idéal pour aller vite.', en: 'Marty shows all questions of a step at once. Best to move fast.' },
   'mode.guidedTitle': { fr: 'Guidé (pas à pas)', en: 'Guided (step by step)' },
   'mode.guidedDesc': { fr: 'Marty pose une seule question à la fois et attend votre réponse.', en: 'Marty asks one question at a time and waits for your answer.' },
+  'mode.expertTitle': { fr: 'Expert (autonome)', en: 'Expert (autonomous)' },
+  'mode.expertDesc': { fr: 'Vous avez déjà des scripts / un modèle : donnez tout, Marty détecte et collecte, et ne vous questionne que sur ce qui manque.', en: 'You already have scripts / a model: paste everything, Marty detects and collects, and only asks about what is missing.' },
   'mode.cancel': { fr: 'Annuler', en: 'Cancel' },
 
   // --- Dashboard ---

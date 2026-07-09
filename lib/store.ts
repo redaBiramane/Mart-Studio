@@ -392,7 +392,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
 
       // ---- Sessions --------------------------------------------------------
 
-      createSession: (mode: 'batch' | 'guided' = 'batch') => {
+      createSession: (mode: 'batch' | 'guided' | 'expert' = 'batch') => {
         const newSession = { ...createEmptySession(), mode };
         lastSnapshotAt = 0;
         set((state) => ({
