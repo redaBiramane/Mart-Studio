@@ -13,7 +13,6 @@ import { useWorkshopStore } from '@/lib/store';
 import type { WorkshopSession, Entity, Attribute, Relation } from '@/lib/types';
 
 // Types alignés sur la cible Snowflake (INT/BIGINT = NUMBER(38,0) ; STRING = VARCHAR…).
-const SQL_TYPES = ['number', 'int', 'bigint', 'decimal', 'float', 'varchar', 'string', 'text', 'boolean', 'date', 'timestamp', 'time', 'variant', 'uuid'];
 const REL_TYPES: Relation['type'][] = ['1:N', 'N:1', '1:1', 'N:N'];
 
 function genId(p: string) { return `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
@@ -57,15 +56,28 @@ function CommitInput({ value, onCommit, className, placeholder, style }: { value
   );
 }
 
-// Sélecteur de type uniforme (affichage majuscules, casse normalisée)
+// Suggestions de types (avec longueurs/précisions paramétrées, alignées Snowflake).
+const SQL_TYPE_SUGGESTIONS = [
+  'varchar', 'varchar(10)', 'varchar(30)', 'varchar(100)', 'varchar(255)', 'string', 'char(1)',
+  'number', 'number(38,0)', 'int', 'bigint', 'decimal(18,2)', 'decimal(18,4)', 'float',
+  'boolean', 'date', 'timestamp', 'time', 'variant', 'uuid',
+];
+
+// Champ de type SAISISSABLE avec suggestions : on peut préciser VARCHAR(30),
+// DECIMAL(18,4), NUMBER(38,0)… tout en gardant l'auto-complétion des types courants.
 function TypeSelect({ value, onChange, style }: { value: string; onChange: (v: string) => void; style?: React.CSSProperties }) {
-  const v = (value || 'varchar').toLowerCase();
-  const custom = !SQL_TYPES.includes(v) && v;
   return (
-    <select className="nodrag" value={v} onChange={(e) => onChange(e.target.value)} title="Type SQL" style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', borderRadius: 6, cursor: 'pointer', textTransform: 'uppercase', fontSize: 12, ...style }}>
-      {custom && <option value={v}>{v}</option>}
-      {SQL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-    </select>
+    <input
+      key={value}
+      className="nodrag"
+      list="mart-sql-types"
+      defaultValue={value || 'varchar'}
+      onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== value) onChange(v); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      title="Type SQL — vous pouvez préciser la taille, ex. VARCHAR(30), DECIMAL(18,4), NUMBER(38,0)"
+      placeholder="type"
+      style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', borderRadius: 6, textTransform: 'uppercase', fontSize: 12, padding: '4px 5px', outline: 'none', ...style }}
+    />
   );
 }
 
@@ -603,6 +615,9 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
   return (
     <div style={containerStyle}>
       <style dangerouslySetInnerHTML={{ __html: VE_TIP_CSS }} />
+      <datalist id="mart-sql-types">
+        {SQL_TYPE_SUGGESTIONS.map((t) => <option key={t} value={t} />)}
+      </datalist>
       <ReactFlow
         nodes={nodes}
         edges={edges}
