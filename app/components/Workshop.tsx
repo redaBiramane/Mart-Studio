@@ -94,6 +94,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const hasInitialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [toastKind, setToastKind] = useState<'info' | 'warn'>('warn');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -604,9 +605,9 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
 
   const isImageFile = (f: File) => f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name);
 
-  // Importer un ou plusieurs fichiers (SAS/SQL/CSV/Excel ou images d'anciens MCD).
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
+  // Traite un ou plusieurs fichiers (SAS/SQL/CSV/Excel ou images d'anciens MCD).
+  // Partagé par le bouton d'import ET le glisser-déposer.
+  async function processFiles(files: File[]) {
     if (!files.length || !session) return;
     const images = files.filter(isImageFile);
     setImporting(true);
@@ -615,7 +616,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
       // possibles) ; l'utilisateur ajoute un message puis envoie lui-même.
       if (images.length) {
         const room = MAX_IMAGES - pendingImages.length;
-        if (room <= 0) { setToastKind('warn'); setToast(`Maximum ${MAX_IMAGES} images par message.`); e.target.value = ''; setImporting(false); return; }
+        if (room <= 0) { setToastKind('warn'); setToast(`Maximum ${MAX_IMAGES} images par message.`); setImporting(false); return; }
         const toAdd = images.slice(0, room).filter((f) => f.size <= 3 * 1024 * 1024);
         const skipped = images.length - toAdd.length;
         const read = await Promise.all(toAdd.map((f) => new Promise<{ url: string; name: string; mediaType: string }>((res, rej) => {
@@ -628,14 +629,13 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
         setToastKind(skipped > 0 ? 'warn' : 'info');
         setToast(skipped > 0 ? `${read.length} image(s) attachée(s) — ${skipped} ignorée(s) (trop lourdes ou > ${MAX_IMAGES}).` : `${read.length} image(s) attachée(s) — ajoutez un message si besoin, puis envoyez.`);
         textareaRef.current?.focus();
-        e.target.value = '';
         setImporting(false);
         return;
       }
       const file = files[0];
       if (file.size > 3 * 1024 * 1024) {
         setToastKind('warn'); setToast('Fichier trop volumineux (max 3 Mo). Conservez l\'essentiel (en-têtes, DATA steps, PROC SQL).');
-        e.target.value = ''; setImporting(false); return;
+        setImporting(false); return;
       }
       let content = '';
       const name = file.name.toLowerCase();
@@ -663,8 +663,12 @@ ${truncated}
       setToastKind('warn'); setToast('Impossible de lire ce fichier.');
     } finally {
       setImporting(false);
-      e.target.value = '';
     }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    await processFiles(Array.from(e.target.files || []));
+    e.target.value = '';
   }
 
   function resetWorkshop() {
@@ -859,7 +863,25 @@ ${truncated}
 
       <StepSidebar currentStep={currentStep} onStepChange={handleStepChange} session={session} />
 
-      <div className="chat-panel">
+      <div
+        className="chat-panel"
+        onDragOver={(e) => { if (!visual) { e.preventDefault(); if (!dragOver) setDragOver(true); } }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+        onDrop={(e) => {
+          if (visual) return;
+          e.preventDefault();
+          setDragOver(false);
+          const files = Array.from(e.dataTransfer.files || []);
+          if (files.length) processFiles(files);
+        }}
+      >
+        {dragOver && !visual && (
+          <div style={{ position: 'absolute', inset: 8, zIndex: 60, border: '2px dashed var(--primary)', borderRadius: 14, background: 'var(--primary-glow)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, pointerEvents: 'none' }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /><path d="M12 3v13M8 12l4 4 4-4" /></svg>
+            <div style={{ fontWeight: 700, color: 'var(--primary-light)' }}>Déposez votre image ou fichier ici</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>MCD/ERD, capture, SAS, SQL, CSV, Excel — Marty l&apos;analyse</div>
+          </div>
+        )}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
           padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)',
