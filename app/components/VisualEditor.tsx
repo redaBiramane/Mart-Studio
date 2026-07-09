@@ -63,21 +63,57 @@ const SQL_TYPE_SUGGESTIONS = [
   'boolean', 'date', 'timestamp', 'time', 'variant', 'uuid',
 ];
 
-// Champ de type SAISISSABLE avec suggestions : on peut préciser VARCHAR(30),
-// DECIMAL(18,4), NUMBER(38,0)… tout en gardant l'auto-complétion des types courants.
+// Type de base + champ(s) numérique(s) pour la taille : l'utilisateur choisit le
+// type puis saisit LE CHIFFRE. VARCHAR → (longueur) ; DECIMAL/NUMBER → (précision, échelle).
+const LEN_TYPES = ['varchar', 'char', 'string', 'nvarchar', 'nchar', 'character'];
+const PREC_TYPES = ['decimal', 'number', 'numeric'];
+function composeType(base: string, p1: string, p2: string): string {
+  const b = base.trim(); const bl = b.toLowerCase();
+  if (PREC_TYPES.includes(bl)) return p1 ? `${b}(${p1}${p2 !== '' ? `,${p2}` : ''})` : b;
+  if (LEN_TYPES.includes(bl)) return p1 ? `${b}(${p1})` : b;
+  return b;
+}
 function TypeSelect({ value, onChange, style }: { value: string; onChange: (v: string) => void; style?: React.CSSProperties }) {
+  const m = (value || 'varchar').match(/^\s*([a-zA-Z_]+)\s*(?:\(\s*(\d+)\s*(?:,\s*(\d+))?\s*\))?/);
+  const [base, setBase] = useState(m?.[1] || 'varchar');
+  const [p1, setP1] = useState(m?.[2] || '');
+  const [p2, setP2] = useState(m?.[3] ?? '');
+  useEffect(() => {
+    const mm = (value || 'varchar').match(/^\s*([a-zA-Z_]+)\s*(?:\(\s*(\d+)\s*(?:,\s*(\d+))?\s*\))?/);
+    setBase(mm?.[1] || 'varchar'); setP1(mm?.[2] || ''); setP2(mm?.[3] ?? '');
+  }, [value]);
+
+  const bl = base.toLowerCase();
+  const showLen = LEN_TYPES.includes(bl);
+  const showPrec = PREC_TYPES.includes(bl);
+  const commit = (b = base, a = p1, c = p2) => { const v = composeType(b, a, c); if (v && v !== value) onChange(v); };
+  const numStyle: React.CSSProperties = { width: 38, border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', borderRadius: 6, fontSize: 12, padding: '4px 3px', outline: 'none', textAlign: 'center' };
+
   return (
-    <input
-      key={value}
-      className="nodrag"
-      list="mart-sql-types"
-      defaultValue={value || 'varchar'}
-      onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== value) onChange(v); }}
-      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-      title="Type SQL — vous pouvez préciser la taille, ex. VARCHAR(30), DECIMAL(18,4), NUMBER(38,0)"
-      placeholder="type"
-      style={{ border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', borderRadius: 6, textTransform: 'uppercase', fontSize: 12, padding: '4px 5px', outline: 'none', ...style }}
-    />
+    <span className="nodrag" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, ...style }}>
+      <input
+        className="nodrag"
+        list="mart-sql-types"
+        value={base}
+        onChange={(e) => setBase(e.target.value)}
+        onBlur={() => commit()}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        title="Type SQL"
+        style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', borderRadius: 6, textTransform: 'uppercase', fontSize: 12, padding: '4px 5px', outline: 'none' }}
+      />
+      {showLen && (
+        <input className="nodrag" type="number" min={1} value={p1} placeholder="n" title="Longueur (ex. 30)"
+          onChange={(e) => setP1(e.target.value)} onBlur={() => commit()} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={numStyle} />
+      )}
+      {showPrec && (
+        <>
+          <input className="nodrag" type="number" min={1} value={p1} placeholder="p" title="Précision (ex. 18)"
+            onChange={(e) => setP1(e.target.value)} onBlur={() => commit()} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={numStyle} />
+          <input className="nodrag" type="number" min={0} value={p2} placeholder="s" title="Échelle (ex. 2)"
+            onChange={(e) => setP2(e.target.value)} onBlur={() => commit()} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={numStyle} />
+        </>
+      )}
+    </span>
   );
 }
 
@@ -134,7 +170,7 @@ const TableNode = memo(function TableNode({ data }: NodeProps<Node<TableData>>) 
                 {a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}
               </button>
               <CommitInput className="nodrag" value={a.name} onCommit={(v) => data.onAttr(a.id, { name: v })} placeholder="colonne" style={{ flex: 1, minWidth: 0, border: '1px solid transparent', background: 'transparent', fontSize: 12.5, color: 'var(--text)', outline: 'none', padding: '2px 4px', borderRadius: 4 }} />
-              <TypeSelect value={a.type} onChange={(v) => data.onAttr(a.id, { type: v })} style={{ padding: '4px 5px', minWidth: 82, maxWidth: 110 }} />
+              <TypeSelect value={a.type} onChange={(v) => data.onAttr(a.id, { type: v })} style={{ minWidth: 120, maxWidth: 168 }} />
               <button className="nodrag" onClick={() => data.onDelAttr(a.id)} title="Supprimer la colonne" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
             </div>
           ))}
@@ -748,7 +784,7 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
                   <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderBottom: '1px solid var(--border-light)' }}>
                     <button onClick={() => setCol(a.id, { isPrimaryKey: !a.isPrimaryKey })} title="Clé primaire" style={{ width: 30, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: a.isPrimaryKey ? 'var(--accent-amber)' : a.isForeignKey ? 'var(--accent-blue)' : 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>{a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '·'}</button>
                     <input value={a.name} onChange={(e) => setCol(a.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: 13, color: 'var(--text)', outline: 'none', padding: '6px 8px', borderRadius: 6 }} />
-                    <TypeSelect value={a.type} onChange={(v) => setCol(a.id, { type: v })} style={{ fontSize: 12.5, padding: '6px', minWidth: 120 }} />
+                    <TypeSelect value={a.type} onChange={(v) => setCol(a.id, { type: v })} style={{ minWidth: 150 }} />
                     <button onClick={() => delCol(a.id)} title="Supprimer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--accent-red)', cursor: 'pointer', fontSize: 16 }}>×</button>
                   </div>
                 ))}
