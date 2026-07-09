@@ -584,16 +584,54 @@ function relationClause(source: string, target: string, type: string): string {
   }
 }
 
+function CardAction({ onClick, done, icon, label, doneLabel }: { onClick: () => void; done?: boolean; icon: 'copy' | 'marty'; label: string; doneLabel?: string }) {
+  const isMarty = icon === 'marty';
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+        padding: '5px 10px', borderRadius: 7, cursor: 'pointer',
+        border: isMarty ? '1px solid var(--border-active)' : '1px solid var(--border)',
+        background: isMarty ? 'var(--primary-glow)' : 'transparent',
+        color: isMarty ? 'var(--primary-light)' : 'var(--text-secondary)',
+      }}
+    >
+      {done ? (
+        <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{doneLabel || label}</>
+      ) : icon === 'copy' ? (
+        <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>{label}</>
+      ) : (
+        <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>{label}</>
+      )}
+    </button>
+  );
+}
+
 function SemanticTab({ session }: { session: WorkshopSession }) {
   const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const setChatDraft = useWorkshopStore(s => s.setChatDraft);
+  const setCurrentPage = useWorkshopStore(s => s.setCurrentPage);
   const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+
+  const copyOne = async (key: string, text: string) => {
+    try { await navigator.clipboard.writeText(text); setCopiedKey(key); setTimeout(() => setCopiedKey(k => (k === key ? null : k)), 1600); } catch { /* ignore */ }
+  };
+  // Envoie le texte vers le chat Marty (pré-rempli, curseur à la fin pour compléter).
+  const askMarty = (draft: string) => { setChatDraft(draft); setCurrentPage('workshop'); };
 
   const entityLines = session.entities.map((e) => {
     const attrs = attrsOf(e);
     const pks = attrs.filter(a => a.isPrimaryKey).map(a => a.name);
     const sensitive = attrs.filter(a => a.isSensitive).map(a => a.name);
     const descriptive = attrs.filter(a => !a.isPrimaryKey && !a.isForeignKey).map(a => a.name);
-    return { e, attrs, pks, sensitive, descriptive };
+    const def = e.definition || e.description || '';
+    let readable = `${e.name}${def ? ` — ${def}` : ''}`;
+    if (pks.length) readable += ` Identifié de façon unique par : ${pks.join(', ')}.`;
+    if (descriptive.length) readable += ` Décrit notamment par : ${descriptive.slice(0, 8).join(', ')}${descriptive.length > 8 ? '…' : ''}.`;
+    if (sensitive.length) readable += ` Contient des données personnelles : ${sensitive.join(', ')}.`;
+    return { e, attrs, pks, sensitive, descriptive, readable };
   });
 
   const relLines = session.relations.map((r) => ({
@@ -649,7 +687,7 @@ function SemanticTab({ session }: { session: WorkshopSession }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 26 }}>
-        {entityLines.map(({ e, pks, sensitive, descriptive }) => (
+        {entityLines.map(({ e, pks, sensitive, descriptive, readable }) => (
           <div key={e.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
             <div style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
               <strong style={{ color: 'var(--text-primary)' }}>{e.name}</strong>
@@ -662,6 +700,10 @@ function SemanticTab({ session }: { session: WorkshopSession }) {
                 ⚠ Contient des données personnelles : {sensitive.join(', ')}.
               </div>
             )}
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <CardAction onClick={() => copyOne(`e-${e.id}`, readable)} done={copiedKey === `e-${e.id}`} icon="copy" label="Copier" doneLabel="Copié" />
+              <CardAction onClick={() => askMarty(`Concernant l'objet « ${e.name} » (${readable}).\n\nCorrection souhaitée : `)} icon="marty" label="Corriger avec Marty" />
+            </div>
           </div>
         ))}
       </div>
@@ -674,11 +716,17 @@ function SemanticTab({ session }: { session: WorkshopSession }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {relLines.map(({ r, text }) => (
-            <div key={r.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-              <span style={{ color: 'var(--primary-light)', fontWeight: 700, flexShrink: 0 }}>{r.type}</span>
-              <div style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
-                {text}
-                {r.description && <span style={{ color: 'var(--text-muted)' }}> {`— ${r.description}`}</span>}
+            <div key={r.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ color: 'var(--primary-light)', fontWeight: 700, flexShrink: 0 }}>{r.type}</span>
+                <div style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+                  {text}
+                  {r.description && <span style={{ color: 'var(--text-muted)' }}> {`— ${r.description}`}</span>}
+                </div>
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                <CardAction onClick={() => copyOne(`r-${r.id}`, text)} done={copiedKey === `r-${r.id}`} icon="copy" label="Copier" doneLabel="Copié" />
+                <CardAction onClick={() => askMarty(`Concernant la relation « ${r.sourceEntityName} » → « ${r.targetEntityName} » (aujourd'hui « ${r.type} » : ${text}).\n\nCorrection souhaitée : `)} icon="marty" label="Corriger avec Marty" />
               </div>
             </div>
           ))}

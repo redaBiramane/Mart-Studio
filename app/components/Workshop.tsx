@@ -18,7 +18,7 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft } = useWorkshopStore();
   const effSteps = steps && steps.length ? steps : STEPS; // étapes configurées par l'admin, sinon défaut
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
@@ -240,6 +240,24 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id]);
+
+  // Brouillon de chat injecté depuis un autre écran (ex. « Corriger avec Marty »
+  // depuis la Lecture métier). On pré-remplit l'input et on donne le focus.
+  useEffect(() => {
+    if (!chatDraft) return;
+    setInput(chatDraft);
+    setChatDraft(null);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatDraft]);
 
   useEffect(() => {
     if (session && messages.length === 0 && !hasInitialized.current) {

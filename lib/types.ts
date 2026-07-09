@@ -278,6 +278,7 @@ export interface WorkshopStore {
   past: Partial<WorkshopSession>[];
   future: Partial<WorkshopSession>[];
   currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help';
+  chatDraft: string | null; // texte à pré-remplir dans le chat (ex. depuis la Lecture métier)
 
   // Auth / admin state
   authReady: boolean;
@@ -294,6 +295,7 @@ export interface WorkshopStore {
 
   // Actions
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
+  setChatDraft: (text: string | null) => void;
   createSession: (mode?: 'batch' | 'guided' | 'expert') => void;
   loadSession: (id: string) => void;
   duplicateSession: (id: string) => void;

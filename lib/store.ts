@@ -93,6 +93,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       past: [],
       future: [],
       currentPage: 'dashboard',
+      chatDraft: null,
 
       authReady: false,
       user: null,
@@ -107,6 +108,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       steps: null,
 
       setCurrentPage: (page) => set({ currentPage: page }),
+      setChatDraft: (text) => set({ chatDraft: text }),
 
       // ---- Auth ------------------------------------------------------------
 
