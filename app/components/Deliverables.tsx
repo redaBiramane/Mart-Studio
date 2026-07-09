@@ -39,7 +39,7 @@ export default function Deliverables() {
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
-    { key: 'semantic', label: 'Lecture métier', icon: 'semantic' },
+    { key: 'semantic', label: 'Semantic Layer', icon: 'semantic' },
     { key: 'quality', label: 'Qualité', icon: 'quality' },
     { key: 'report', label: 'Rapport détaillé (PDF)', icon: 'report' },
     { key: 'mcd', label: 'MCD / ERD', icon: 'mcd' },
@@ -48,7 +48,6 @@ export default function Deliverables() {
     { key: 'sql', label: 'SQL DDL', icon: 'sql' },
     { key: 'dbt', label: 'dbt YAML', icon: 'dbt' },
     { key: 'dictionary', label: 'Dictionnaire', icon: 'dictionary' },
-    { key: 'dad', label: 'Rapport DAD', icon: 'dad' },
   ];
 
   return (
@@ -588,6 +587,7 @@ function CardAction({ onClick, done, icon, label, doneLabel }: { onClick: () => 
   const isMarty = icon === 'marty';
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
@@ -642,7 +642,7 @@ function SemanticTab({ session }: { session: WorkshopSession }) {
   // Version texte brut (pour copier / partager à un métier ou à Marty).
   const plain = useMemo(() => {
     const L: string[] = [];
-    L.push(`LECTURE MÉTIER — ${session.productName || 'Data Product'}`);
+    L.push(`SEMANTIC LAYER — ${session.productName || 'Data Product'}`);
     if (session.objective) L.push(`Objectif : ${session.objective}`);
     L.push('');
     L.push('LES OBJETS MÉTIER');
@@ -681,7 +681,7 @@ function SemanticTab({ session }: { session: WorkshopSession }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Les objets métier</h3>
-        <button className="suggested-chip" onClick={copyAll} style={{ fontSize: 12 }}>
+        <button type="button" className="suggested-chip" onClick={copyAll} style={{ fontSize: 12 }}>
           {copied ? '✓ Copié' : 'Copier tout le texte'}
         </button>
       </div>
