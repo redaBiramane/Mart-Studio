@@ -467,6 +467,7 @@ function ReportTab({ session }: { session: WorkshopSession }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="cta-btn" onClick={() => downloadReportPdf(session)}>📄 Télécharger en PDF</button>
           <button className="cta-btn cta-btn-secondary" onClick={() => downloadReportWord(session)}>📝 Télécharger en Word</button>
+          <button className="cta-btn cta-btn-secondary" onClick={() => downloadReportExcel(session)}>📊 Télécharger en Excel</button>
         </div>
       </div>
 
@@ -1197,6 +1198,66 @@ function enrichSession(session: WorkshopSession): WorkshopSession {
 
 // Export Word (.doc) : on génère un document HTML compatible Word (aucune
 // dépendance, ouvert nativement par Word et entièrement éditable).
+// Export Excel (.xlsx) : un classeur avec plusieurs feuilles (contexte, entités,
+// dictionnaire d'attributs, relations, KPI, règles, sources, maturité).
+async function downloadReportExcel(session: WorkshopSession) {
+  const XLSX = await import('xlsx');
+  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+  const key = (a: WorkshopSession['attributes'][number]) => (a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '');
+  const wb = XLSX.utils.book_new();
+  const addSheet = (name: string, rows: (string | number)[][]) => {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31)); // Excel limite les noms à 31 car.
+  };
+
+  addSheet('Contexte', [
+    ['Champ', 'Valeur'],
+    ['Produit', session.productName || '—'],
+    ['Domaine', session.domain || '—'],
+    ['Product Owner', session.productOwner || '—'],
+    ['Data Steward', session.dataSteward || '—'],
+    ['Objectif', session.objective || '—'],
+    ['Résumé', session.contextSummary || '—'],
+  ]);
+
+  addSheet('Entités', [
+    ['Entité', 'Type', 'Définition', 'Nb attributs'],
+    ...session.entities.map(e => [e.name, e.type, e.definition || '', attrsOf(e).length]),
+  ]);
+
+  // Dictionnaire de données (toutes les colonnes de toutes les tables).
+  addSheet('Dictionnaire', [
+    ['Entité', 'Attribut', 'Type SQL', 'Clé', 'Sensible (RGPD)', 'Requis', 'Description'],
+    ...session.entities.flatMap(e => attrsOf(e).map(a => [
+      e.name, a.name, mapSqlType(a.type), key(a), a.isSensitive ? 'Oui' : '', a.isRequired ? 'Oui' : '', a.description || '',
+    ])),
+  ]);
+
+  if (session.relations.length) addSheet('Relations', [
+    ['Source', 'Cardinalité', 'Cible', 'Description'],
+    ...session.relations.map(r => [r.sourceEntityName, r.type, r.targetEntityName, r.description || '']),
+  ]);
+  if (session.kpis.length) addSheet('KPI', [
+    ['Nom', 'Formule', 'Fréquence', 'Description'],
+    ...session.kpis.map(k => [k.name, k.formula || '', k.frequency || '', k.description || '']),
+  ]);
+  if (session.businessRules.length) addSheet('Règles métier', [
+    ['Nom', 'Type', 'Description'],
+    ...session.businessRules.map(r => [r.name, r.type || '', r.description || '']),
+  ]);
+  if (session.dataSources.length) addSheet('Sources', [
+    ['Nom', 'Système', 'Fréquence de chargement'],
+    ...session.dataSources.map(s => [s.name, s.system || '', s.loadFrequency || '']),
+  ]);
+  if (session.maturityScores) addSheet('Maturité', [
+    ['Dimension', 'Score /100'],
+    ...MATURITY_DIMENSIONS.map(d => [d.label, session.maturityScores![d.key as keyof typeof session.maturityScores]]),
+  ]);
+
+  const base = (session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product';
+  XLSX.writeFile(wb, `Dictionnaire_${base}.xlsx`);
+}
+
 function downloadReportWord(session: WorkshopSession) {
   const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
