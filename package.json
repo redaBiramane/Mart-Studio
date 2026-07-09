@@ -20,6 +20,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@xyflow/react": "^12.11.1",
     "ai": "^6.0.211",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",

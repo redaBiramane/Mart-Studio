@@ -1198,64 +1198,79 @@ function enrichSession(session: WorkshopSession): WorkshopSession {
 
 // Export Word (.doc) : on génère un document HTML compatible Word (aucune
 // dépendance, ouvert nativement par Word et entièrement éditable).
-// Export Excel (.xlsx) : un classeur avec plusieurs feuilles (contexte, entités,
-// dictionnaire d'attributs, relations, KPI, règles, sources, maturité).
+// Export Excel (.xlsx) mis en forme : classeur multi-feuilles avec en-têtes
+// stylés (couleurs de la marque), largeurs de colonnes, bordures et volet figé.
 async function downloadReportExcel(session: WorkshopSession) {
-  const XLSX = await import('xlsx');
+  const ExcelJS = (await import('exceljs')).default;
   const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
   const key = (a: WorkshopSession['attributes'][number]) => (a.isPrimaryKey ? 'PK' : a.isForeignKey ? 'FK' : '');
-  const wb = XLSX.utils.book_new();
-  const addSheet = (name: string, rows: (string | number)[][]) => {
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31)); // Excel limite les noms à 31 car.
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Mart Studio';
+  wb.created = new Date();
+  const GREEN = 'FF006B4F', LIGHT = 'FFEFF5F2', BORDER = 'FFD0D5DD';
+  const thin = { style: 'thin' as const, color: { argb: BORDER } };
+  const border = { top: thin, left: thin, bottom: thin, right: thin };
+
+  const sheet = (name: string, headers: string[], rows: (string | number)[][], widths: number[]) => {
+    const ws = wb.addWorksheet(name.slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = headers.map((h, i) => ({ header: h, width: widths[i] || 20 }));
+    const hr = ws.getRow(1);
+    hr.height = 22;
+    hr.eachCell((c) => {
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
+      c.alignment = { vertical: 'middle', horizontal: 'left' };
+      c.border = border;
+    });
+    rows.forEach((r, ri) => {
+      const row = ws.addRow(r);
+      row.eachCell((c) => {
+        c.alignment = { vertical: 'top', wrapText: true };
+        c.border = border;
+        if (ri % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT } };
+      });
+    });
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
   };
 
-  addSheet('Contexte', [
-    ['Champ', 'Valeur'],
+  sheet('Contexte', ['Champ', 'Valeur'], [
     ['Produit', session.productName || '—'],
     ['Domaine', session.domain || '—'],
     ['Product Owner', session.productOwner || '—'],
     ['Data Steward', session.dataSteward || '—'],
     ['Objectif', session.objective || '—'],
     ['Résumé', session.contextSummary || '—'],
-  ]);
+  ], [22, 100]);
 
-  addSheet('Entités', [
-    ['Entité', 'Type', 'Définition', 'Nb attributs'],
-    ...session.entities.map(e => [e.name, e.type, e.definition || '', attrsOf(e).length]),
-  ]);
+  sheet('Entités', ['Entité', 'Type', 'Définition', 'Nb attributs'],
+    session.entities.map(e => [e.name, e.type, e.definition || '', attrsOf(e).length]), [26, 16, 70, 12]);
 
-  // Dictionnaire de données (toutes les colonnes de toutes les tables).
-  addSheet('Dictionnaire', [
-    ['Entité', 'Attribut', 'Type SQL', 'Clé', 'Sensible (RGPD)', 'Requis', 'Description'],
-    ...session.entities.flatMap(e => attrsOf(e).map(a => [
+  sheet('Dictionnaire', ['Entité', 'Attribut', 'Type SQL', 'Clé', 'Sensible (RGPD)', 'Requis', 'Description'],
+    session.entities.flatMap(e => attrsOf(e).map(a => [
       e.name, a.name, mapSqlType(a.type), key(a), a.isSensitive ? 'Oui' : '', a.isRequired ? 'Oui' : '', a.description || '',
-    ])),
-  ]);
+    ])), [24, 26, 18, 8, 15, 9, 55]);
 
-  if (session.relations.length) addSheet('Relations', [
-    ['Source', 'Cardinalité', 'Cible', 'Description'],
-    ...session.relations.map(r => [r.sourceEntityName, r.type, r.targetEntityName, r.description || '']),
-  ]);
-  if (session.kpis.length) addSheet('KPI', [
-    ['Nom', 'Formule', 'Fréquence', 'Description'],
-    ...session.kpis.map(k => [k.name, k.formula || '', k.frequency || '', k.description || '']),
-  ]);
-  if (session.businessRules.length) addSheet('Règles métier', [
-    ['Nom', 'Type', 'Description'],
-    ...session.businessRules.map(r => [r.name, r.type || '', r.description || '']),
-  ]);
-  if (session.dataSources.length) addSheet('Sources', [
-    ['Nom', 'Système', 'Fréquence de chargement'],
-    ...session.dataSources.map(s => [s.name, s.system || '', s.loadFrequency || '']),
-  ]);
-  if (session.maturityScores) addSheet('Maturité', [
-    ['Dimension', 'Score /100'],
-    ...MATURITY_DIMENSIONS.map(d => [d.label, session.maturityScores![d.key as keyof typeof session.maturityScores]]),
-  ]);
+  if (session.relations.length) sheet('Relations', ['Source', 'Cardinalité', 'Cible', 'Description'],
+    session.relations.map(r => [r.sourceEntityName, r.type, r.targetEntityName, r.description || '']), [26, 14, 26, 60]);
+  if (session.kpis.length) sheet('KPI', ['Nom', 'Formule', 'Fréquence', 'Description'],
+    session.kpis.map(k => [k.name, k.formula || '', k.frequency || '', k.description || '']), [28, 40, 18, 50]);
+  if (session.businessRules.length) sheet('Règles métier', ['Nom', 'Type', 'Description'],
+    session.businessRules.map(r => [r.name, r.type || '', r.description || '']), [30, 18, 60]);
+  if (session.dataSources.length) sheet('Sources', ['Nom', 'Système', 'Fréquence de chargement'],
+    session.dataSources.map(s => [s.name, s.system || '', s.loadFrequency || '']), [30, 24, 26]);
+  if (session.maturityScores) sheet('Maturité', ['Dimension', 'Score /100'],
+    MATURITY_DIMENSIONS.map(d => [d.label, session.maturityScores![d.key as keyof typeof session.maturityScores]]), [40, 12]);
 
   const base = (session.productName || 'data_product').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'data_product';
-  XLSX.writeFile(wb, `Dictionnaire_${base}.xlsx`);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Dictionnaire_${base}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadReportWord(session: WorkshopSession) {
