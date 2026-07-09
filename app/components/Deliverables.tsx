@@ -10,7 +10,7 @@ import { transformMany } from '@/lib/naming';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-type Tab = 'overview' | 'quality' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'semantic' | 'quality' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -39,6 +39,7 @@ export default function Deliverables() {
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
+    { key: 'semantic', label: 'Lecture métier', icon: 'semantic' },
     { key: 'quality', label: 'Qualité', icon: 'quality' },
     { key: 'report', label: 'Rapport détaillé (PDF)', icon: 'report' },
     { key: 'mcd', label: 'MCD / ERD', icon: 'mcd' },
@@ -77,6 +78,7 @@ export default function Deliverables() {
           </div>
         )}
         {activeTab === 'overview' && <OverviewTab session={data} />}
+        {activeTab === 'semantic' && <SemanticTab session={data} />}
         {activeTab === 'quality' && <QualityTab />}
         {activeTab === 'report' && <ReportTab session={data} />}
         {activeTab === 'mcd' && <MCDTab session={data} />}
@@ -95,6 +97,7 @@ export default function Deliverables() {
 function DIcon({ name, size = 16 }: { name: string; size?: number }) {
   const p: Record<string, React.ReactNode> = {
     overview: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    semantic: <><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /><path d="M8 10h8M8 13.5h5" /></>,
     quality: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
     report: <><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M8 13h8M8 17h5" /></>,
     mcd: <><rect x="3" y="4" width="8" height="6" rx="1" /><rect x="13" y="14" width="8" height="6" rx="1" /><path d="M7 10v2a2 2 0 0 0 2 2h4" /></>,
@@ -557,6 +560,128 @@ function ReportTab({ session }: { session: WorkshopSession }) {
             const v = session.maturityScores![dim.key as keyof typeof session.maturityScores];
             return <div key={dim.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0' }}><span>{dim.label}</span><strong>{v}/100</strong></div>;
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Couche sémantique : lecture en français clair du modèle ──────────────
+// Traduit entités, clés et relations en phrases lisibles par un métier, pour
+// qu'il repère les affirmations fausses (ex. « un client a plusieurs comptes »)
+// et demande un ajustement à Marty.
+function relationClause(source: string, target: string, type: string): string {
+  switch (type) {
+    case '1:1':
+      return `Chaque « ${source} » est associé à un seul « ${target} », et réciproquement.`;
+    case 'N:1':
+      return `Plusieurs « ${source} » peuvent partager le même « ${target} ». Chaque « ${source} » référence un seul « ${target} ».`;
+    case 'N:N':
+      return `Un même « ${source} » peut être lié à plusieurs « ${target} », et un même « ${target} » à plusieurs « ${source} ».`;
+    case '1:N':
+    default:
+      return `Un même « ${source} » peut être associé à plusieurs « ${target} ». À l'inverse, chaque « ${target} » est rattaché à un seul « ${source} ».`;
+  }
+}
+
+function SemanticTab({ session }: { session: WorkshopSession }) {
+  const [copied, setCopied] = useState(false);
+  const attrsOf = (e: Entity) => session.attributes.filter(a => a.entityId === e.id || a.entityId === e.name);
+
+  const entityLines = session.entities.map((e) => {
+    const attrs = attrsOf(e);
+    const pks = attrs.filter(a => a.isPrimaryKey).map(a => a.name);
+    const sensitive = attrs.filter(a => a.isSensitive).map(a => a.name);
+    const descriptive = attrs.filter(a => !a.isPrimaryKey && !a.isForeignKey).map(a => a.name);
+    return { e, attrs, pks, sensitive, descriptive };
+  });
+
+  const relLines = session.relations.map((r) => ({
+    r,
+    text: relationClause(r.sourceEntityName, r.targetEntityName, r.type),
+  }));
+
+  // Version texte brut (pour copier / partager à un métier ou à Marty).
+  const plain = useMemo(() => {
+    const L: string[] = [];
+    L.push(`LECTURE MÉTIER — ${session.productName || 'Data Product'}`);
+    if (session.objective) L.push(`Objectif : ${session.objective}`);
+    L.push('');
+    L.push('LES OBJETS MÉTIER');
+    entityLines.forEach(({ e, pks, sensitive, descriptive }) => {
+      const def = e.definition || e.description || '';
+      let line = `• ${e.name}${def ? ` — ${def}` : ''}`;
+      if (pks.length) line += ` Identifié de façon unique par : ${pks.join(', ')}.`;
+      if (descriptive.length) line += ` Décrit notamment par : ${descriptive.slice(0, 8).join(', ')}${descriptive.length > 8 ? '…' : ''}.`;
+      if (sensitive.length) line += ` ⚠ Contient des données personnelles : ${sensitive.join(', ')}.`;
+      L.push(line);
+    });
+    L.push('');
+    L.push('COMMENT ILS SONT RELIÉS');
+    if (relLines.length === 0) L.push('• (Aucune relation définie pour le moment.)');
+    relLines.forEach(({ r, text }) => {
+      L.push(`• ${text}${r.description ? ` (${r.description})` : ''}`);
+    });
+    return L.join('\n');
+  }, [session, entityLines, relLines]);
+
+  const copyAll = async () => {
+    try { await navigator.clipboard.writeText(plain); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
+  };
+
+  return (
+    <div style={{ maxWidth: 860 }}>
+      {/* Bandeau d'explication */}
+      <div style={{ background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 12, padding: '14px 16px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <DIcon name="semantic" size={20} />
+        <div style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+          Voici, <strong>en langage courant</strong>, ce que dit le modèle que vous avez construit — sans jargon technique.
+          Relisez chaque phrase&nbsp;: si une affirmation est <strong>fausse</strong> (par ex. «&nbsp;un client peut avoir plusieurs comptes&nbsp;» alors qu'un client n'en a qu'un),
+          demandez simplement à <strong>Marty</strong> de corriger la cardinalité — il ajustera le modèle et les livrables.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Les objets métier</h3>
+        <button className="suggested-chip" onClick={copyAll} style={{ fontSize: 12 }}>
+          {copied ? '✓ Copié' : 'Copier tout le texte'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 26 }}>
+        {entityLines.map(({ e, pks, sensitive, descriptive }) => (
+          <div key={e.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+            <div style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{e.name}</strong>
+              {(e.definition || e.description) ? ` — ${e.definition || e.description}` : ''}
+              {pks.length > 0 && <> Il est identifié de façon unique par <strong>{pks.join(', ')}</strong>.</>}
+              {descriptive.length > 0 && <> On en connaît notamment : {descriptive.slice(0, 8).join(', ')}{descriptive.length > 8 ? '…' : ''}.</>}
+            </div>
+            {sensitive.length > 0 && (
+              <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--accent-amber)' }}>
+                ⚠ Contient des données personnelles : {sensitive.join(', ')}.
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>Comment ils sont reliés</h3>
+      {relLines.length === 0 ? (
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          Aucune relation n'est encore définie. Décrivez à Marty comment vos objets se relient (ex. «&nbsp;un compte appartient à un client&nbsp;»).
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {relLines.map(({ r, text }) => (
+            <div key={r.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+              <span style={{ color: 'var(--primary-light)', fontWeight: 700, flexShrink: 0 }}>{r.type}</span>
+              <div style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+                {text}
+                {r.description && <span style={{ color: 'var(--text-muted)' }}> {`— ${r.description}`}</span>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
