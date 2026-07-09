@@ -56,11 +56,10 @@ function CommitInput({ value, onCommit, className, placeholder, style }: { value
   );
 }
 
-// Suggestions de types (avec longueurs/précisions paramétrées, alignées Snowflake).
+// Suggestions de TYPES DE BASE uniquement (la taille se saisit dans le champ dédié).
 const SQL_TYPE_SUGGESTIONS = [
-  'varchar', 'varchar(10)', 'varchar(30)', 'varchar(100)', 'varchar(255)', 'string', 'char(1)',
-  'number', 'number(38,0)', 'int', 'bigint', 'decimal(18,2)', 'decimal(18,4)', 'float',
-  'boolean', 'date', 'timestamp', 'time', 'variant', 'uuid',
+  'varchar', 'char', 'string', 'text', 'number', 'decimal', 'numeric',
+  'int', 'bigint', 'float', 'boolean', 'date', 'timestamp', 'time', 'variant', 'uuid',
 ];
 
 // Type de base + champ(s) numérique(s) pour la taille : l'utilisateur choisit le
