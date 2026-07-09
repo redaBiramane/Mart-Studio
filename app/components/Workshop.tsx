@@ -213,6 +213,31 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const isLoading = status === 'submitted' || status === 'streaming';
 
   // Initialize with a welcome message when session starts
+  // Changement de Data Product : on réinitialise le chat et on restaure (ou démarre)
+  // la conversation de la NOUVELLE session. Sans cela, on garderait l'ancien fil.
+  const prevSessionId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const sid = session?.id;
+    if (sid === prevSessionId.current) return;
+    prevSessionId.current = sid;
+    if (!session) { hasInitialized.current = false; setMessages([]); return; }
+    hasInitialized.current = true;
+    const cur = Math.min(Math.max(session.currentStep || 1, 1), effSteps.length);
+    const saved = session.messages.filter(m => m.step === cur);
+    if (saved.length > 0) {
+      setMessages(saved.map(m => ({ id: m.id, role: m.role as 'user' | 'assistant' | 'system', parts: [{ type: 'text', text: m.content }] })));
+    } else {
+      setMessages([]);
+      const def = effSteps[cur - 1];
+      const intro = cur === 1 ? 'Présente-toi en une phrase, puis' : 'Sans te re-présenter,';
+      const modeInstr = session.mode === 'guided'
+        ? 'pose UNE SEULE question à la fois (mode guidé) : commence par la première question de cette étape et attends la réponse.'
+        : 'affiche directement toutes les questions de cette étape en une seule fois.';
+      sendMessage({ text: `[SYSTÈME] Démarre l'étape ${cur} sur ${effSteps.length} : "${def?.title || ''}". ${intro} ${modeInstr}` });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id]);
+
   useEffect(() => {
     if (session && messages.length === 0 && !hasInitialized.current) {
       hasInitialized.current = true;
