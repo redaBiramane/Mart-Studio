@@ -328,8 +328,17 @@ export default function VisualEditor({ session }: { session: WorkshopSession }) 
     }
   }, [session.entities, session.relations]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Affichage : les clés d'abord (PK puis FK), pour repérer immédiatement les
+  // identifiants même dans une table à des centaines de colonnes. Ordre stable ensuite.
   const attrsOf = useCallback(
-    (e: Entity) => session.attributes.filter((a) => a.entityId === e.id || a.entityId === e.name),
+    (e: Entity) => {
+      const rank = (a: Attribute) => (a.isPrimaryKey ? 0 : a.isForeignKey ? 1 : 2);
+      return session.attributes
+        .filter((a) => a.entityId === e.id || a.entityId === e.name)
+        .map((a, i) => ({ a, i }))
+        .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
+        .map((x) => x.a);
+    },
     [session.attributes]
   );
 
