@@ -283,6 +283,17 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
         break;
       case 'entity':
         if (data.name) {
+          const nm = (data.name as string).toLowerCase();
+          // Suppression d'une entité (en cascade : ses attributs et relations aussi).
+          if (data.op === 'delete' || data.delete === true) {
+            const ent = session.entities.find(e => e.name.toLowerCase() === nm);
+            updateSessionData({
+              entities: session.entities.filter(e => e.name.toLowerCase() !== nm),
+              attributes: session.attributes.filter(a => a.entityId !== ent?.id && (a.entityId || '').toLowerCase() !== nm),
+              relations: session.relations.filter(r => r.sourceEntityName?.toLowerCase() !== nm && r.targetEntityName?.toLowerCase() !== nm),
+            });
+            break;
+          }
           const existing = session.entities.find(e => e.name === data.name);
           if (!existing) {
             updateSessionData({
@@ -315,19 +326,40 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
         break;
       case 'relation':
         if (data.source && data.target) {
-          updateSessionData({
-            relations: [...session.relations, {
-              id: `rel_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
-              sourceEntityId: (data.sourceId as string) || '',
-              targetEntityId: (data.targetId as string) || '',
-              sourceEntityName: data.source as string,
-              targetEntityName: data.target as string,
-              type: (data.cardinality as '1:1' | '1:N' | 'N:1' | 'N:N') || '1:N',
-              isRequired: (data.required as boolean) ?? true,
-              description: (data.description as string) || '',
-              isHierarchy: (data.hierarchy as boolean) ?? false,
-            }],
-          });
+          const src = (data.source as string).toLowerCase(), tgt = (data.target as string).toLowerCase();
+          const matches = (r: typeof session.relations[number]) => r.sourceEntityName?.toLowerCase() === src && r.targetEntityName?.toLowerCase() === tgt;
+          // Suppression d'une relation obsolète (par source → cible).
+          if (data.op === 'delete' || data.delete === true) {
+            updateSessionData({ relations: session.relations.filter(r => !matches(r)) });
+            break;
+          }
+          const existing = session.relations.find(matches);
+          if (existing) {
+            // Même source → cible : on MET À JOUR (pas de doublon).
+            updateSessionData({
+              relations: session.relations.map(r => matches(r) ? {
+                ...r,
+                type: (data.cardinality as '1:1' | '1:N' | 'N:1' | 'N:N') || r.type,
+                description: (data.description as string) ?? r.description,
+                isRequired: (data.required as boolean) ?? r.isRequired,
+                isHierarchy: (data.hierarchy as boolean) ?? r.isHierarchy,
+              } : r),
+            });
+          } else {
+            updateSessionData({
+              relations: [...session.relations, {
+                id: `rel_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                sourceEntityId: (data.sourceId as string) || '',
+                targetEntityId: (data.targetId as string) || '',
+                sourceEntityName: data.source as string,
+                targetEntityName: data.target as string,
+                type: (data.cardinality as '1:1' | '1:N' | 'N:1' | 'N:N') || '1:N',
+                isRequired: (data.required as boolean) ?? true,
+                description: (data.description as string) || '',
+                isHierarchy: (data.hierarchy as boolean) ?? false,
+              }],
+            });
+          }
         }
         break;
       case 'attribute':
@@ -338,16 +370,33 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
             const found = session.entities.find(e => e.name.toLowerCase() === (data.entityName as string).toLowerCase());
             if (found) targetEntityId = found.id;
           }
-          // Skip duplicates: same entity + same normalized column name (handles
-          // snake_case vs camelCase and the step 2 / step 4 overlap).
           const normName = (data.name as string).replace(/[^a-z0-9]/gi, '').toLowerCase();
           const entityKeys = [targetEntityId, (data.entityName as string) || ''].filter(Boolean).map(k => k.toLowerCase());
-          const isDuplicate = session.attributes.some(a => {
+          const sameCol = (a: typeof session.attributes[number]) => {
             const sameName = a.name.replace(/[^a-z0-9]/gi, '').toLowerCase() === normName;
             const sameEntity = entityKeys.includes((a.entityId || '').toLowerCase());
             return sameName && (sameEntity || entityKeys.length === 0);
-          });
-          if (isDuplicate) break;
+          };
+          // Suppression d'une colonne (par entité + nom).
+          if (data.op === 'delete' || data.delete === true) {
+            updateSessionData({ attributes: session.attributes.filter(a => !sameCol(a)) });
+            break;
+          }
+          // Colonne déjà présente : on MET À JOUR son type/clés/description (pas de doublon).
+          const dup = session.attributes.find(sameCol);
+          if (dup) {
+            updateSessionData({
+              attributes: session.attributes.map(a => sameCol(a) ? {
+                ...a,
+                type: (data.type as string) || a.type,
+                description: (data.description as string) ?? a.description,
+                isPrimaryKey: (data.isPK as boolean) ?? a.isPrimaryKey,
+                isForeignKey: (data.isFK as boolean) ?? a.isForeignKey,
+                isSensitive: (data.sensitive as boolean) ?? a.isSensitive,
+              } : a),
+            });
+            break;
+          }
           updateSessionData({
             attributes: [...session.attributes, {
               id: `attr_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,

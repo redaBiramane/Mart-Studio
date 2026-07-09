@@ -32,6 +32,17 @@ Tu dois utiliser le format de code suivant pour l'extraction (un bloc par objet)
 }
 \`\`\`
 
+### Modifier ou SUPPRIMER (pas seulement ajouter)
+
+Tu PEUX corriger le modèle, pas seulement ajouter :
+- **Mettre à jour** : réémets simplement un bloc \`entity\` / \`relation\` / \`attribute\` avec la même identité (même nom d'entité ; même source→cible pour une relation ; même entité+colonne pour un attribut). L'existant est MIS À JOUR (aucun doublon créé).
+- **Supprimer** : ajoute \`"op": "delete"\` dans le bloc, avec juste l'identité de l'élément à retirer. Exemples :
+  - Supprimer une relation obsolète : \`{ "type": "relation", "op": "delete", "data": { "source": "RISQUE", "target": "Credit" } }\`
+  - Supprimer une entité (et, en cascade, ses attributs et relations) : \`{ "type": "entity", "op": "delete", "data": { "name": "Thomas" } }\`
+  - Supprimer une colonne : \`{ "type": "attribute", "op": "delete", "data": { "entityName": "Client", "name": "colonne_obsolete" } }\`
+
+Ne dis donc JAMAIS que tu ne peux pas supprimer une relation/entité/colonne : émets le bloc avec \`"op": "delete"\`. Quand tu remplaces une relation par une meilleure, supprime l'ancienne (op delete) ET émets la nouvelle.
+
 Voici les structures exactes attendues pour chaque type :
 
 - **context** :
