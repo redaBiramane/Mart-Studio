@@ -568,6 +568,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   }
 
   function handleStepChange(step: number) {
+    if (isLoading) return; // ne pas changer d'étape pendant que Marty génère
     hasInitialized.current = false;
     setMessages([]);
     setCurrentStep(step);
@@ -1111,7 +1112,8 @@ ${truncated}
                   <button
                     type="button"
                     className="cta-btn"
-                    style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                    style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap', opacity: isLoading ? 0.5 : 1 }}
+                    disabled={isLoading}
                     onClick={() => handleStepChange(currentStep + 1)}
                   >
                     {stepDef.optional && !hasStepData(currentStep) ? 'Passer ➔' : 'Valider la réponse ➔'}
@@ -1120,7 +1122,8 @@ ${truncated}
                   <button
                     type="button"
                     className="cta-btn"
-                    style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap', background: 'linear-gradient(135deg, var(--primary), #10B981)' }}
+                    style={{ padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap', background: 'linear-gradient(135deg, var(--primary), #10B981)', opacity: isLoading ? 0.5 : 1 }}
+                    disabled={isLoading}
                     onClick={() => {
                       completeSession();
                       setCurrentPage('deliverables');
