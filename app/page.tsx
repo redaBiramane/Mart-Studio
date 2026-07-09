@@ -347,7 +347,7 @@ export default function Home() {
             <h1>
               {currentPage === 'dashboard' && t('header.dashboard')}
               {currentPage === 'products' && t('header.products')}
-              {currentPage === 'workshop' && t('header.workshop')}
+              {currentPage === 'workshop' && (session?.productName ? `DataForge — ${session.productName}` : t('header.workshop'))}
               {currentPage === 'deliverables' && t('header.deliverables')}
               {currentPage === 'admin' && t('header.admin')}
               {currentPage === 'docs' && t('header.docs')}
