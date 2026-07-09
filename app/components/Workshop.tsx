@@ -285,7 +285,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     }
   }
 
-  function processExtraction(extraction: { type: string; data: Record<string, unknown> }) {
+  function processExtraction(extraction: { type: string; op?: string; data: Record<string, unknown> }) {
     // Read the LATEST session state from the store, not the stale React closure.
     // This is critical: when one AI message emits several extract blocks, each call
     // must build on the result of the previous one — otherwise only the last block
@@ -293,6 +293,8 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
     const session = useWorkshopStore.getState().session;
     if (!session) return;
     const { type, data } = extraction;
+    // « op » peut être au niveau racine du bloc OU dans data (les deux tolérés).
+    const isDelete = extraction.op === 'delete' || data.op === 'delete' || data.delete === true;
 
     switch (type) {
       case 'context':
@@ -310,7 +312,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
         if (data.name) {
           const nm = (data.name as string).toLowerCase();
           // Suppression d'une entité (en cascade : ses attributs et relations aussi).
-          if (data.op === 'delete' || data.delete === true) {
+          if (isDelete) {
             const ent = session.entities.find(e => e.name.toLowerCase() === nm);
             updateSessionData({
               entities: session.entities.filter(e => e.name.toLowerCase() !== nm),
@@ -354,7 +356,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
           const src = (data.source as string).toLowerCase(), tgt = (data.target as string).toLowerCase();
           const matches = (r: typeof session.relations[number]) => r.sourceEntityName?.toLowerCase() === src && r.targetEntityName?.toLowerCase() === tgt;
           // Suppression d'une relation obsolète (par source → cible).
-          if (data.op === 'delete' || data.delete === true) {
+          if (isDelete) {
             updateSessionData({ relations: session.relations.filter(r => !matches(r)) });
             break;
           }
@@ -403,7 +405,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
             return sameName && (sameEntity || entityKeys.length === 0);
           };
           // Suppression d'une colonne (par entité + nom).
-          if (data.op === 'delete' || data.delete === true) {
+          if (isDelete) {
             updateSessionData({ attributes: session.attributes.filter(a => !sameCol(a)) });
             break;
           }
