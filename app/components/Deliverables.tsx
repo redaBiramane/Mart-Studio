@@ -1771,14 +1771,29 @@ function sanitizeComment(text: string): string {
 }
 
 function mapSqlType(type: string): string {
-  const t = (type || 'varchar').toLowerCase();
-  if (t.includes('int')) return 'BIGINT';
-  if (t.includes('decimal') || t.includes('float') || t.includes('numeric')) return 'DECIMAL(18,4)';
-  if (t.includes('date') && t.includes('time')) return 'TIMESTAMP';
-  if (t.includes('date')) return 'DATE';
-  if (t.includes('bool')) return 'BOOLEAN';
-  if (t.includes('text')) return 'TEXT';
-  return 'VARCHAR(255)';
+  const raw = (type || '').trim();
+  if (!raw) return 'VARCHAR(255)';
+  // Sépare le type de base de sa taille : ex. « varchar(10) » → base=varchar, args=(10).
+  const m = raw.match(/^([a-zA-Z_]+)\s*(\(\s*\d+\s*(?:,\s*\d+\s*)?\))?/);
+  if (!m) return raw.toUpperCase();
+  const base = m[1].toLowerCase();
+  const args = m[2] ? m[2].replace(/\s+/g, '') : '';   // « (10) » ou « (18,4) », taille SAISIE conservée
+  const U = m[1].toUpperCase();
+  // Chaînes : on conserve la longueur choisie par l'utilisateur, sinon défaut.
+  if (['varchar', 'char', 'string', 'nvarchar', 'nchar', 'character'].includes(base))
+    return args ? `${base === 'string' ? 'VARCHAR' : U}${args}` : (base === 'char' ? 'CHAR(1)' : 'VARCHAR(255)');
+  // Numériques décimaux : on conserve (précision, échelle) saisies, sinon défaut.
+  if (['decimal', 'numeric', 'number'].includes(base))
+    return args ? `${base === 'number' ? 'NUMBER' : U}${args}` : 'DECIMAL(18,4)';
+  if (['int', 'integer', 'bigint', 'smallint', 'tinyint', 'byteint', 'serial', 'int2', 'int4', 'int8'].includes(base)) return 'BIGINT';
+  if (['float', 'double', 'real', 'float4', 'float8'].includes(base)) return 'FLOAT';
+  if (base === 'datetime' || base === 'timestamp' || (base === 'date' && raw.toLowerCase().includes('time'))) return 'TIMESTAMP';
+  if (base === 'date') return 'DATE';
+  if (base === 'time') return 'TIME';
+  if (base === 'bool' || base === 'boolean') return 'BOOLEAN';
+  if (base === 'text') return 'TEXT';
+  if (base === 'variant') return 'VARIANT';
+  return U + args; // type inconnu : on le laisse tel quel (avec sa taille éventuelle)
 }
 
 function generateDbtYaml(session: WorkshopSession): string {
