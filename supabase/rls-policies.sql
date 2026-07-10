@@ -204,3 +204,15 @@ end;
 $$;
 
 grant execute on function public.share_product(uuid, text, text) to authenticated;
+
+-- RPC : lister les utilisateurs de la base pour les proposer au partage
+-- (bypass RLS de profiles ; renvoie tout le monde sauf soi-même et les bannis).
+create or replace function public.list_shareable_users()
+returns table (id uuid, email text, full_name text)
+language sql security definer set search_path = public as $$
+  select id, email, full_name from public.profiles
+  where id <> auth.uid() and role <> 'banned'
+  order by email;
+$$;
+
+grant execute on function public.list_shareable_users() to authenticated;

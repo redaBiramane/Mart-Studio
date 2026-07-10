@@ -339,6 +339,7 @@ export interface WorkshopStore {
   shareProduct: (productId: string, email: string, role: MemberRole) => Promise<string>;
   unshareProduct: (productId: string, userId: string) => Promise<void>;
   loadProductMembers: (productId: string) => Promise<ProductMember[]>;
+  listShareableUsers: () => Promise<{ id: string; email: string; full_name: string }[]>;
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;

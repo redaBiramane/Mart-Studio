@@ -245,8 +245,20 @@ export const useWorkshopStore = create<WorkshopStore>()(
         const { data, error } = await supabase.rpc('share_product', {
           pid: productId, target_email: email, member_role: role,
         });
-        if (error) return 'error';
+        if (error) {
+          console.error('share_product error:', error);
+          // Remonte le message SQL réel (ex. « function share_product does not exist »
+          // = migration non exécutée dans Supabase).
+          return `err:${error.message || 'inconnue'}`;
+        }
         return (data as string) || 'error';
+      },
+
+      listShareableUsers: async () => {
+        if (!supabase) return [];
+        const { data, error } = await supabase.rpc('list_shareable_users');
+        if (error) { console.error('list_shareable_users error:', error); return []; }
+        return (data as { id: string; email: string; full_name: string }[]) || [];
       },
 
       unshareProduct: async (productId, userId) => {

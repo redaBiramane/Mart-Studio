@@ -274,10 +274,11 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
 }
 
 function ShareModal({ target, onClose }: { target: { id: string; name: string }; onClose: () => void }) {
-  const { shareProduct, unshareProduct, loadProductMembers } = useWorkshopStore();
+  const { shareProduct, unshareProduct, loadProductMembers, listShareableUsers } = useWorkshopStore();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'editor' | 'viewer'>('editor');
   const [members, setMembers] = useState<import('@/lib/types').ProductMember[]>([]);
+  const [users, setUsers] = useState<{ id: string; email: string; full_name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
@@ -286,6 +287,11 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
   }, [loadProductMembers, target.id]);
 
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { listShareableUsers().then(setUsers); }, [listShareableUsers]);
+
+  // Utilisateurs de la base pas encore membres (proposés dans la liste).
+  const memberIds = new Set(members.map(m => m.user_id));
+  const available = users.filter(u => !memberIds.has(u.id));
 
   const invite = async () => {
     const e = email.trim();
@@ -303,6 +309,12 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
       setMsg({ kind: 'err', text: 'Vous êtes déjà le propriétaire de ce produit.' });
     } else if (res === 'not_owner') {
       setMsg({ kind: 'err', text: 'Seul le propriétaire peut partager ce produit.' });
+    } else if (res.startsWith('err:')) {
+      const detail = res.slice(4);
+      const missing = /share_product|does not exist|schema cache|function/i.test(detail);
+      setMsg({ kind: 'err', text: missing
+        ? "La fonction de partage n'existe pas encore côté base : exécutez le script SQL « product_members » dans Supabase (SQL Editor)."
+        : `Échec : ${detail}` });
     } else {
       setMsg({ kind: 'err', text: 'Échec du partage. Réessayez.' });
     }
@@ -328,9 +340,14 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
           <input
-            type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@collegue.com"
+            type="email" value={email} onChange={e => setEmail(e.target.value)}
+            placeholder={available.length ? 'Choisir ou saisir un email…' : 'email@collegue.com'}
+            list="share-users"
             onKeyDown={e => { if (e.key === 'Enter') invite(); }} style={inputStyle} autoFocus
           />
+          <datalist id="share-users">
+            {available.map(u => <option key={u.id} value={u.email}>{u.full_name || u.email}</option>)}
+          </datalist>
           <select value={role} onChange={e => setRole(e.target.value as 'editor' | 'viewer')} style={{ ...inputStyle, flex: 'none', width: 130, cursor: 'pointer' }}>
             <option value="editor">Éditeur</option>
             <option value="viewer">Lecteur</option>
@@ -342,6 +359,21 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
           <strong>Éditeur</strong> : peut modifier le modèle. <strong>Lecteur</strong> : consultation seule.
         </div>
+
+        {available.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 6 }}>Utilisateurs de la base ({available.length}) — cliquez pour choisir :</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 96, overflowY: 'auto' }}>
+              {available.map(u => (
+                <button key={u.id} type="button" onClick={() => setEmail(u.email)}
+                  title={u.email}
+                  style={{ fontSize: 11.5, padding: '4px 9px', borderRadius: 999, cursor: 'pointer', border: email === u.email ? '1px solid var(--border-active)' : '1px solid var(--border)', background: email === u.email ? 'var(--primary-glow)' : 'var(--bg-elevated)', color: email === u.email ? 'var(--primary-light)' : 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {u.full_name || u.email}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {msg && (
           <div style={{ marginTop: 12, fontSize: 12.5, padding: '9px 12px', borderRadius: 8, lineHeight: 1.45, background: msg.kind === 'ok' ? 'var(--primary-glow)' : 'rgba(220,38,38,0.08)', color: msg.kind === 'ok' ? 'var(--primary-light)' : 'var(--accent-red)' }}>
