@@ -105,6 +105,7 @@ create policy "step_questions_write_admin" on public.step_questions
 -- et à chacun de lire les logs qui le concernent (ses réponses).
 -- ------------------------------------------------------------
 drop policy if exists "logs_insert_self" on public.activity_logs;
+drop policy if exists "logs_insert_self_or_admin" on public.activity_logs;
 create policy "logs_insert_self_or_admin" on public.activity_logs
   for insert with check (user_id = auth.uid() or public.is_admin());
 
