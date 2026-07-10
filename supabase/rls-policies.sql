@@ -136,8 +136,9 @@ create policy "app_config_write_admin" on public.app_config
 -- product_members : partage d'un Data Product avec des collègues
 -- Rôles : 'viewer' (lecture seule) ou 'editor' (collaboration).
 -- ============================================================
+-- NB : data_products.id est de type TEXT (IDs générés côté client) → product_id TEXT.
 create table if not exists public.product_members (
-  product_id uuid not null references public.data_products(id) on delete cascade,
+  product_id text not null references public.data_products(id) on delete cascade,
   user_id    uuid not null references public.profiles(id) on delete cascade,
   user_email text not null,
   role       text not null default 'editor' check (role in ('viewer','editor')),
@@ -148,18 +149,24 @@ create table if not exists public.product_members (
 
 alter table public.product_members enable row level security;
 
+-- Nettoie d'éventuelles versions typées uuid (si un ancien essai a partiellement tourné).
+drop function if exists public.is_product_member(uuid);
+drop function if exists public.is_product_editor(uuid);
+drop function if exists public.is_product_owner(uuid);
+drop function if exists public.share_product(uuid, text, text);
+
 -- Helpers SECURITY DEFINER : évitent la récursion RLS entre data_products et product_members.
-create or replace function public.is_product_member(pid uuid)
+create or replace function public.is_product_member(pid text)
 returns boolean language sql security definer set search_path = public as $$
   select exists (select 1 from public.product_members where product_id = pid and user_id = auth.uid());
 $$;
 
-create or replace function public.is_product_editor(pid uuid)
+create or replace function public.is_product_editor(pid text)
 returns boolean language sql security definer set search_path = public as $$
   select exists (select 1 from public.product_members where product_id = pid and user_id = auth.uid() and role = 'editor');
 $$;
 
-create or replace function public.is_product_owner(pid uuid)
+create or replace function public.is_product_owner(pid text)
 returns boolean language sql security definer set search_path = public as $$
   select exists (select 1 from public.data_products where id = pid and owner_id = auth.uid());
 $$;
@@ -188,7 +195,7 @@ create policy "members_write_owner" on public.product_members
 
 -- RPC : partager par email. Cherche le profil du collègue (bypass RLS) puis crée le membre.
 -- Renvoie : 'ok' | 'not_owner' | 'not_found' | 'self'.
-create or replace function public.share_product(pid uuid, target_email text, member_role text default 'editor')
+create or replace function public.share_product(pid text, target_email text, member_role text default 'editor')
 returns text language plpgsql security definer set search_path = public as $$
 declare tgt uuid;
 begin
@@ -204,7 +211,7 @@ begin
 end;
 $$;
 
-grant execute on function public.share_product(uuid, text, text) to authenticated;
+grant execute on function public.share_product(text, text, text) to authenticated;
 
 -- RPC : lister les utilisateurs de la base pour les proposer au partage
 -- (bypass RLS de profiles ; renvoie tout le monde sauf soi-même et les bannis).
