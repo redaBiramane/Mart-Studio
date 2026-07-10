@@ -106,6 +106,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       myLogs: [],
       stepQuestions: {},
       steps: null,
+      sharedInfo: {},
 
       setCurrentPage: (page) => set({ currentPage: page }),
       setChatDraft: (text) => set({ chatDraft: text }),
@@ -210,13 +211,57 @@ export const useWorkshopStore = create<WorkshopStore>()(
       loadUserSessions: async () => {
         const { user } = get();
         if (!supabase || !user) return;
+        // Produits partagés AVEC MOI (id → rôle/propriétaire)
+        const { data: mem } = await supabase
+          .from('product_members')
+          .select('product_id, role')
+          .eq('user_id', user.id);
+        const memberRole: Record<string, 'viewer' | 'editor'> = {};
+        (mem || []).forEach((m) => { memberRole[m.product_id] = m.role as 'viewer' | 'editor'; });
+        const memberIds = new Set(Object.keys(memberRole));
+
         const { data } = await supabase
           .from('data_products')
-          .select('id, owner_id, data')
+          .select('id, owner_id, owner_email, data')
           .order('updated_at', { ascending: false });
         if (!data) return;
-        const mine = data.filter((r) => r.owner_id === user.id).map((r) => r.data as WorkshopSession);
-        set({ sessions: mine });
+        // Les miens + ceux partagés avec moi (RLS renvoie déjà tout pour l'admin ;
+        // on filtre côté client pour ne garder QUE mes produits et mes partages).
+        const visible = data.filter((r) => r.owner_id === user.id || memberIds.has(r.id));
+        const sessions = visible.map((r) => r.data as WorkshopSession);
+        const sharedInfo: Record<string, { role: 'viewer' | 'editor'; ownerEmail: string }> = {};
+        visible.forEach((r) => {
+          if (r.owner_id !== user.id && memberIds.has(r.id)) {
+            sharedInfo[r.id] = { role: memberRole[r.id], ownerEmail: r.owner_email || '' };
+          }
+        });
+        set({ sessions, sharedInfo });
+      },
+
+      // Partager un produit avec un collègue (par email). Renvoie un code :
+      // 'ok' | 'not_found' | 'self' | 'not_owner' | 'error'.
+      shareProduct: async (productId, email, role) => {
+        if (!supabase) return 'error';
+        const { data, error } = await supabase.rpc('share_product', {
+          pid: productId, target_email: email, member_role: role,
+        });
+        if (error) return 'error';
+        return (data as string) || 'error';
+      },
+
+      unshareProduct: async (productId, userId) => {
+        if (!supabase) return;
+        await supabase.from('product_members').delete().eq('product_id', productId).eq('user_id', userId);
+      },
+
+      loadProductMembers: async (productId) => {
+        if (!supabase) return [];
+        const { data } = await supabase
+          .from('product_members')
+          .select('product_id, user_id, user_email, role, created_at')
+          .eq('product_id', productId)
+          .order('created_at', { ascending: true });
+        return (data as import('./types').ProductMember[]) || [];
       },
 
       loadAdminData: async () => {
@@ -532,8 +577,8 @@ export const useWorkshopStore = create<WorkshopStore>()(
             sessions: state.sessions.map((s) => (s.id === updatedSession.id ? updatedSession : s)),
           };
         });
-        const { session, user } = get();
-        if (session && user) {
+        const { session, user, sharedInfo } = get();
+        if (session && user && sharedInfo[session.id]?.role !== 'viewer') {
           upsertProduct(session, user.id, user.email);
           get().logActivity('complete_product', session.productName || '');
         }
@@ -576,7 +621,10 @@ function scheduleSave(get: () => WorkshopStore) {
   if (!isSupabaseConfigured) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { session, user } = get();
-    if (session && user) upsertProduct(session, user.id, user.email);
+    const { session, user, sharedInfo } = get();
+    if (!session || !user) return;
+    // Un produit partagé en LECTURE SEULE ne doit jamais être ré-écrit.
+    if (sharedInfo[session.id]?.role === 'viewer') return;
+    upsertProduct(session, user.id, user.email);
   }, 1200);
 }

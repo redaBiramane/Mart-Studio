@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { useI18n, localeCode } from '@/lib/i18n';
 
@@ -21,6 +21,7 @@ function Ico({ name, size = 15 }: { name: string; size?: number }) {
     edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="M13.5 6.5l4 4" /></>,
     copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></>,
     trash: <><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></>,
+    share: <><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>{p[name]}</svg>;
 }
@@ -40,9 +41,10 @@ function StatIcon({ name }: { name: string }) {
 }
 
 export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables }: Props) {
-  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession } = useWorkshopStore();
+  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession, sharedInfo } = useWorkshopStore();
   const { t, lang } = useI18n();
   const [q, setQ] = useState('');
+  const [shareTarget, setShareTarget] = useState<{ id: string; name: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [domainFilter, setDomainFilter] = useState('all');
   const [sort, setSort] = useState<SortKey>('recent');
@@ -178,9 +180,18 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
               <th style={th}>{t('dp.colProgress')}</th><th style={th}>{t('dp.colEntities')}</th><th style={th}>{t('dp.colUpdated')}</th><th style={{ ...th, textAlign: 'right' }}>{t('dp.colActions')}</th>
             </tr></thead>
             <tbody>
-              {list.map(s => (
+              {list.map(s => {
+                const shared = sharedInfo[s.id];
+                return (
                 <tr key={s.id}>
-                  <td style={{ ...td, fontWeight: 600 }}>{s.productName || t('dp.noName')}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>
+                    {s.productName || t('dp.noName')}
+                    {shared && (
+                      <span title={`Partagé par ${shared.ownerEmail}`} style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 999, background: 'var(--primary-glow)', color: 'var(--primary-light)', whiteSpace: 'nowrap' }}>
+                        {shared.role === 'viewer' ? 'Partagé · lecture' : 'Partagé · édition'}
+                      </span>
+                    )}
+                  </td>
                   <td style={{ ...td, color: 'var(--text-secondary)' }}>{s.domain || '—'}</td>
                   <td style={td}>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: s.status === 'completed' ? 'var(--primary-glow)' : 'var(--bg-elevated)', color: s.status === 'completed' ? 'var(--primary-light)' : 'var(--text-secondary)' }}>
@@ -202,12 +213,15 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
                       <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title={t('dp.open')} onClick={() => onOpenWorkshop(s.id)}><Ico name="open" /> {t('dp.open')}</button>
                       {s.entities.length > 0 && <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title={t('dp.deliverables')} onClick={() => onOpenDeliverables(s.id)}><Ico name="deliverables" /> {t('dp.deliverables')}</button>}
                       <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title={t('dp.duplicateTitle')} onClick={() => duplicateSession(s.id)}><Ico name="copy" /></button>
-                      <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title={t('dp.renameTitle')} onClick={() => rename(s.id, s.productName)}><Ico name="edit" /></button>
-                      <button style={{ ...iconBtn, color: 'var(--accent-red)', display: 'inline-flex', alignItems: 'center' }} title={t('dp.deleteTitle')} onClick={() => confirmDelete(s.id, s.productName)}><Ico name="trash" /></button>
+                      {/* Actions réservées au PROPRIÉTAIRE (produits non partagés-avec-moi) */}
+                      {!shared && <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Partager avec un collègue" onClick={() => setShareTarget({ id: s.id, name: s.productName || t('dp.noName') })}><Ico name="share" /> Partager</button>}
+                      {!shared && <button style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title={t('dp.renameTitle')} onClick={() => rename(s.id, s.productName)}><Ico name="edit" /></button>}
+                      {!shared && <button style={{ ...iconBtn, color: 'var(--accent-red)', display: 'inline-flex', alignItems: 'center' }} title={t('dp.deleteTitle')} onClick={() => confirmDelete(s.id, s.productName)}><Ico name="trash" /></button>}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -252,6 +266,112 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
           </div>
         </div>
       )}
+
+      {/* Modale : partager */}
+      {shareTarget && <ShareModal target={shareTarget} onClose={() => setShareTarget(null)} />}
+    </div>
+  );
+}
+
+function ShareModal({ target, onClose }: { target: { id: string; name: string }; onClose: () => void }) {
+  const { shareProduct, unshareProduct, loadProductMembers } = useWorkshopStore();
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'editor' | 'viewer'>('editor');
+  const [members, setMembers] = useState<import('@/lib/types').ProductMember[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const refresh = useCallback(async () => {
+    setMembers(await loadProductMembers(target.id));
+  }, [loadProductMembers, target.id]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const invite = async () => {
+    const e = email.trim();
+    if (!e) return;
+    setBusy(true); setMsg(null);
+    const res = await shareProduct(target.id, e, role);
+    setBusy(false);
+    if (res === 'ok') {
+      setMsg({ kind: 'ok', text: `Partagé avec ${e}.` });
+      setEmail('');
+      refresh();
+    } else if (res === 'not_found') {
+      setMsg({ kind: 'err', text: "Aucun compte avec cet email. Le collègue doit d'abord créer un compte sur Mart Studio." });
+    } else if (res === 'self') {
+      setMsg({ kind: 'err', text: 'Vous êtes déjà le propriétaire de ce produit.' });
+    } else if (res === 'not_owner') {
+      setMsg({ kind: 'err', text: 'Seul le propriétaire peut partager ce produit.' });
+    } else {
+      setMsg({ kind: 'err', text: 'Échec du partage. Réessayez.' });
+    }
+  };
+
+  const remove = async (userId: string) => {
+    await unshareProduct(target.id, userId);
+    refresh();
+  };
+
+  const inputStyle: React.CSSProperties = { flex: 1, minWidth: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13.5, color: 'var(--text)' };
+
+  return (
+    <div onClick={onClose} style={overlay}>
+      <div onClick={e => e.stopPropagation()} style={{ ...modalBox, width: 'min(520px, 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <span style={{ color: 'var(--primary)', display: 'flex' }}><Ico name="share" size={20} /></span>
+          <h3 style={{ fontSize: 17, margin: 0 }}>Partager « {target.name} »</h3>
+        </div>
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+          Invitez un collègue par email. Il doit déjà avoir un compte Mart Studio. Le produit apparaîtra dans sa liste de Data Products.
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          <input
+            type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@collegue.com"
+            onKeyDown={e => { if (e.key === 'Enter') invite(); }} style={inputStyle} autoFocus
+          />
+          <select value={role} onChange={e => setRole(e.target.value as 'editor' | 'viewer')} style={{ ...inputStyle, flex: 'none', width: 130, cursor: 'pointer' }}>
+            <option value="editor">Éditeur</option>
+            <option value="viewer">Lecteur</option>
+          </select>
+          <button type="button" onClick={invite} disabled={busy || !email.trim()} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, padding: '0 18px', fontWeight: 700, fontSize: 13, cursor: busy ? 'default' : 'pointer', opacity: busy || !email.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+            {busy ? '…' : 'Inviter'}
+          </button>
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
+          <strong>Éditeur</strong> : peut modifier le modèle. <strong>Lecteur</strong> : consultation seule.
+        </div>
+
+        {msg && (
+          <div style={{ marginTop: 12, fontSize: 12.5, padding: '9px 12px', borderRadius: 8, lineHeight: 1.45, background: msg.kind === 'ok' ? 'var(--primary-glow)' : 'rgba(220,38,38,0.08)', color: msg.kind === 'ok' ? 'var(--primary-light)' : 'var(--accent-red)' }}>
+            {msg.text}
+          </div>
+        )}
+
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Personnes ayant accès ({members.length})
+          </div>
+          {members.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Personne pour l’instant.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {members.map(m => (
+                <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.user_email}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.role === 'viewer' ? 'Lecteur' : 'Éditeur'}</span>
+                  <button type="button" onClick={() => remove(m.user_id)} title="Retirer l’accès" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)', display: 'flex', padding: 2 }}><Ico name="trash" size={15} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+          <button type="button" className="suggested-chip" onClick={onClose}>Fermer</button>
+        </div>
+      </div>
     </div>
   );
 }

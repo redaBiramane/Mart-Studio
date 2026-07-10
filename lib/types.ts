@@ -249,6 +249,23 @@ export interface ActivityLog {
   created_at: string;
 }
 
+// Partage d'un Data Product avec un collègue
+export type MemberRole = 'viewer' | 'editor';
+
+export interface ProductMember {
+  product_id: string;
+  user_id: string;
+  user_email: string;
+  role: MemberRole;
+  created_at: string;
+}
+
+// Info sur un produit PARTAGÉ AVEC MOI (je ne suis pas le propriétaire)
+export interface SharedInfo {
+  role: MemberRole;
+  ownerEmail: string;
+}
+
 export interface StepQuestion {
   id: string;
   step: number;
@@ -292,6 +309,7 @@ export interface WorkshopStore {
   myLogs: ActivityLog[];
   stepQuestions: Record<number, StepQuestion[]>;
   steps: StepDefinition[] | null; // étapes configurées par l'admin (null = défaut)
+  sharedInfo: Record<string, SharedInfo>; // produits partagés AVEC MOI (id → rôle/proprio)
 
   // Actions
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
@@ -318,6 +336,9 @@ export interface WorkshopStore {
   signOut: () => Promise<void>;
   loadUserSessions: () => Promise<void>;
   loadAdminData: () => Promise<void>;
+  shareProduct: (productId: string, email: string, role: MemberRole) => Promise<string>;
+  unshareProduct: (productId: string, userId: string) => Promise<void>;
+  loadProductMembers: (productId: string) => Promise<ProductMember[]>;
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;
