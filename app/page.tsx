@@ -212,8 +212,8 @@ export default function Home() {
   if (isSupabaseConfigured && !authReady) {
     return (
       <div className="app-loading">
-        <Image className="app-loading-logo" src="/mart-icon.svg" alt="Mart Studio" width={72} height={72} style={{ width: 72, height: 72 }} priority />
-        <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3, color: 'var(--text)' }}>Mart Studio</div>
+        <Image className="app-loading-logo" src="/ca-logo.svg" alt="Crédit Agricole Personal Finance & Mobility" width={240} height={41} style={{ width: 240, height: 'auto', maxWidth: '80%' }} priority />
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Self Data Modeling Platform</div>
         <div className="app-progress" />
         <div style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: 0.3 }}>Chargement…</div>
       </div>
@@ -237,10 +237,10 @@ export default function Home() {
             title="Retour à l'accueil"
             onClick={() => { setCurrentPage('dashboard'); setSidebarOpen(false); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCurrentPage('dashboard'); setSidebarOpen(false); } }}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', textAlign: 'center', cursor: 'pointer' }}
+            style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center', cursor: 'pointer' }}
           >
-            <Image src="/mart-icon.svg" alt="Mart Studio" width={36} height={36} style={{ width: 36, height: 36, borderRadius: 9 }} priority />
-            <div className="sidebar-title" style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: 'var(--text)' }}>Mart Studio</div>
+            <Image src="/ca-logo.svg" alt="Crédit Agricole Personal Finance & Mobility" width={180} height={31} style={{ width: 180, height: 'auto', maxWidth: '100%' }} priority />
+            <div className="sidebar-title" style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Self Data Modeling Platform</div>
           </div>
         </div>
 
