@@ -212,7 +212,7 @@ export default function Home() {
   if (isSupabaseConfigured && !authReady) {
     return (
       <div className="app-loading">
-        <Image className="app-loading-logo" src="/ca-logo.svg" alt="Crédit Agricole Personal Finance & Mobility" width={240} height={41} style={{ width: 240, height: 'auto', maxWidth: '80%' }} priority />
+        <Image className="app-loading-logo" src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" width={240} height={71} style={{ width: 240, height: 'auto', maxWidth: '80%' }} priority />
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Self Data Modeling Platform</div>
         <div className="app-progress" />
         <div style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: 0.3 }}>Chargement…</div>
@@ -239,7 +239,7 @@ export default function Home() {
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCurrentPage('dashboard'); setSidebarOpen(false); } }}
             style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center', cursor: 'pointer' }}
           >
-            <Image src="/ca-logo.svg" alt="Crédit Agricole Personal Finance & Mobility" width={180} height={31} style={{ width: 180, height: 'auto', maxWidth: '100%' }} priority />
+            <Image src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" width={180} height={54} style={{ width: 180, height: 'auto', maxWidth: '100%' }} priority />
             <div className="sidebar-title" style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Self Data Modeling Platform</div>
           </div>
         </div>
