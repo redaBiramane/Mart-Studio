@@ -251,6 +251,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           // = migration non exécutée dans Supabase).
           return `err:${error.message || 'inconnue'}`;
         }
+        if (data === 'ok') get().loadMyLogs(); // rafraîchit la cloche de l'émetteur
         return (data as string) || 'error';
       },
 
@@ -529,6 +530,9 @@ export const useWorkshopStore = create<WorkshopStore>()(
       updateSessionData: (data: Partial<WorkshopSession>) => {
         set((state) => {
           if (!state.session) return state;
+          // Lecture seule : un produit partagé en 'viewer' ne peut pas être modifié
+          // (verrou maître : couvre l'éditeur visuel, l'extraction, tout).
+          if (state.sharedInfo[state.session.id]?.role === 'viewer') return state;
           // Historique : on capture l'état AVANT modification. Les frappes rapprochées
           // (< 700 ms) sont regroupées en un seul pas d'annulation.
           const now = Date.now();

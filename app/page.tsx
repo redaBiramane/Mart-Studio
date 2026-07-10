@@ -120,6 +120,16 @@ export default function Home() {
     myLogs.filter((l) => l.action === 'idea_reply').slice(0, 10).forEach((l) => {
       items.push({ id: `myl-${l.id}`, icon: 'idea', title: '💬 Réponse à votre idée', desc: l.detail || '', ts: new Date(l.created_at).getTime(), go: () => { setReplyView(l.detail || ''); setNotifOpen(false); } });
     });
+    // Partages : produit partagé AVEC moi (récepteur) et confirmations (émetteur)
+    myLogs.filter((l) => l.action === 'shared_with' || l.action === 'shared').slice(0, 10).forEach((l) => {
+      const received = l.action === 'shared_with';
+      items.push({
+        id: `shr-${l.id}`, icon: received ? 'done' : 'activity',
+        title: received ? '📦 Un data product a été partagé avec vous' : '✅ Data product partagé',
+        desc: l.detail || '', ts: new Date(l.created_at).getTime(),
+        go: () => { setCurrentPage('products'); setNotifOpen(false); setSidebarOpen(false); },
+      });
+    });
     if (items.length === 0) {
       items.push({ id: 'welcome', icon: 'welcome', title: t('notif.welcome'), desc: t('notif.welcomeDesc'), ts: Date.now() });
     }

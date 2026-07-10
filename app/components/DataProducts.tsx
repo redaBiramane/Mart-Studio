@@ -289,15 +289,19 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { listShareableUsers().then(setUsers); }, [listShareableUsers]);
 
-  // Utilisateurs de la base pas encore membres (proposés dans la liste).
+  // Utilisateurs de la base pas encore membres, filtrés par la recherche.
   const memberIds = new Set(members.map(m => m.user_id));
-  const available = users.filter(u => !memberIds.has(u.id));
+  const query = email.trim().toLowerCase();
+  const available = users
+    .filter(u => !memberIds.has(u.id))
+    .filter(u => !query || u.email.toLowerCase().includes(query) || (u.full_name || '').toLowerCase().includes(query));
+  const shown = available.slice(0, 50);
 
-  const invite = async () => {
-    const e = email.trim();
+  const invite = async (targetEmail?: string, targetRole?: 'editor' | 'viewer') => {
+    const e = (targetEmail ?? email).trim();
     if (!e) return;
     setBusy(true); setMsg(null);
-    const res = await shareProduct(target.id, e, role);
+    const res = await shareProduct(target.id, e, targetRole ?? role);
     setBusy(false);
     if (res === 'ok') {
       setMsg({ kind: 'ok', text: `Partagé avec ${e}.` });
@@ -325,7 +329,15 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
     refresh();
   };
 
+  // Changer le rôle d'un membre existant (share_product fait un upsert du rôle).
+  const changeRole = async (userEmail: string, newRole: 'editor' | 'viewer') => {
+    await shareProduct(target.id, userEmail, newRole);
+    refresh();
+  };
+
   const inputStyle: React.CSSProperties = { flex: 1, minWidth: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13.5, color: 'var(--text)' };
+  const iconBtnLocal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--primary-light)', whiteSpace: 'nowrap' };
+  const roleSelectStyle: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 11.5, color: 'var(--text)', cursor: 'pointer' };
 
   return (
     <div onClick={onClose} style={overlay}>
@@ -339,41 +351,49 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
         </p>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-          <input
-            type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder={available.length ? 'Choisir ou saisir un email…' : 'email@collegue.com'}
-            list="share-users"
-            onKeyDown={e => { if (e.key === 'Enter') invite(); }} style={inputStyle} autoFocus
-          />
-          <datalist id="share-users">
-            {available.map(u => <option key={u.id} value={u.email}>{u.full_name || u.email}</option>)}
-          </datalist>
-          <select value={role} onChange={e => setRole(e.target.value as 'editor' | 'viewer')} style={{ ...inputStyle, flex: 'none', width: 130, cursor: 'pointer' }}>
+          <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+            <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', pointerEvents: 'none' }}><Ico name="search" size={15} /></span>
+            <input
+              type="text" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="Rechercher un nom ou un email…"
+              onKeyDown={e => { if (e.key === 'Enter') invite(); }} style={{ ...inputStyle, paddingLeft: 32 }} autoFocus
+            />
+          </div>
+          <select value={role} onChange={e => setRole(e.target.value as 'editor' | 'viewer')} style={{ ...inputStyle, flex: 'none', width: 120, cursor: 'pointer' }}>
             <option value="editor">Éditeur</option>
             <option value="viewer">Lecteur</option>
           </select>
-          <button type="button" onClick={invite} disabled={busy || !email.trim()} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, padding: '0 18px', fontWeight: 700, fontSize: 13, cursor: busy ? 'default' : 'pointer', opacity: busy || !email.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+          <button type="button" onClick={() => invite()} disabled={busy || !email.trim()} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, padding: '0 16px', fontWeight: 700, fontSize: 13, cursor: busy ? 'default' : 'pointer', opacity: busy || !email.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}>
             {busy ? '…' : 'Inviter'}
           </button>
         </div>
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
-          <strong>Éditeur</strong> : peut modifier le modèle. <strong>Lecteur</strong> : consultation seule.
+          <strong>Éditeur</strong> : peut modifier le modèle. <strong>Lecteur</strong> : consultation seule. Le rôle du menu s’applique à l’invitation.
         </div>
 
-        {available.length > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 6 }}>Utilisateurs de la base ({available.length}) — cliquez pour choisir :</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 96, overflowY: 'auto' }}>
-              {available.map(u => (
-                <button key={u.id} type="button" onClick={() => setEmail(u.email)}
-                  title={u.email}
-                  style={{ fontSize: 11.5, padding: '4px 9px', borderRadius: 999, cursor: 'pointer', border: email === u.email ? '1px solid var(--border-active)' : '1px solid var(--border)', background: email === u.email ? 'var(--primary-glow)' : 'var(--bg-elevated)', color: email === u.email ? 'var(--primary-light)' : 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {u.full_name || u.email}
-                </button>
+        {/* Liste organisée et cherchable — chaque ligne s'invite directement */}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Utilisateurs de la base ({available.length}{shown.length < available.length ? `, ${shown.length} affichés` : ''}) — cliquez « Inviter » sur une ligne
+          </div>
+          {shown.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontStyle: 'italic', padding: '6px 2px' }}>
+              {query ? 'Aucun utilisateur ne correspond.' : 'Aucun utilisateur disponible.'}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 6 }}>
+              {shown.map(u => (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.full_name || u.email}</div>
+                    {u.full_name && <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>}
+                  </div>
+                  <button type="button" disabled={busy} onClick={() => invite(u.email)} style={{ ...iconBtnLocal, opacity: busy ? 0.5 : 1 }}>Inviter</button>
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {msg && (
           <div style={{ marginTop: 12, fontSize: 12.5, padding: '9px 12px', borderRadius: 8, lineHeight: 1.45, background: msg.kind === 'ok' ? 'var(--primary-glow)' : 'rgba(220,38,38,0.08)', color: msg.kind === 'ok' ? 'var(--primary-light)' : 'var(--accent-red)' }}>
@@ -390,9 +410,12 @@ function ShareModal({ target, onClose }: { target: { id: string; name: string };
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {members.map(m => (
-                <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }}>
                   <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.user_email}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.role === 'viewer' ? 'Lecteur' : 'Éditeur'}</span>
+                  <select value={m.role} onChange={e => changeRole(m.user_email, e.target.value as 'editor' | 'viewer')} title="Changer le rôle" style={roleSelectStyle}>
+                    <option value="editor">Éditeur</option>
+                    <option value="viewer">Lecteur</option>
+                  </select>
                   <button type="button" onClick={() => remove(m.user_id)} title="Retirer l’accès" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)', display: 'flex', padding: 2 }}><Ico name="trash" size={15} /></button>
                 </div>
               ))}

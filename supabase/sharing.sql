@@ -66,7 +66,7 @@ create policy "members_write_owner" on public.product_members
 -- Renvoie : 'ok' | 'not_owner' | 'not_found' | 'self'.
 create or replace function public.share_product(pid text, target_email text, member_role text default 'editor')
 returns text language plpgsql security definer set search_path = public as $$
-declare tgt uuid;
+declare tgt uuid; pname text; sharer text; rolefr text;
 begin
   if not (public.is_product_owner(pid) or public.is_admin()) then return 'not_owner'; end if;
   if member_role not in ('viewer','editor') then member_role := 'editor'; end if;
@@ -76,6 +76,17 @@ begin
   insert into public.product_members (product_id, user_id, user_email, role, invited_by)
   values (pid, tgt, trim(target_email), member_role, auth.uid())
   on conflict (product_id, user_id) do update set role = excluded.role;
+
+  -- Notifications (bypass RLS grâce à security definer)
+  select name into pname from public.data_products where id = pid;
+  select email into sharer from public.profiles where id = auth.uid();
+  rolefr := case when member_role = 'viewer' then 'lecteur' else 'éditeur' end;
+  -- Récepteur
+  insert into public.activity_logs (user_id, user_email, action, detail)
+  values (tgt, target_email, 'shared_with', coalesce(pname, 'Un data product') || ' — partagé par ' || coalesce(sharer, 'un collègue') || ' (' || rolefr || ')');
+  -- Émetteur (confirmation)
+  insert into public.activity_logs (user_id, user_email, action, detail)
+  values (auth.uid(), sharer, 'shared', coalesce(pname, 'Un data product') || ' → ' || trim(target_email) || ' (' || rolefr || ')');
   return 'ok';
 end;
 $$;

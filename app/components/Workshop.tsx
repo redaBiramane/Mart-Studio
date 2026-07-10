@@ -18,10 +18,13 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft, sharedInfo } = useWorkshopStore();
+  // Produit partagé avec moi en LECTURE SEULE → aucune modification possible.
+  const readOnly = !!(session && sharedInfo[session.id]?.role === 'viewer');
+  const sharedBy = session ? sharedInfo[session.id]?.ownerEmail : undefined;
   const effSteps = steps && steps.length ? steps : STEPS; // étapes configurées par l'admin, sinon défaut
-  const canUndo = past.length > 0;
-  const canRedo = future.length > 0;
+  const canUndo = past.length > 0 && !readOnly;
+  const canRedo = future.length > 0 && !readOnly;
   const [lastChange, setLastChange] = useState<{ entities: number; attributes: number; relations: number; kpis: number; rules: number; context: boolean } | null>(null);
 
   // Le résumé des changements de Marty disparaît tout seul au bout de 14 s.
@@ -586,7 +589,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   }
 
   function handleStepChange(step: number) {
-    if (isLoading) return; // ne pas changer d'étape pendant que Marty génère
+    if (isLoading || readOnly) return; // pas de changement pendant génération ou en lecture seule
     hasInitialized.current = false;
     setMessages([]);
     setCurrentStep(step);
@@ -594,6 +597,7 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return; // lecteur : aucune saisie
     if ((!input.trim() && pendingImages.length === 0) || isLoading) return;
 
     const userText = input.trim();
@@ -778,7 +782,7 @@ ${truncated}
   const isValidation = currentStep === effSteps.length;
   // Validation : bouton toujours dispo. Étape optionnelle : on peut passer.
   // Étape requise : bandeau après que l'utilisateur a répondu et que des données existent.
-  const showStepBanner = isValidation || stepDef.optional || (hasStepData(currentStep) && userHasMessagedThisStep);
+  const showStepBanner = !readOnly && (isValidation || stepDef.optional || (hasStepData(currentStep) && userHasMessagedThisStep));
 
   return (
     <div className="workshop-layout">
@@ -888,10 +892,10 @@ ${truncated}
 
       <div
         className="chat-panel"
-        onDragOver={(e) => { if (!visual) { e.preventDefault(); if (!dragOver) setDragOver(true); } }}
+        onDragOver={(e) => { if (!visual && !readOnly) { e.preventDefault(); if (!dragOver) setDragOver(true); } }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
         onDrop={(e) => {
-          if (visual) return;
+          if (visual || readOnly) return;
           e.preventDefault();
           setDragOver(false);
           const files = Array.from(e.dataTransfer.files || []);
@@ -903,6 +907,12 @@ ${truncated}
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /><path d="M12 3v13M8 12l4 4 4-4" /></svg>
             <div style={{ fontWeight: 700, color: 'var(--primary-light)' }}>Déposez votre image ou fichier ici</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>MCD/ERD, capture, SAS, SQL, CSV, Excel — Marty l&apos;analyse</div>
+          </div>
+        )}
+        {readOnly && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'rgba(217,119,6,0.08)', borderBottom: '1px solid var(--accent-amber)', color: 'var(--accent-amber)', fontSize: 13, lineHeight: 1.4 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="4.5" y="10.5" width="15" height="9.5" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /></svg>
+            <span><strong>Lecture seule.</strong> Ce Data Product vous a été partagé{sharedBy ? ` par ${sharedBy}` : ''} en consultation — vous pouvez tout voir mais pas modifier. Demandez l’accès « Éditeur » au propriétaire pour contribuer.</span>
           </div>
         )}
         <div style={{
@@ -927,14 +937,14 @@ ${truncated}
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
                     Signaler un problème IA
                   </button>
-                  <button className="user-menu-item" onClick={() => { setShowReset(true); setMenuOpen(false); }} style={{ color: 'var(--accent-amber)' }}>
+                  {!readOnly && <button className="user-menu-item" onClick={() => { setShowReset(true); setMenuOpen(false); }} style={{ color: 'var(--accent-amber)' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></svg>
                     Remettre à zéro l&apos;atelier
-                  </button>
-                  <button className="user-menu-item" onClick={() => { setShowDelete(true); setMenuOpen(false); }} style={{ color: 'var(--accent-red)' }}>
+                  </button>}
+                  {!readOnly && <button className="user-menu-item" onClick={() => { setShowDelete(true); setMenuOpen(false); }} style={{ color: 'var(--accent-red)' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg>
                     Supprimer ce Data Product
-                  </button>
+                  </button>}
                 </div>
               </>
             )}
@@ -1154,7 +1164,7 @@ ${truncated}
             </div>
           )}
 
-          {suggestions.length > 0 && displayMessages.length < 3 && !isLoading && (
+          {suggestions.length > 0 && displayMessages.length < 3 && !isLoading && !readOnly && (
             <div className="suggested-chips">
               {suggestions.map((q, i) => (
                 <button key={i} className="suggested-chip" disabled={isLoading} onClick={() => {
@@ -1196,7 +1206,7 @@ ${truncated}
               type="button"
               className="chat-send-btn"
               title="Importer un fichier (SAS, SQL, CSV, Excel) ou une image d'un ancien MCD/ERD — Marty en déduit le modèle"
-              disabled={isLoading || importing}
+              disabled={isLoading || importing || readOnly}
               onClick={() => fileInputRef.current?.click()}
               style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}
             >
@@ -1207,7 +1217,7 @@ ${truncated}
                 type="button"
                 className="chat-send-btn"
                 title={listening ? 'Arrêter la dictée' : 'Parler à Marty (saisie vocale)'}
-                disabled={isLoading}
+                disabled={isLoading || readOnly}
                 onClick={toggleMic}
                 style={{ background: listening ? 'var(--accent-red)' : 'var(--bg-input)', color: listening ? '#fff' : 'var(--text-secondary)', animation: listening ? 'micPulse 1.3s ease-in-out infinite' : 'none' }}
               >
@@ -1224,16 +1234,16 @@ ${truncated}
               value={input}
               onChange={handleTextareaInput}
               onKeyDown={handleKeyDown}
-              placeholder={isLoading ? 'Marty réfléchit… (patientez ou cliquez ■ pour arrêter)' : 'Décrivez votre Data Product, ou importez un fichier (📎)…'}
+              placeholder={readOnly ? 'Lecture seule — vous ne pouvez pas écrire à Marty sur ce produit partagé.' : isLoading ? 'Marty réfléchit… (patientez ou cliquez ■ pour arrêter)' : 'Décrivez votre Data Product, ou importez un fichier (📎)…'}
               rows={1}
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
             />
             {isLoading ? (
               <button type="button" className="chat-send-btn" onClick={() => stop()} title="Arrêter la génération" style={{ background: 'var(--accent-red)', color: '#fff' }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
               </button>
             ) : (
-              <button type="submit" className="chat-send-btn" disabled={!input.trim() && pendingImages.length === 0}>
+              <button type="submit" className="chat-send-btn" disabled={(!input.trim() && pendingImages.length === 0) || readOnly}>
                 ➤
               </button>
             )}
