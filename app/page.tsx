@@ -237,9 +237,9 @@ export default function Home() {
             title="Retour à l'accueil"
             onClick={() => { setCurrentPage('dashboard'); setSidebarOpen(false); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCurrentPage('dashboard'); setSidebarOpen(false); } }}
-            style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', textAlign: 'center', cursor: 'pointer' }}
+            style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 12, width: '100%', textAlign: 'left', cursor: 'pointer' }}
           >
-            <Image src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" width={180} height={54} style={{ width: 180, height: 'auto', maxWidth: '100%' }} priority />
+            <Image src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" width={170} height={51} style={{ width: 170, height: 'auto', maxWidth: '100%' }} priority />
             <div className="sidebar-title" style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Self Data Modeling Platform</div>
           </div>
         </div>
