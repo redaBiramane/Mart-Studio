@@ -104,3 +104,51 @@ language sql security definer set search_path = public as $$
 $$;
 
 grant execute on function public.list_shareable_users() to authenticated;
+
+-- ============================================================
+-- Demande d'accès Éditeur (lecteur → propriétaire) + réponse (accepte/refuse)
+-- Le détail est encodé « pid§§email§§nom » (délimiteur §§) pour un parsing simple côté app.
+-- ============================================================
+create or replace function public.request_access(pid text)
+returns text language plpgsql security definer set search_path = public as $$
+declare owner uuid; pname text; reqemail text;
+begin
+  select owner_id, name into owner, pname from public.data_products where id = pid;
+  if owner is null then return 'not_found'; end if;
+  select email into reqemail from public.profiles where id = auth.uid();
+  if owner = auth.uid() then return 'self'; end if;
+  insert into public.activity_logs (user_id, user_email, action, detail)
+  values (owner, reqemail, 'access_request', pid || '§§' || coalesce(reqemail,'') || '§§' || coalesce(pname,'Un data product'));
+  return 'ok';
+end;
+$$;
+grant execute on function public.request_access(text) to authenticated;
+
+create or replace function public.respond_access(pid text, requester_email text, decision text)
+returns text language plpgsql security definer set search_path = public as $$
+declare tgt uuid; pname text; owneremail text;
+begin
+  if not (public.is_product_owner(pid) or public.is_admin()) then return 'not_owner'; end if;
+  select id into tgt from public.profiles where lower(email) = lower(trim(requester_email)) limit 1;
+  if tgt is null then return 'not_found'; end if;
+  select name into pname from public.data_products where id = pid;
+  select email into owneremail from public.profiles where id = auth.uid();
+  -- retire la demande en attente (chez le propriétaire)
+  delete from public.activity_logs
+   where action = 'access_request' and user_id = auth.uid()
+     and detail like pid || '§§' || requester_email || '§§%';
+  if decision = 'accept' then
+    insert into public.product_members (product_id, user_id, user_email, role, invited_by)
+    values (pid, tgt, trim(requester_email), 'editor', auth.uid())
+    on conflict (product_id, user_id) do update set role = 'editor';
+    insert into public.activity_logs (user_id, user_email, action, detail)
+    values (tgt, requester_email, 'access_granted', coalesce(pname,'Un data product') || ' — accès Éditeur accordé par ' || coalesce(owneremail,'le propriétaire'));
+    return 'accepted';
+  else
+    insert into public.activity_logs (user_id, user_email, action, detail)
+    values (tgt, requester_email, 'access_denied', coalesce(pname,'Un data product') || ' — demande d''accès refusée');
+    return 'denied';
+  end if;
+end;
+$$;
+grant execute on function public.respond_access(text, text, text) to authenticated;

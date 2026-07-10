@@ -340,6 +340,8 @@ export interface WorkshopStore {
   unshareProduct: (productId: string, userId: string) => Promise<void>;
   loadProductMembers: (productId: string) => Promise<ProductMember[]>;
   listShareableUsers: () => Promise<{ id: string; email: string; full_name: string }[]>;
+  requestAccess: (productId: string) => Promise<string>;
+  respondAccess: (productId: string, requesterEmail: string, decision: 'accept' | 'deny') => Promise<string>;
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;

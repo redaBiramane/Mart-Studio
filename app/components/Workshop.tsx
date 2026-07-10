@@ -18,7 +18,8 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft, sharedInfo } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft, sharedInfo, requestAccess } = useWorkshopStore();
+  const [accessReq, setAccessReq] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   // Produit partagé avec moi en LECTURE SEULE → aucune modification possible.
   const readOnly = !!(session && sharedInfo[session.id]?.role === 'viewer');
   const sharedBy = session ? sharedInfo[session.id]?.ownerEmail : undefined;
@@ -910,9 +911,26 @@ ${truncated}
           </div>
         )}
         {readOnly && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'rgba(217,119,6,0.08)', borderBottom: '1px solid var(--accent-amber)', color: 'var(--accent-amber)', fontSize: 13, lineHeight: 1.4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'rgba(217,119,6,0.08)', borderBottom: '1px solid var(--accent-amber)', color: 'var(--accent-amber)', fontSize: 13, lineHeight: 1.4, flexWrap: 'wrap' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="4.5" y="10.5" width="15" height="9.5" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /></svg>
-            <span><strong>Lecture seule.</strong> Ce Data Product vous a été partagé{sharedBy ? ` par ${sharedBy}` : ''} en consultation — vous pouvez tout voir mais pas modifier. Demandez l’accès « Éditeur » au propriétaire pour contribuer.</span>
+            <span style={{ flex: 1, minWidth: 200 }}><strong>Lecture seule.</strong> Ce Data Product vous a été partagé{sharedBy ? ` par ${sharedBy}` : ''} en consultation — vous pouvez tout voir mais pas modifier.</span>
+            {accessReq === 'sent' ? (
+              <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>✓ Demande envoyée{sharedBy ? ` à ${sharedBy}` : ''}</span>
+            ) : (
+              <button
+                type="button"
+                disabled={accessReq === 'sending'}
+                onClick={async () => {
+                  if (!session) return;
+                  setAccessReq('sending');
+                  const res = await requestAccess(session.id);
+                  setAccessReq(res === 'ok' ? 'sent' : 'error');
+                }}
+                style={{ whiteSpace: 'nowrap', background: 'var(--accent-amber)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontWeight: 700, fontSize: 12.5, cursor: accessReq === 'sending' ? 'default' : 'pointer', opacity: accessReq === 'sending' ? 0.6 : 1 }}
+              >
+                {accessReq === 'sending' ? 'Envoi…' : accessReq === 'error' ? 'Réessayer la demande' : 'Demander l’accès Éditeur'}
+              </button>
+            )}
           </div>
         )}
         <div style={{

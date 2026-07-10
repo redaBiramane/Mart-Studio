@@ -87,7 +87,7 @@ export default function Home() {
     document.documentElement.setAttribute('data-theme', next);
     try { localStorage.setItem('mart-theme', next); } catch { /* ignore */ }
   }
-  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs } = useWorkshopStore();
+  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs, respondAccess } = useWorkshopStore();
   const [replyView, setReplyView] = useState<string | null>(null);
 
   useEffect(() => { initAuth(); }, [initAuth]);
@@ -96,7 +96,7 @@ export default function Home() {
 
   // Notifications dérivées : événements produits (tous) + activité récente (admin)
   const notifications = useMemo(() => {
-    type Notif = { id: string; icon: string; title: string; desc: string; ts: number; go?: () => void };
+    type Notif = { id: string; icon: string; title: string; desc: string; ts: number; go?: () => void; actions?: { label: string; kind: 'primary' | 'danger'; run: () => void }[] };
     const items: Notif[] = [];
     const goProduct = (id: string, page: Page) => () => { useWorkshopStore.getState().loadSession(id); setCurrentPage(page); setNotifOpen(false); setSidebarOpen(false); };
     const goSupervision = (tab: 'activity' | 'ideas' | 'reports') => () => { setSupervisionTab(tab); setCurrentPage('supervision'); setNotifOpen(false); setSidebarOpen(false); };
@@ -109,7 +109,8 @@ export default function Home() {
       }
     });
     if (isAdmin) {
-      activityLogs.slice(0, 10).forEach((l) => {
+      const personal = new Set(['shared', 'shared_with', 'access_request', 'access_granted', 'access_denied', 'idea_reply']);
+      activityLogs.filter((l) => !personal.has(l.action)).slice(0, 10).forEach((l) => {
         const isIdea = l.action === 'idea';
         const isReport = l.action === 'report_ai';
         const title = isIdea ? '💡 Nouvelle idée' : isReport ? '⚠️ Signalement IA' : `${t('notif.activity')} · ${l.action}`;
@@ -130,11 +131,35 @@ export default function Home() {
         go: () => { setCurrentPage('products'); setNotifOpen(false); setSidebarOpen(false); },
       });
     });
+    // Demandes d'accès Éditeur reçues (je suis le propriétaire) → Accepter / Refuser
+    myLogs.filter((l) => l.action === 'access_request').slice(0, 10).forEach((l) => {
+      const [pid, reqEmail, pname] = (l.detail || '').split('§§');
+      items.push({
+        id: `areq-${l.id}`, icon: 'idea',
+        title: '🔑 Demande d’accès Éditeur',
+        desc: `${reqEmail || 'Un utilisateur'} demande à contribuer à « ${pname || 'un data product'} »`,
+        ts: new Date(l.created_at).getTime(),
+        actions: [
+          { label: 'Accepter', kind: 'primary', run: () => { respondAccess(pid, reqEmail, 'accept'); } },
+          { label: 'Refuser', kind: 'danger', run: () => { respondAccess(pid, reqEmail, 'deny'); } },
+        ],
+      });
+    });
+    // Réponses à MA demande d'accès
+    myLogs.filter((l) => l.action === 'access_granted' || l.action === 'access_denied').slice(0, 10).forEach((l) => {
+      const granted = l.action === 'access_granted';
+      items.push({
+        id: `ares-${l.id}`, icon: granted ? 'done' : 'activity',
+        title: granted ? '🔓 Accès Éditeur accordé' : '🔒 Demande d’accès refusée',
+        desc: l.detail || '', ts: new Date(l.created_at).getTime(),
+        go: granted ? () => { setCurrentPage('products'); setNotifOpen(false); setSidebarOpen(false); } : undefined,
+      });
+    });
     if (items.length === 0) {
       items.push({ id: 'welcome', icon: 'welcome', title: t('notif.welcome'), desc: t('notif.welcomeDesc'), ts: Date.now() });
     }
     return items.sort((a, b) => b.ts - a.ts).slice(0, 15);
-  }, [sessions, activityLogs, myLogs, isAdmin, t, setCurrentPage]);
+  }, [sessions, activityLogs, myLogs, isAdmin, t, setCurrentPage, respondAccess]);
 
   const unreadCount = notifications.filter((n) => n.ts > notifSeen && n.id !== 'welcome').length;
 
@@ -412,7 +437,21 @@ export default function Home() {
                         <div style={{ marginTop: 1 }}><NotifIcon name={n.icon} /></div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{n.title}</div>
-                          {n.desc && <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.desc}</div>}
+                          {n.desc && <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: n.actions ? 'normal' : 'nowrap' }}>{n.desc}</div>}
+                          {n.actions && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                              {n.actions.map((a, i) => (
+                                <button key={i} type="button"
+                                  onClick={(e) => { e.stopPropagation(); a.run(); }}
+                                  style={{ border: 'none', borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                                    background: a.kind === 'primary' ? 'var(--primary)' : 'transparent',
+                                    color: a.kind === 'primary' ? '#fff' : 'var(--accent-red)',
+                                    ...(a.kind === 'danger' ? { border: '1px solid var(--accent-red)' } : {}) }}>
+                                  {a.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

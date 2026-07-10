@@ -277,6 +277,24 @@ export const useWorkshopStore = create<WorkshopStore>()(
         return (data as import('./types').ProductMember[]) || [];
       },
 
+      // Un lecteur demande l'accès Éditeur → notifie le propriétaire.
+      requestAccess: async (productId) => {
+        if (!supabase) return 'error';
+        const { data, error } = await supabase.rpc('request_access', { pid: productId });
+        if (error) { console.error('request_access error:', error); return `err:${error.message || 'inconnue'}`; }
+        return (data as string) || 'error';
+      },
+
+      // Le propriétaire accepte/refuse une demande d'accès.
+      respondAccess: async (productId, requesterEmail, decision) => {
+        if (!supabase) return 'error';
+        const { data, error } = await supabase.rpc('respond_access', { pid: productId, requester_email: requesterEmail, decision });
+        if (error) { console.error('respond_access error:', error); return `err:${error.message || 'inconnue'}`; }
+        await get().loadMyLogs();        // retire la demande traitée de la cloche
+        await get().loadUserSessions();  // recharge la liste (le nouveau membre voit son produit)
+        return (data as string) || 'error';
+      },
+
       loadAdminData: async () => {
         if (!supabase) return;
         const [{ data: products }, { data: profiles }, { data: logs }] = await Promise.all([
