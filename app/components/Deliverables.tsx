@@ -151,6 +151,59 @@ function BarRow({ label, value, max, color }: { label: string; value: number; ma
   );
 }
 
+// Grande tuile KPI cliquable, avec halo coloré et effet de survol.
+function KpiTile({ icon, value, label, color, onClick }: { icon: string; value: number; label: string; color: string; onClick?: () => void }) {
+  const [hover, setHover] = useState(false);
+  const clickable = !!onClick;
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'relative', overflow: 'hidden', background: 'var(--bg-surface)',
+        border: `1px solid ${hover && clickable ? color : 'var(--border)'}`, borderRadius: 16, padding: '18px 18px',
+        cursor: clickable ? 'pointer' : 'default', transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s',
+        transform: hover && clickable ? 'translateY(-3px)' : 'none',
+        boxShadow: hover && clickable ? '0 12px 30px rgba(0,0,0,0.10)' : '0 1px 2px rgba(0,0,0,0.03)',
+      }}
+    >
+      <div style={{ position: 'absolute', top: -22, right: -22, width: 84, height: 84, borderRadius: '50%', background: color, opacity: hover && clickable ? 0.12 : 0.06, transition: 'opacity .18s' }} />
+      <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '1A', color, marginBottom: 12 }}>
+        <DIcon name={icon} size={22} />
+      </div>
+      <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, color: 'var(--text)', letterSpacing: -0.5 }}>{value}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+        {label}{clickable && <span style={{ transition: 'transform .18s', transform: hover ? 'translateX(3px)' : 'none', color, fontWeight: 700 }}>→</span>}
+      </div>
+    </div>
+  );
+}
+
+// Petite tuile d'indicateur de santé, avec barre d'accent à gauche.
+function HealthTile({ value, label, color, hint, onClick }: { value: string | number; label: string; color: string; hint?: string; onClick?: () => void }) {
+  const [hover, setHover] = useState(false);
+  const clickable = !!onClick;
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={hint}
+      style={{
+        position: 'relative', overflow: 'hidden', background: 'var(--bg-surface)', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '13px 14px 13px 18px', cursor: clickable ? 'pointer' : 'default',
+        transition: 'transform .15s, box-shadow .15s', transform: hover && clickable ? 'translateY(-2px)' : 'none',
+        boxShadow: hover && clickable ? '0 8px 20px rgba(0,0,0,0.08)' : 'none',
+      }}
+    >
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: color }} />
+      <div style={{ fontSize: 23, fontWeight: 800, color, letterSpacing: -0.3 }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.3 }}>{label}</div>
+    </div>
+  );
+}
+
 function OverviewTab({ session }: { session: WorkshopSession }) {
   const [detail, setDetail] = useState<OverviewDetailKey | null>(null);
 
@@ -176,107 +229,141 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
   const docPct = nbEnt ? Math.round((entWithAttrs / nbEnt) * 100) : 0;
   const requiredPct = nbAttr ? Math.round((requiredCount / nbAttr) * 100) : 0;
 
-  const cards: { key: OverviewDetailKey; label: string; value: number; icon: string }[] = [
-    { key: 'entities', label: 'Entités', value: nbEnt, icon: 'entities' },
-    { key: 'relations', label: 'Relations', value: session.relations.length, icon: 'relations' },
-    { key: 'attributes', label: 'Attributs', value: session.attributes.length, icon: 'attributes' },
-    { key: 'kpis', label: 'KPIs', value: session.kpis.length, icon: 'kpis' },
-    { key: 'rules', label: 'Règles', value: session.businessRules.length, icon: 'rules' },
-    { key: 'sources', label: 'Sources', value: session.dataSources.length, icon: 'sources' },
+  const cards: { key: OverviewDetailKey; label: string; value: number; icon: string; color: string }[] = [
+    { key: 'entities', label: 'Entités', value: nbEnt, icon: 'entities', color: '#059669' },
+    { key: 'relations', label: 'Relations', value: session.relations.length, icon: 'relations', color: '#2563EB' },
+    { key: 'attributes', label: 'Attributs', value: session.attributes.length, icon: 'attributes', color: '#7C3AED' },
+    { key: 'kpis', label: 'KPIs', value: session.kpis.length, icon: 'kpis', color: '#D97706' },
+    { key: 'rules', label: 'Règles', value: session.businessRules.length, icon: 'rules', color: '#DB2777' },
+    { key: 'sources', label: 'Sources', value: session.dataSources.length, icon: 'sources', color: '#0D9488' },
   ];
 
   const topEntities = [...session.entities].map(e => ({ name: e.name, n: attrsOf(e).length })).sort((a, b) => b.n - a.n).slice(0, 8);
   const maxAttr = Math.max(1, ...topEntities.map(e => e.n));
-  const cardBox: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 };
+  const cardBox: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
+
+  // Verdict parlant selon la maturité et les manques structurels.
+  const matColor = avgScore >= 70 ? '#059669' : avgScore >= 40 ? '#D97706' : '#DC2626';
+  const verdict = avgScore >= 75 ? 'Modèle solide, prêt pour l’exploitation.'
+    : avgScore >= 50 ? 'Bon modèle — quelques finitions possibles.'
+    : avgScore >= 25 ? 'Modèle en cours de structuration.'
+    : 'Modèle au démarrage.';
+  const alerts: string[] = [];
+  if (entWithoutPk > 0) alerts.push(`${entWithoutPk} entité(s) sans clé primaire`);
+  if (docPct < 100 && nbEnt > 0) alerts.push(`${nbEnt - entWithAttrs} entité(s) sans attribut`);
+  if (session.relations.length === 0 && nbEnt > 1) alerts.push('aucune relation définie');
+
+  const c = 2 * Math.PI * 52;
+  const off = c - (Math.max(0, Math.min(100, avgScore)) / 100) * c;
 
   return (
     <div className="fade-in">
-      <h2 style={{ fontSize: 22, marginBottom: 4 }}>{session.productName || 'Data Product'} — Tableau de bord</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Vue synthétique du modèle. Cliquez sur un indicateur pour le détail.</p>
-
-      {/* Barre méta produit */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
-        {[
-          session.domain && { l: 'Domaine', v: session.domain },
-          session.productOwner && { l: 'Product Owner', v: session.productOwner },
-          session.dataSteward && { l: 'Data Steward', v: session.dataSteward },
-          session.frequency && { l: 'Fréquence', v: session.frequency },
-          { l: 'Statut', v: session.status === 'completed' ? 'Terminé' : 'En cours' },
-          { l: 'Avancement', v: `${session.currentStep}/7` },
-        ].filter(Boolean).map((m, i) => {
-          const it = m as { l: string; v: string };
-          return (
-            <span key={i} style={{ fontSize: 12.5, padding: '6px 12px', borderRadius: 999, background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>{it.l} : </span><strong>{it.v}</strong>
-            </span>
-          );
-        })}
+      {/* ── HERO : identité produit + jauge de maturité + verdict ── */}
+      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '26px 28px', marginBottom: 20, color: '#fff', background: 'linear-gradient(135deg, #065F46 0%, #047857 45%, #0D9488 100%)', boxShadow: '0 14px 40px rgba(4,120,87,0.28)' }}>
+        <div style={{ position: 'absolute', top: -60, right: -40, width: 260, height: 260, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'absolute', bottom: -80, left: 120, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+        <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', background: 'rgba(255,255,255,0.16)', padding: '4px 11px', borderRadius: 999, marginBottom: 12 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: session.status === 'completed' ? '#34D399' : '#FCD34D' }} />
+              {session.status === 'completed' ? 'Terminé' : `En cours · étape ${session.currentStep}/7`}
+            </div>
+            <h2 style={{ fontSize: 27, margin: '0 0 6px', fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.1 }}>{session.productName || 'Data Product'}</h2>
+            <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.5, maxWidth: 560 }}>{session.objective || session.businessProblem || 'Tableau de bord synthétique du modèle de données.'}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+              {[
+                session.domain && { l: 'Domaine', v: session.domain },
+                session.productOwner && { l: 'PO', v: session.productOwner },
+                session.dataSteward && { l: 'Data Steward', v: session.dataSteward },
+                session.frequency && { l: 'Fréquence', v: session.frequency },
+              ].filter(Boolean).map((m, i) => {
+                const it = m as { l: string; v: string };
+                return (
+                  <span key={i} style={{ fontSize: 12, padding: '5px 11px', borderRadius: 8, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)' }}>
+                    <span style={{ opacity: 0.75 }}>{it.l} : </span><strong>{it.v}</strong>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          {/* Jauge de maturité */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, minWidth: 190 }}>
+            <svg width="132" height="132" viewBox="0 0 132 132">
+              <circle cx="66" cy="66" r="52" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="11" />
+              <circle cx="66" cy="66" r="52" fill="none" stroke="#fff" strokeWidth="11" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 66 66)" style={{ transition: 'stroke-dashoffset .8s ease' }} />
+              <text x="66" y="62" textAnchor="middle" fontSize="34" fontWeight="800" fill="#fff">{avgScore}</text>
+              <text x="66" y="83" textAnchor="middle" fontSize="12" fill="rgba(255,255,255,0.85)">/ 100</text>
+            </svg>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700 }}>Maturité globale</div>
+              <div style={{ fontSize: 11.5, opacity: 0.9, maxWidth: 200, marginTop: 2 }}>{verdict}</div>
+            </div>
+          </div>
+        </div>
+        {alerts.length > 0 && (
+          <div style={{ position: 'relative', marginTop: 18, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {alerts.map((a, i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '5px 11px', borderRadius: 8, background: 'rgba(253,224,71,0.18)', border: '1px solid rgba(253,224,71,0.35)' }}>
+                <span>⚠</span> {a}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Indicateurs clés */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+      {/* ── Indicateurs clés (cliquables) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
         {cards.map(s => (
-          <div key={s.label} className="stat-card" style={{ cursor: s.value > 0 ? 'pointer' : 'default', padding: '22px 18px', minHeight: 120, justifyContent: 'center' }} onClick={() => s.value > 0 && setDetail(s.key)}>
-            <div style={{ marginBottom: 6, color: 'var(--primary)' }}><DIcon name={s.icon} size={28} /></div>
-            <div className="stat-value" style={{ fontSize: 30 }}>{s.value}</div>
-            <div className="stat-label">{s.label}{s.value > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}> ›</span>}</div>
-          </div>
+          <KpiTile key={s.label} icon={s.icon} value={s.value} label={s.label} color={s.color} onClick={s.value > 0 ? () => setDetail(s.key) : undefined} />
         ))}
       </div>
 
-      {/* Couverture & qualité — KPI secondaires */}
+      {/* ── Santé & couverture ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-        {[
-          { v: `${docPct}%`, l: 'Entités documentées', c: 'var(--primary)' },
-          { v: entWithoutPk, l: 'Entités sans clé primaire', c: entWithoutPk > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' },
-          { v: nnRel, l: 'Relations N:N', c: 'var(--accent-blue)' },
-          { v: hierRel, l: 'Hiérarchies', c: 'var(--accent-purple)' },
-          { v: sensitiveCount, l: 'Attributs sensibles (RGPD)', c: sensitiveCount > 0 ? 'var(--accent-rose)' : 'var(--text-muted)' },
-          { v: historizedCount, l: 'Attributs historisés', c: 'var(--accent-blue)' },
-          { v: naturalKeyCount, l: 'Clés naturelles', c: 'var(--primary)' },
-          { v: `${requiredPct}%`, l: 'Attributs obligatoires', c: 'var(--accent-emerald)' },
-        ].map((m, i) => (
-          <div key={i} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px' }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: m.c }}>{m.v}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.3 }}>{m.l}</div>
-          </div>
-        ))}
+        <HealthTile value={`${docPct}%`} label="Entités documentées" color="#059669" />
+        <HealthTile value={entWithoutPk} label="Entités sans clé primaire" color={entWithoutPk > 0 ? '#D97706' : '#059669'} hint="Cliquez pour voir les entités" onClick={() => setDetail('entities')} />
+        <HealthTile value={nnRel} label="Relations N:N" color="#2563EB" hint="Cliquez pour voir les relations" onClick={session.relations.length ? () => setDetail('relations') : undefined} />
+        <HealthTile value={hierRel} label="Hiérarchies" color="#7C3AED" />
+        <HealthTile value={sensitiveCount} label="Attributs sensibles (RGPD)" color={sensitiveCount > 0 ? '#E11D48' : '#94A3B8'} hint="Cliquez pour voir les attributs" onClick={() => setDetail('attributes')} />
+        <HealthTile value={historizedCount} label="Attributs historisés" color="#2563EB" />
+        <HealthTile value={naturalKeyCount} label="Clés naturelles" color="#059669" />
+        <HealthTile value={`${requiredPct}%`} label="Attributs obligatoires" color="#059669" />
       </div>
 
-      {/* Jauges de complétude + faits/dimensions */}
+      {/* ── Complétude + faits/dimensions ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 20 }}>
         <div style={cardBox}>
-          <div style={{ fontWeight: 700, marginBottom: 16 }}>Complétude du modèle</div>
+          <div style={{ fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: 'var(--primary)' }}><DIcon name="quality" size={17} /></span> Complétude du modèle</div>
           <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 12 }}>
-            <Donut pct={nbEnt ? (entWithAttrs / nbEnt) * 100 : 0} label="Entités documentées" sub={`${entWithAttrs}/${nbEnt}`} color="var(--primary)" />
-            <Donut pct={nbEnt ? (entWithPk / nbEnt) * 100 : 0} label="Clés primaires" sub={`${entWithPk}/${nbEnt}`} color="var(--accent-blue)" />
-            <Donut pct={avgScore} label="Maturité globale" sub={`${avgScore}/100`} color={avgScore >= 70 ? 'var(--accent-emerald)' : avgScore >= 40 ? 'var(--accent-amber)' : 'var(--accent-red)'} />
+            <Donut pct={nbEnt ? (entWithAttrs / nbEnt) * 100 : 0} label="Entités documentées" sub={`${entWithAttrs}/${nbEnt}`} color="#059669" />
+            <Donut pct={nbEnt ? (entWithPk / nbEnt) * 100 : 0} label="Clés primaires" sub={`${entWithPk}/${nbEnt}`} color="#2563EB" />
+            <Donut pct={avgScore} label="Maturité globale" sub={`${avgScore}/100`} color={matColor} />
           </div>
         </div>
 
         <div style={cardBox}>
-          <div style={{ fontWeight: 700, marginBottom: 16 }}>Répartition faits / dimensions</div>
-          <div style={{ display: 'flex', height: 26, borderRadius: 8, overflow: 'hidden', marginBottom: 12, background: 'var(--bg-elevated)' }}>
-            {facts.length > 0 && <div style={{ width: `${factRatio}%`, background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{facts.length}</div>}
-            {dims.length > 0 && <div style={{ width: `${100 - factRatio}%`, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{dims.length}</div>}
+          <div style={{ fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: '#D97706' }}><DIcon name="star" size={17} /></span> Répartition faits / dimensions</div>
+          <div style={{ display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden', marginBottom: 12, background: 'var(--bg-elevated)' }}>
+            {facts.length > 0 && <div style={{ width: `${factRatio}%`, background: 'linear-gradient(90deg,#F59E0B,#D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 700, transition: 'width .5s' }}>{facts.length}</div>}
+            {dims.length > 0 && <div style={{ width: `${100 - factRatio}%`, background: 'linear-gradient(90deg,#059669,#0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 700, transition: 'width .5s' }}>{dims.length}</div>}
           </div>
-          <div style={{ display: 'flex', gap: 16, fontSize: 12.5 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ display: 'inline-block', width: 10, height: 10, background: '#F59E0B', borderRadius: 2 }} /><span style={{ color: '#F59E0B' }}><DIcon name="star" size={14} /></span> Faits : <strong>{facts.length}</strong></span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--primary)', borderRadius: 2 }} /><span style={{ color: 'var(--primary)' }}><DIcon name="cube" size={14} /></span> Dimensions : <strong>{dims.length}</strong></span>
+          <div style={{ display: 'flex', gap: 16, fontSize: 12.5, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ display: 'inline-block', width: 10, height: 10, background: '#F59E0B', borderRadius: 2 }} /> Faits : <strong>{facts.length}</strong></span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ display: 'inline-block', width: 10, height: 10, background: '#059669', borderRadius: 2 }} /> Dimensions : <strong>{dims.length}</strong></span>
           </div>
-          <div style={{ display: 'flex', gap: 24, marginTop: 16, fontSize: 13 }}>
-            <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary)' }}>{pkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés primaires</div></div>
-            <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent-blue)' }}>{fkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés étrangères</div></div>
-            <div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{nbEnt ? Math.round(session.attributes.length / nbEnt) : 0}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>attributs / entité</div></div>
+          <div style={{ display: 'flex', gap: 22, marginTop: 18, flexWrap: 'wrap' }}>
+            <div><div style={{ fontSize: 25, fontWeight: 800, color: '#059669' }}>{pkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés primaires</div></div>
+            <div><div style={{ fontSize: 25, fontWeight: 800, color: '#2563EB' }}>{fkCount}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>clés étrangères</div></div>
+            <div><div style={{ fontSize: 25, fontWeight: 800, color: 'var(--text)' }}>{nbEnt ? Math.round(session.attributes.length / nbEnt) : 0}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>attributs / entité</div></div>
           </div>
         </div>
       </div>
 
-      {/* Attributs par entité */}
+      {/* ── Attributs par entité ── */}
       {topEntities.length > 0 && (
         <div style={{ ...cardBox, marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, marginBottom: 16 }}>Attributs par entité {session.entities.length > 8 && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>(top 8)</span>}</div>
-          {topEntities.map(e => <BarRow key={e.name} label={e.name} value={e.n} max={maxAttr} color="var(--primary)" />)}
+          <div style={{ fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: '#7C3AED' }}><DIcon name="attributes" size={17} /></span> Attributs par entité {session.entities.length > 8 && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>(top 8)</span>}</div>
+          {topEntities.map(e => <BarRow key={e.name} label={e.name} value={e.n} max={maxAttr} color="#7C3AED" />)}
         </div>
       )}
 
@@ -284,7 +371,7 @@ function OverviewTab({ session }: { session: WorkshopSession }) {
 
       {session.maturityScores && (
         <div style={cardBox}>
-          <div style={{ fontWeight: 700, marginBottom: 16 }}>Score de maturité par dimension</div>
+          <div style={{ fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: 'var(--primary)' }}><DIcon name="overview" size={17} /></span> Score de maturité par dimension</div>
           <div className="maturity-scores">
             {MATURITY_DIMENSIONS.map(dim => {
               const score = session.maturityScores![dim.key as keyof typeof session.maturityScores];
