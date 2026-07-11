@@ -371,6 +371,7 @@ export interface WorkshopStore {
   recordTokens: (input: number, output: number, total: number) => void;
   profilePrefs: ProfilePrefs;
   updateProfilePrefs: (p: Partial<ProfilePrefs>) => void;
+  loadProfilePrefs: (userId: string) => void;
   updateProfileName: (fullName: string) => Promise<string | null>;
   changePassword: (newPassword: string) => Promise<string | null>;
   logActivity: (action: string, detail?: string) => Promise<void>;

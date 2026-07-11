@@ -54,6 +54,24 @@ const defaultLLMSettings = {
   customBaseUrl: '',
 };
 
+// Préférences de profil : stockées PAR UTILISATEUR (clé locale dédiée), jamais
+// partagées entre comptes sur un même navigateur.
+const DEFAULT_PREFS: import('./types').ProfilePrefs = {
+  avatarColor: '#0D9488', avatarEmoji: '', avatarPhoto: '',
+  notifShare: true, notifProduct: true, compact: false, defaultMode: 'guided',
+};
+const PREFS_KEY = (uid: string) => `mart-profile-prefs:${uid}`;
+function loadPrefs(uid: string): import('./types').ProfilePrefs {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PREFS_KEY(uid)) : null;
+    if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return { ...DEFAULT_PREFS };
+}
+function savePrefs(uid: string, p: import('./types').ProfilePrefs) {
+  try { localStorage.setItem(PREFS_KEY(uid), JSON.stringify(p)); } catch { /* ignore */ }
+}
+
 // ---- Supabase sync helpers ----------------------------------------------
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -95,10 +113,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       currentPage: 'dashboard',
       chatDraft: null,
       seenShared: [],
-      profilePrefs: {
-        avatarColor: '#0D9488', avatarEmoji: '', avatarPhoto: '',
-        notifShare: true, notifProduct: true, compact: false, defaultMode: 'guided' as const,
-      },
+      profilePrefs: { ...DEFAULT_PREFS },
 
       authReady: false,
       user: null,
@@ -133,6 +148,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
             return;
           }
           set({ user: { id: sUser.id, email: sUser.email || '' }, accessToken: data.session?.access_token ?? null });
+          get().loadProfilePrefs(sUser.id);
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
           await get().loadStepQuestions();
@@ -144,8 +160,9 @@ export const useWorkshopStore = create<WorkshopStore>()(
           const u = sess?.user;
           if (u) {
             set({ user: { id: u.id, email: u.email || '' }, accessToken: sess?.access_token ?? null });
+            get().loadProfilePrefs(u.id);
           } else {
-            set({ user: null, profile: null, accessToken: null, sessions: [], session: null });
+            set({ user: null, profile: null, accessToken: null, sessions: [], session: null, profilePrefs: { ...DEFAULT_PREFS } });
           }
         });
         set({ authReady: true });
@@ -166,6 +183,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           return false;
         }
         set({ user: { id: data.user.id, email: data.user.email || '' }, accessToken: data.session?.access_token ?? null });
+        get().loadProfilePrefs(data.user.id);
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
         await get().loadStepQuestions();
@@ -210,7 +228,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       signOut: async () => {
         await get().logActivity('logout');
         if (supabase) await supabase.auth.signOut();
-        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], myLogs: [], currentPage: 'dashboard' });
+        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], myLogs: [], currentPage: 'dashboard', profilePrefs: { ...DEFAULT_PREFS } });
       },
 
       loadUserSessions: async () => {
@@ -539,7 +557,14 @@ export const useWorkshopStore = create<WorkshopStore>()(
         scheduleSave(get);
       },
 
-      updateProfilePrefs: (p) => set((state) => ({ profilePrefs: { ...state.profilePrefs, ...p } })),
+      updateProfilePrefs: (p) => {
+        const merged = { ...get().profilePrefs, ...p };
+        set({ profilePrefs: merged });
+        const uid = get().user?.id;
+        if (uid) savePrefs(uid, merged); // persistance PAR utilisateur
+      },
+
+      loadProfilePrefs: (userId) => set({ profilePrefs: loadPrefs(userId) }),
 
       updateProfileName: async (fullName) => {
         const { user } = get();
@@ -720,7 +745,6 @@ export const useWorkshopStore = create<WorkshopStore>()(
         sessions: state.sessions,
         llmSettings: state.llmSettings,
         seenShared: state.seenShared,
-        profilePrefs: state.profilePrefs,
       }),
     }
   )
