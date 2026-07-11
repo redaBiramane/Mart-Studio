@@ -95,6 +95,10 @@ export const useWorkshopStore = create<WorkshopStore>()(
       currentPage: 'dashboard',
       chatDraft: null,
       seenShared: [],
+      profilePrefs: {
+        avatarColor: '#0D9488', avatarEmoji: '', avatarPhoto: '',
+        notifShare: true, notifProduct: true, compact: false, defaultMode: 'guided' as const,
+      },
 
       authReady: false,
       user: null,
@@ -535,6 +539,23 @@ export const useWorkshopStore = create<WorkshopStore>()(
         scheduleSave(get);
       },
 
+      updateProfilePrefs: (p) => set((state) => ({ profilePrefs: { ...state.profilePrefs, ...p } })),
+
+      updateProfileName: async (fullName) => {
+        const { user } = get();
+        if (!supabase || !user) return 'Non connecté.';
+        const { error } = await supabase.from('profiles').update({ full_name: fullName }).eq('id', user.id);
+        if (error) return error.message;
+        set((state) => ({ profile: state.profile ? { ...state.profile, full_name: fullName } : state.profile }));
+        return null;
+      },
+
+      changePassword: async (newPassword) => {
+        if (!supabase) return 'Service indisponible.';
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        return error ? error.message : null;
+      },
+
       duplicateSession: (id: string) => {
         const { sessions } = get();
         const src = sessions.find((s) => s.id === id);
@@ -699,6 +720,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         sessions: state.sessions,
         llmSettings: state.llmSettings,
         seenShared: state.seenShared,
+        profilePrefs: state.profilePrefs,
       }),
     }
   )

@@ -14,11 +14,12 @@ import DataProducts from './components/DataProducts';
 import Supervision from './components/Supervision';
 import QuestionsAdmin from './components/QuestionsAdmin';
 import Help from './components/Help';
+import Profile, { UserAvatar } from './components/Profile';
 import Login from './components/Login';
 import Landing from './components/Landing';
 import Image from 'next/image';
 
-type Page = 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help';
+type Page = 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help' | 'profile';
 
 // Icônes SVG (line icons) pour la navigation — plus pro que des emojis.
 function NavIcon({ name }: { name: string }) {
@@ -87,7 +88,7 @@ export default function Home() {
     document.documentElement.setAttribute('data-theme', next);
     try { localStorage.setItem('mart-theme', next); } catch { /* ignore */ }
   }
-  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs, respondAccess, sharedInfo, seenShared } = useWorkshopStore();
+  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs, respondAccess, sharedInfo, seenShared, profilePrefs } = useWorkshopStore();
   // Produits partagés reçus et pas encore ouverts → pastille rouge « nouveau ».
   const newSharedCount = Object.keys(sharedInfo).filter((id) => !seenShared.includes(id)).length;
   const [replyView, setReplyView] = useState<string | null>(null);
@@ -347,6 +348,7 @@ export default function Home() {
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                   </>
                 )}
+                <button className="user-menu-item" onClick={() => { setCurrentPage('profile'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="users" /> Mon profil</button>
                 <button className="user-menu-item" onClick={() => { setCurrentPage('help'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="help" /> {t('menu.help')}</button>
                 {user && (
                   <button className="user-menu-item" style={{ color: 'var(--accent-red)' }} onClick={() => { signOut(); setUserMenuOpen(false); }}><NavIcon name="logout" /> {t('menu.logout')}</button>
@@ -358,7 +360,7 @@ export default function Home() {
             onClick={() => setUserMenuOpen((o) => !o)}
             style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
           >
-            <div className="sidebar-footer-avatar">{(user?.email || 'A').charAt(0).toUpperCase()}</div>
+            <UserAvatar size={36} prefs={profilePrefs} email={user?.email} name={profile?.full_name} />
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user?.email || t('role.guest')}
@@ -394,6 +396,7 @@ export default function Home() {
               {currentPage === 'supervision' && t('header.supervision')}
               {currentPage === 'questions' && t('nav.questions')}
               {currentPage === 'help' && t('menu.help')}
+              {currentPage === 'profile' && 'Mon profil'}
             </h1>
           </div>
           <div className="header-actions">
@@ -490,6 +493,7 @@ export default function Home() {
           {currentPage === 'supervision' && <Supervision initialTab={supervisionTab} />}
           {currentPage === 'questions' && <QuestionsAdmin />}
           {currentPage === 'help' && <Help onOpenDocs={() => setCurrentPage('docs')} onStartWorkshop={startNewSession} onSuggestIdea={() => { setShowIdea(true); setIdeaSent(false); }} isAdmin={isAdmin} />}
+          {currentPage === 'profile' && <Profile />}
           {currentPage === 'docs' && <Documentation onStartWorkshop={startNewSession} />}
         </div>
       </div>

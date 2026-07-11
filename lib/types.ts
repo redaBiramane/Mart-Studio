@@ -227,6 +227,17 @@ export interface TokenUsage {
   requests: number;
 }
 
+// Personnalisation de l'expérience (avatar + préférences)
+export interface ProfilePrefs {
+  avatarColor: string;   // couleur de fond de l'avatar (hex)
+  avatarEmoji?: string;  // emoji à la place des initiales
+  avatarPhoto?: string;  // photo (data URL) importée
+  notifShare: boolean;   // notifications de partage
+  notifProduct: boolean; // notifications d'activité produit
+  compact: boolean;      // interface compacte
+  defaultMode: 'batch' | 'guided' | 'expert';
+}
+
 // ---- LLM Configuration ----
 
 export interface LLMSettings {
@@ -307,7 +318,7 @@ export interface WorkshopStore {
   // Historique d'annulation du modèle (hors messages) pour la session active
   past: Partial<WorkshopSession>[];
   future: Partial<WorkshopSession>[];
-  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help';
+  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help' | 'profile';
   chatDraft: string | null; // texte à pré-remplir dans le chat (ex. depuis la Lecture métier)
 
   // Auth / admin state
@@ -358,6 +369,10 @@ export interface WorkshopStore {
   respondAccess: (productId: string, requesterEmail: string, decision: 'accept' | 'deny') => Promise<string>;
   markSharedSeen: (id: string) => void;
   recordTokens: (input: number, output: number, total: number) => void;
+  profilePrefs: ProfilePrefs;
+  updateProfilePrefs: (p: Partial<ProfilePrefs>) => void;
+  updateProfileName: (fullName: string) => Promise<string | null>;
+  changePassword: (newPassword: string) => Promise<string | null>;
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;
