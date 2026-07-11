@@ -28,10 +28,16 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDeliverables, onViewDocs, onOpenDeliverables }: DashboardProps) {
-  const { sessions, deleteSession, duplicateSession } = useWorkshopStore();
+  const { sessions, deleteSession, duplicateSession, myLogs, respondAccess, setCurrentPage } = useWorkshopStore();
   const { t, lang } = useI18n();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+
+  // Partages & demandes à voir sur l'accueil (dérivés de myLogs)
+  const accessRequests = myLogs.filter((l) => l.action === 'access_request');
+  const invitations = myLogs.filter((l) => l.action === 'shared_with').slice(0, 5);
+  const accessReplies = myLogs.filter((l) => l.action === 'access_granted' || l.action === 'access_denied').slice(0, 5);
+  const hasShareInbox = accessRequests.length > 0 || invitations.length > 0 || accessReplies.length > 0;
 
   const en = lang === 'en';
   const L = {
@@ -121,6 +127,55 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
           )}
         </div>
       </div>
+
+      {/* Partages & demandes — boîte de réception sur l'accueil */}
+      {hasShareInbox && (
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>📬</span> Partages &amp; demandes
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>
+            Invitations reçues et demandes d&apos;accès à traiter.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Demandes d'accès à traiter (je suis propriétaire) */}
+            {accessRequests.map((l) => {
+              const [pid, reqEmail, pname] = (l.detail || '').split('§§');
+              return (
+                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '12px 14px', borderRadius: 10, background: 'rgba(217,119,6,0.07)', border: '1px solid rgba(217,119,6,0.25)' }}>
+                  <span style={{ fontSize: 18 }}>🔑</span>
+                  <div style={{ flex: 1, minWidth: 200, fontSize: 13.5, lineHeight: 1.4 }}>
+                    <strong>{reqEmail || 'Un utilisateur'}</strong> demande l&apos;accès <strong>Éditeur</strong> à «&nbsp;{pname || 'un data product'}&nbsp;»
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => respondAccess(pid, reqEmail, 'accept')} style={{ border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: 'var(--primary)', color: '#fff' }}>Accepter</button>
+                    <button type="button" onClick={() => respondAccess(pid, reqEmail, 'deny')} style={{ borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: 'transparent', color: 'var(--accent-red)', border: '1px solid var(--accent-red)' }}>Refuser</button>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Invitations reçues */}
+            {invitations.map((l) => (
+              <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '12px 14px', borderRadius: 10, background: 'var(--primary-glow)', border: '1px solid var(--border-active)' }}>
+                <span style={{ fontSize: 18 }}>📦</span>
+                <div style={{ flex: 1, minWidth: 200, fontSize: 13.5, lineHeight: 1.4 }}>{l.detail || 'Un data product a été partagé avec vous.'}</div>
+                <button type="button" onClick={() => setCurrentPage('products')} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: 'var(--bg-elevated)', color: 'var(--text)' }}>Voir mes Data Products →</button>
+              </div>
+            ))}
+            {/* Réponses à mes demandes */}
+            {accessReplies.map((l) => {
+              const granted = l.action === 'access_granted';
+              return (
+                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 16 }}>{granted ? '🔓' : '🔒'}</span>
+                  <div style={{ flex: 1, fontSize: 13, color: 'var(--text-secondary)' }}>{l.detail || (granted ? 'Accès Éditeur accordé.' : 'Demande d’accès refusée.')}</div>
+                  {granted && <button type="button" onClick={() => setCurrentPage('products')} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'var(--bg-surface)', color: 'var(--text)' }}>Ouvrir</button>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* How it works */}
       <div className="transform-card">
