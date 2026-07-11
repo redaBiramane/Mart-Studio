@@ -19,6 +19,30 @@ function HowIcon({ name }: { name: string }) {
   );
 }
 
+function DashTile({ value, label, emoji, color, onClick, active }: { value: React.ReactNode; label: string; emoji: string; color: string; onClick?: () => void; active?: boolean }) {
+  const [hover, setHover] = useState(false);
+  const clickable = !!onClick;
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'relative', overflow: 'hidden', background: 'var(--bg-surface)',
+        border: `1px solid ${active || (hover && clickable) ? color : 'var(--border)'}`, borderRadius: 16, padding: '18px 20px',
+        cursor: clickable ? 'pointer' : 'default', transition: 'transform .18s, box-shadow .18s, border-color .18s',
+        transform: hover && clickable ? 'translateY(-3px)' : 'none',
+        boxShadow: (hover && clickable) ? '0 12px 30px rgba(0,0,0,0.10)' : '0 1px 2px rgba(0,0,0,0.03)',
+      }}
+    >
+      <div style={{ position: 'absolute', top: -20, right: -20, width: 78, height: 78, borderRadius: '50%', background: color, opacity: active ? 0.13 : 0.06 }} />
+      <div style={{ width: 40, height: 40, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '1A', fontSize: 20, marginBottom: 10 }}>{emoji}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.5, color: 'var(--text)' }}>{value}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 4, fontWeight: 500 }}>{label}{clickable && <span style={{ color, fontWeight: 700 }}> ›</span>}</div>
+    </div>
+  );
+}
+
 interface DashboardProps {
   onStartWorkshop: () => void;
   onOpenSession: (id: string) => void;
@@ -85,41 +109,53 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
 
   return (
     <div className="dashboard">
-      <div className="dashboard-hero">
-        {/* Badge */}
-        <div className="dashboard-badge">
-          <span className="dashboard-badge-icon">📊</span>
-          {`${sessions.length} ${t('dash.badgeSessions')}`}
-        </div>
+      {/* Hero dégradé */}
+      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, padding: '30px 32px', marginBottom: 18, color: '#fff', background: 'linear-gradient(135deg, #065F46 0%, #047857 45%, #0D9488 100%)', boxShadow: '0 16px 44px rgba(4,120,87,0.28)' }}>
+        <div style={{ position: 'absolute', top: -70, right: -50, width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'absolute', bottom: -90, left: 160, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, letterSpacing: 0.3, background: 'rgba(255,255,255,0.16)', padding: '5px 12px', borderRadius: 999, marginBottom: 16 }}>
+            <span>📊</span> {`${sessions.length} ${t('dash.badgeSessions')}`}
+          </div>
+          <h2 style={{ fontSize: 30, margin: '0 0 8px', fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.12 }}>{t('dash.title1')} {t('dash.title2')}</h2>
+          <p style={{ fontSize: 14.5, opacity: 0.92, lineHeight: 1.55, margin: 0, maxWidth: 620 }}>{t('dash.subtitle')}</p>
 
-        <h2>{t('dash.title1')}<br />{t('dash.title2')}</h2>
-        <p>{t('dash.subtitle')}</p>
-
-        <div className="dashboard-cta-group">
-          {lastActive ? (
-            <button className="cta-btn" onClick={() => onOpenSession(lastActive.id)} title={lastActive.productName || ''}>
-              <span className="cta-btn-icon">▶</span>
-              {L.resume} : {(lastActive.productName || t('dash.newProduct')).slice(0, 32)} — {lastActive.currentStep}/7
-            </button>
-          ) : (
-            <button className="cta-btn" onClick={onStartWorkshop}>
-              <span className="cta-btn-icon">✨</span>
-              {t('dash.start')} →
-            </button>
-          )}
-          {lastActive && (
-            <button className="cta-btn cta-btn-secondary" onClick={onStartWorkshop}>
-              <span className="cta-btn-icon">✨</span>
-              {L.newWorkshop}
-            </button>
-          )}
-          {completedCount > 0 && (
-            <button className="cta-btn cta-btn-secondary" onClick={onViewDeliverables}>
-              <span className="cta-btn-icon">📦</span>
-              {t('dash.deliverables')}
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
+            {lastActive ? (
+              <button onClick={() => onOpenSession(lastActive.id)} title={lastActive.productName || ''}
+                style={{ background: '#fff', color: '#065F46', border: 'none', borderRadius: 11, padding: '11px 20px', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.16)' }}>
+                ▶ {L.resume} : {(lastActive.productName || t('dash.newProduct')).slice(0, 28)} — {lastActive.currentStep}/7
+              </button>
+            ) : (
+              <button onClick={onStartWorkshop}
+                style={{ background: '#fff', color: '#065F46', border: 'none', borderRadius: 11, padding: '11px 22px', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.16)' }}>
+                ✨ {t('dash.start')} →
+              </button>
+            )}
+            {lastActive && (
+              <button onClick={onStartWorkshop}
+                style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 11, padding: '11px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                ✨ {L.newWorkshop}
+              </button>
+            )}
+            {completedCount > 0 && (
+              <button onClick={onViewDeliverables}
+                style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 11, padding: '11px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                📦 {t('dash.deliverables')}
+              </button>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Tuiles KPI (cliquables → filtrent la liste) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 22 }}>
+        <DashTile value={sessions.length} label={t('dash.statTotal')} emoji="📦" color="#059669" active={filter === 'all'} onClick={() => setFilter('all')} />
+        <DashTile value={activeCount} label={t('dash.statActive')} emoji="⏳" color="#D97706" active={filter === 'active'} onClick={() => setFilter('active')} />
+        <DashTile value={completedCount} label={t('dash.statCompleted')} emoji="✅" color="#0D9488" active={filter === 'completed'} onClick={() => setFilter('completed')} />
+        {avgScore !== null && (
+          <DashTile value={avgScore} label={L.avgQuality} emoji="🛡️" color={scoreColor(avgScore)} />
+        )}
       </div>
 
       {/* How it works */}
@@ -160,28 +196,6 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
           <button className="cta-btn cta-btn-secondary" style={{ marginTop: 16 }} onClick={onViewDocs}>
             📖 {t('dash.readDocs')}
           </button>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="dashboard-stats">
-        <div className="stat-card">
-          <div className="stat-value">{sessions.length}</div>
-          <div className="stat-label">{t('dash.statTotal')}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{activeCount}</div>
-          <div className="stat-label">{t('dash.statActive')}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{completedCount}</div>
-          <div className="stat-label">{t('dash.statCompleted')}</div>
-        </div>
-        {avgScore !== null && (
-          <div className="stat-card">
-            <div className="stat-value" style={{ color: scoreColor(avgScore) }}>{avgScore}</div>
-            <div className="stat-label">{L.avgQuality}</div>
-          </div>
         )}
       </div>
 
