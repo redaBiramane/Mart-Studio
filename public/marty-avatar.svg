@@ -1,10 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="32" fill="#006B4F"/>
-  <g transform="translate(8, 7)">
-    <rect x="3" y="42" width="42" height="4" rx="1" fill="#ffffff"/>
-    <path d="M14 40 L26 6 L29 6 L41 40 L36 40 L33 32 L22 32 L19 40 Z" fill="#ffffff"/>
-    <path d="M24 27 L31 27 L27.5 16 Z" fill="#006B4F"/>
-    <path d="M8 35 C5 28, 10 14, 24 9 C30 7, 40 8, 44 11 C38 9, 30 10, 23 14 C14 20, 10 28, 11 35 Z" fill="#ffffff"/>
-    <path d="M37 8 L41 5 L44 8 L40 11 Z" fill="#E30613"/>
-  </g>
+  <defs>
+    <linearGradient id="martyBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#047857"/>
+      <stop offset="1" stop-color="#0D9488"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="32" fill="url(#martyBg)"/>
+  <!-- Antenne + point rouge Credit Agricole -->
+  <line x1="32" y1="14.5" x2="32" y2="21" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="32" cy="12.5" r="2.7" fill="#E30613"/>
+  <!-- Oreilles -->
+  <rect x="12" y="28" width="3.6" height="9" rx="1.8" fill="#ffffff"/>
+  <rect x="48.4" y="28" width="3.6" height="9" rx="1.8" fill="#ffffff"/>
+  <!-- Tete -->
+  <rect x="15.5" y="21" width="33" height="24.5" rx="7.5" fill="#ffffff"/>
+  <!-- Visiere / yeux -->
+  <rect x="20.5" y="27.5" width="23" height="9.5" rx="4.75" fill="#0B3B33" opacity="0.08"/>
+  <circle cx="25" cy="32.2" r="3.5" fill="#0D9488"/>
+  <circle cx="39" cy="32.2" r="3.5" fill="#0D9488"/>
+  <circle cx="26.2" cy="31" r="1.05" fill="#ffffff"/>
+  <circle cx="40.2" cy="31" r="1.05" fill="#ffffff"/>
+  <!-- Bouche -->
+  <rect x="24.5" y="39.2" width="15" height="3.1" rx="1.55" fill="#0D9488"/>
 </svg>
