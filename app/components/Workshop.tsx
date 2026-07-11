@@ -19,7 +19,7 @@ const wsOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background
 const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', width: 'min(460px, 100%)', padding: 26, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
-  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft, sharedInfo, requestAccess } = useWorkshopStore();
+  const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft, sharedInfo, requestAccess, recordTokens } = useWorkshopStore();
   const [accessReq, setAccessReq] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [generating, setGenerating] = useState(false); // écran d'animation de fin d'atelier
   // Produit partagé avec moi en LECTURE SEULE → aucune modification possible.
@@ -186,6 +186,9 @@ export default function Workshop({ onNew }: { onNew?: () => void }) {
   const { messages, setMessages, status, sendMessage, stop, error } = useChat({
     transport,
     onFinish: ({ message }) => {
+      // Consommation de tokens remontée dans les métadonnées du message.
+      const meta = (message as { metadata?: { usage?: { input?: number; output?: number; total?: number } } }).metadata;
+      if (meta?.usage) recordTokens(meta.usage.input || 0, meta.usage.output || 0, meta.usage.total || 0);
       if (session) {
         const text = getMessageText(message);
         addMessage({

@@ -220,6 +220,17 @@ export async function POST(req: Request) {
   });
 
   return result.toUIMessageStreamResponse({
+    // Remonte la consommation de tokens au client (affichée par Data Product).
+    messageMetadata: ({ part }) => {
+      if (part.type === 'finish') {
+        const u = (part as { totalUsage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } }).totalUsage;
+        if (u) {
+          const input = u.inputTokens ?? 0, output = u.outputTokens ?? 0;
+          return { usage: { input, output, total: u.totalTokens ?? input + output } };
+        }
+      }
+      return undefined;
+    },
     onError: (error) => {
       captureServerError(error, { where: 'chat.stream' });
       const msg = error instanceof Error ? error.message : String(error);

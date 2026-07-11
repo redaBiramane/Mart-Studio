@@ -212,6 +212,16 @@ export interface WorkshopSession {
 
   // Contrôle qualité : identifiants des suggestions ignorées par l'utilisateur
   dismissedFindings?: string[];
+
+  // Consommation IA cumulée pour construire ce Data Product (tokens)
+  tokenUsage?: TokenUsage;
+}
+
+export interface TokenUsage {
+  input: number;
+  output: number;
+  total: number;
+  requests: number;
 }
 
 // ---- LLM Configuration ----
@@ -344,6 +354,7 @@ export interface WorkshopStore {
   requestAccess: (productId: string) => Promise<string>;
   respondAccess: (productId: string, requesterEmail: string, decision: 'accept' | 'deny') => Promise<string>;
   markSharedSeen: (id: string) => void;
+  recordTokens: (input: number, output: number, total: number) => void;
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;

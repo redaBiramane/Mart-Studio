@@ -10,7 +10,7 @@ import { transformMany } from '@/lib/naming';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-type Tab = 'overview' | 'semantic' | 'quality' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'semantic' | 'quality' | 'consumption' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -41,6 +41,7 @@ export default function Deliverables() {
     { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
     { key: 'semantic', label: 'Semantic Layer', icon: 'semantic' },
     { key: 'quality', label: 'Qualité', icon: 'quality' },
+    { key: 'consumption', label: 'Consommation IA', icon: 'consumption' },
     { key: 'report', label: 'Rapport détaillé (PDF)', icon: 'report' },
     { key: 'mcd', label: 'MCD / ERD', icon: 'mcd' },
     { key: 'dimensional', label: 'Étoile / Flocon', icon: 'dimensional' },
@@ -79,6 +80,7 @@ export default function Deliverables() {
         {activeTab === 'overview' && <OverviewTab session={data} />}
         {activeTab === 'semantic' && <SemanticTab session={data} />}
         {activeTab === 'quality' && <QualityTab />}
+        {activeTab === 'consumption' && <ConsumptionTab session={data} />}
         {activeTab === 'report' && <ReportTab session={data} />}
         {activeTab === 'mcd' && <MCDTab session={data} />}
         {activeTab === 'dimensional' && <DimensionalTab session={data} />}
@@ -97,6 +99,7 @@ function DIcon({ name, size = 16 }: { name: string; size?: number }) {
   const p: Record<string, React.ReactNode> = {
     overview: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
     semantic: <><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /><path d="M8 10h8M8 13.5h5" /></>,
+    consumption: <><path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 12l5-3" /><path d="M12 7v0M7.2 9.2v0M6 14v0" /></>,
     quality: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
     report: <><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M8 13h8M8 17h5" /></>,
     mcd: <><rect x="3" y="4" width="8" height="6" rx="1" /><rect x="13" y="14" width="8" height="6" rx="1" /><path d="M7 10v2a2 2 0 0 0 2 2h4" /></>,
@@ -692,6 +695,79 @@ function CardAction({ onClick, done, icon, label, doneLabel }: { onClick: () => 
         <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>{label}</>
       )}
     </button>
+  );
+}
+
+// Tarifs indicatifs Gemini 2.0 Flash (USD par million de tokens). Purement informatif.
+const RATE_IN = 0.10, RATE_OUT = 0.40, USD_EUR = 0.92;
+
+function ConsumptionTab({ session }: { session: WorkshopSession }) {
+  const tu = session.tokenUsage;
+  if (!tu || tu.total === 0) {
+    return (
+      <div style={{ maxWidth: 640 }}>
+        <h3 style={{ fontSize: 18, marginBottom: 6 }}>Consommation IA</h3>
+        <div style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border)', borderRadius: 12, padding: 28, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
+          Aucune consommation enregistrée pour l’instant. Échangez avec Marty pour construire ce Data Product : les tokens utilisés apparaîtront ici.
+        </div>
+      </div>
+    );
+  }
+  const costUsd = (tu.input / 1e6) * RATE_IN + (tu.output / 1e6) * RATE_OUT;
+  const costEur = costUsd * USD_EUR;
+  const inPct = tu.total ? Math.round((tu.input / tu.total) * 100) : 0;
+  const fmt = (n: number) => n.toLocaleString('fr-FR');
+  const avg = tu.requests ? Math.round(tu.total / tu.requests) : 0;
+
+  const tiles = [
+    { label: 'Tokens en entrée', value: fmt(tu.input), color: '#2563EB', hint: 'Vos messages + le contexte du modèle envoyés à l’IA' },
+    { label: 'Tokens en sortie', value: fmt(tu.output), color: '#7C3AED', hint: 'Les réponses générées par Marty' },
+    { label: 'Total tokens', value: fmt(tu.total), color: '#059669', hint: 'Entrée + sortie cumulés' },
+    { label: 'Échanges', value: fmt(tu.requests), color: '#D97706', hint: 'Nombre d’appels à l’IA' },
+  ];
+
+  return (
+    <div style={{ maxWidth: 860 }}>
+      <h3 style={{ fontSize: 18, marginBottom: 4 }}>Consommation IA — {session.productName || 'Data Product'}</h3>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 }}>
+        Tokens consommés pour construire ce Data Product avec Marty (cumulé sur tous les échanges).
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+        {tiles.map((t) => (
+          <div key={t.label} title={t.hint} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: t.color }} />
+            <div style={{ fontSize: 26, fontWeight: 800, color: t.color, letterSpacing: -0.4 }}>{t.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{t.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Répartition entrée / sortie */}
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, marginBottom: 12 }}>Répartition entrée / sortie</div>
+        <div style={{ display: 'flex', height: 26, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elevated)' }}>
+          {tu.input > 0 && <div style={{ width: `${inPct}%`, background: 'linear-gradient(90deg,#3B82F6,#2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{inPct}%</div>}
+          {tu.output > 0 && <div style={{ width: `${100 - inPct}%`, background: 'linear-gradient(90deg,#8B5CF6,#7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{100 - inPct}%</div>}
+        </div>
+        <div style={{ display: 'flex', gap: 18, marginTop: 10, fontSize: 12.5 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#2563EB' }} /> Entrée : <strong>{fmt(tu.input)}</strong></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#7C3AED' }} /> Sortie : <strong>{fmt(tu.output)}</strong></span>
+          <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>≈ {fmt(avg)} tokens / échange</span>
+        </div>
+      </div>
+
+      {/* Coût estimé */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 14, padding: '16px 20px' }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary-light)' }}>${costUsd.toFixed(4)} <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>≈ {costEur.toFixed(4)} €</span></div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Coût estimé (indicatif) — tarif Gemini 2.0 Flash</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 220, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Estimation à titre indicatif (entrée ${RATE_IN}/M · sortie ${RATE_OUT}/M). Avec la <strong>clé plateforme sur l’offre gratuite</strong>, aucun coût n’est facturé tant que les quotas gratuits ne sont pas dépassés.
+        </div>
+      </div>
+    </div>
   );
 }
 

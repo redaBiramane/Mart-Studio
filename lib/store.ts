@@ -506,6 +506,26 @@ export const useWorkshopStore = create<WorkshopStore>()(
         if (!seenShared.includes(id)) set({ seenShared: [...seenShared, id] });
       },
 
+      // Cumule la consommation de tokens sur le Data Product courant (métadonnée,
+      // hors historique undo). Sauvegarde différée comme le reste.
+      recordTokens: (input, output, total) => {
+        set((state) => {
+          if (!state.session) return state;
+          const tu = state.session.tokenUsage || { input: 0, output: 0, total: 0, requests: 0 };
+          const updated = {
+            ...state.session,
+            tokenUsage: {
+              input: tu.input + (input || 0),
+              output: tu.output + (output || 0),
+              total: tu.total + (total || (input || 0) + (output || 0)),
+              requests: tu.requests + 1,
+            },
+          };
+          return { session: updated, sessions: state.sessions.map((s) => (s.id === updated.id ? updated : s)) };
+        });
+        scheduleSave(get);
+      },
+
       duplicateSession: (id: string) => {
         const { sessions } = get();
         const src = sessions.find((s) => s.id === id);
