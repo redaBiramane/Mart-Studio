@@ -354,6 +354,27 @@ a { color: inherit; text-decoration: none; }
   border: 2px solid var(--bg-surface);
 }
 
+/* Pastille chiffrée de notifications (ex. « 9+ ») — visible en clair et en nuit */
+.header-icon-btn .badge-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #DC2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
 .header-lang {
   display: flex;
   align-items: center;
@@ -477,8 +498,8 @@ a { color: inherit; text-decoration: none; }
 
 /* ---- Transformation Example Card ---- */
 .transform-card {
-  max-width: 720px;
-  margin: 0 auto 24px;
+  max-width: none;
+  margin: 0 0 24px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -762,7 +783,7 @@ a { color: inherit; text-decoration: none; }
 /* ============================================================
    SESSIONS LIST
    ============================================================ */
-.sessions-section { max-width: 720px; margin: 0 auto; }
+.sessions-section { max-width: none; margin: 0; }
 .sessions-section h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
 .session-card {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);

@@ -419,7 +419,7 @@ export default function Home() {
             <div style={{ position: 'relative' }}>
               <button className="header-icon-btn" title={t('tooltip.notifications')} onClick={openNotifications}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M18 9a6 6 0 0 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9Z" /><path d="M10.5 20a2 2 0 0 0 3 0" /></svg>
-                {unreadCount > 0 && <span className="badge-dot"></span>}
+                {unreadCount > 0 && <span className="badge-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}
               </button>
               {notifOpen && (
                 <>
