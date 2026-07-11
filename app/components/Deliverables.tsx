@@ -10,7 +10,7 @@ import { transformMany } from '@/lib/naming';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-type Tab = 'overview' | 'semantic' | 'quality' | 'consumption' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
+type Tab = 'overview' | 'semantic' | 'quality' | 'report' | 'mcd' | 'dimensional' | 'dbml' | 'sql' | 'dbt' | 'dictionary' | 'dad';
 
 export default function Deliverables() {
   const { session } = useWorkshopStore();
@@ -41,7 +41,6 @@ export default function Deliverables() {
     { key: 'overview', label: 'Vue d\'ensemble', icon: 'overview' },
     { key: 'semantic', label: 'Semantic Layer', icon: 'semantic' },
     { key: 'quality', label: 'Qualité', icon: 'quality' },
-    { key: 'consumption', label: 'Consommation IA', icon: 'consumption' },
     { key: 'report', label: 'Rapport détaillé (PDF)', icon: 'report' },
     { key: 'mcd', label: 'MCD / ERD', icon: 'mcd' },
     { key: 'dimensional', label: 'Étoile / Flocon', icon: 'dimensional' },
@@ -80,7 +79,6 @@ export default function Deliverables() {
         {activeTab === 'overview' && <OverviewTab session={data} />}
         {activeTab === 'semantic' && <SemanticTab session={data} />}
         {activeTab === 'quality' && <QualityTab />}
-        {activeTab === 'consumption' && <ConsumptionTab session={data} />}
         {activeTab === 'report' && <ReportTab session={data} />}
         {activeTab === 'mcd' && <MCDTab session={data} />}
         {activeTab === 'dimensional' && <DimensionalTab session={data} />}
@@ -701,7 +699,7 @@ function CardAction({ onClick, done, icon, label, doneLabel }: { onClick: () => 
 // Tarifs indicatifs Gemini 2.0 Flash (USD par million de tokens). Purement informatif.
 const RATE_IN = 0.10, RATE_OUT = 0.40, USD_EUR = 0.92;
 
-function ConsumptionTab({ session }: { session: WorkshopSession }) {
+export function ConsumptionTab({ session }: { session: WorkshopSession }) {
   const tu = session.tokenUsage;
   if (!tu || tu.total === 0) {
     return (

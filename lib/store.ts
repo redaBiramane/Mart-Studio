@@ -368,11 +368,16 @@ export const useWorkshopStore = create<WorkshopStore>()(
 
       fetchStatsData: async () => {
         if (!supabase) return [];
-        const { data } = await supabase.from('data_products').select('status, data');
+        const { data } = await supabase.from('data_products').select('status, owner_email, name, data');
         return (data || []).map((r) => {
           const s = r.data as WorkshopSession | undefined;
           const msgSteps = (s?.messages || []).filter((m) => !m.content.startsWith('[SYSTÈME]')).map((m) => m.step);
-          return { status: (r.status as string) || 'active', currentStep: s?.currentStep || 1, msgSteps };
+          const tu = s?.tokenUsage || { input: 0, output: 0, total: 0, requests: 0 };
+          return {
+            status: (r.status as string) || 'active', currentStep: s?.currentStep || 1, msgSteps,
+            ownerEmail: (r.owner_email as string) || '—', name: (r.name as string) || s?.productName || 'Data Product',
+            tokens: tu, llmModel: s?.llmModel, llmProvider: s?.llmProvider,
+          };
         });
       },
 

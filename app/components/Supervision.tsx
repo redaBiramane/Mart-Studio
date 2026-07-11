@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { STEPS } from '@/lib/constants';
+import { estimateCostUsd, fmtTokens } from '@/lib/llm-labels';
 
 const ACTION_META: Record<string, { icon: string; label: string }> = {
   login: { icon: 'key', label: 'Connexion' },
@@ -49,7 +50,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
 export default function Supervision({ initialTab = 'stats' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports' }) {
   const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData, replyToIdea } = useWorkshopStore();
   const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports'>(initialTab);
-  const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
+  const [statsData, setStatsData] = useState<Awaited<ReturnType<typeof fetchStatsData>> | null>(null);
 
   useEffect(() => {
     if (tab === 'stats' && statsData === null) fetchStatsData().then(setStatsData);
@@ -63,11 +64,21 @@ export default function Supervision({ initialTab = 'stats' }: { initialTab?: 'ac
     const stuckByStep: Record<number, number> = {};
     const msgByStep: Record<number, number> = {};
     let totalMsgs = 0;
+    // Consommation IA agrégée (plateforme + par utilisateur)
+    let tokTotal = 0, tokIn = 0, tokOut = 0, tokReq = 0, tokCost = 0;
+    const byUser: Record<string, { tokens: number; cost: number; products: number }> = {};
     statsData.forEach(p => {
       if (p.status !== 'completed') stuckByStep[p.currentStep] = (stuckByStep[p.currentStep] || 0) + 1;
       p.msgSteps.forEach(s => { msgByStep[s] = (msgByStep[s] || 0) + 1; totalMsgs++; });
+      const tu = p.tokens || { input: 0, output: 0, total: 0, requests: 0 };
+      const cost = estimateCostUsd(p.llmModel, tu.input, tu.output);
+      tokTotal += tu.total; tokIn += tu.input; tokOut += tu.output; tokReq += tu.requests; tokCost += cost;
+      const u = byUser[p.ownerEmail] || { tokens: 0, cost: 0, products: 0 };
+      u.tokens += tu.total; u.cost += cost; u.products += 1;
+      byUser[p.ownerEmail] = u;
     });
-    return { total, completed, active, stuckByStep, msgByStep, totalMsgs, avgMsgs: total ? Math.round(totalMsgs / total) : 0, completionRate: total ? Math.round((completed / total) * 100) : 0 };
+    const topUsers = Object.entries(byUser).map(([email, v]) => ({ email, ...v })).sort((a, b) => b.tokens - a.tokens);
+    return { total, completed, active, stuckByStep, msgByStep, totalMsgs, avgMsgs: total ? Math.round(totalMsgs / total) : 0, completionRate: total ? Math.round((completed / total) * 100) : 0, tokTotal, tokIn, tokOut, tokReq, tokCost, topUsers };
   }, [statsData]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [fUser, setFUser] = useState('all');
@@ -419,6 +430,45 @@ export default function Supervision({ initialTab = 'stats' }: { initialTab?: 'ac
                     </div>
                   );
                 })()}
+
+                {/* Consommation IA — plateforme (tous les utilisateurs) */}
+                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}><span>🔥</span> Consommation IA — plateforme</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Tokens consommés par tous les utilisateurs pour construire leurs Data Products.</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 16 }}>
+                    {[
+                      { l: 'Total tokens', v: fmtTokens(stats.tokTotal), c: '#059669' },
+                      { l: 'Entrée', v: fmtTokens(stats.tokIn), c: '#2563EB' },
+                      { l: 'Sortie', v: fmtTokens(stats.tokOut), c: '#7C3AED' },
+                      { l: 'Échanges', v: String(stats.tokReq), c: '#D97706' },
+                      { l: 'Coût estimé', v: `$${stats.tokCost.toFixed(4)}`, c: '#0D9488' },
+                    ].map((k) => (
+                      <div key={k.l} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: k.c }} />
+                        <div style={{ fontSize: 21, fontWeight: 800, color: k.c, letterSpacing: -0.3 }}>{k.v}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{k.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {stats.topUsers.filter(u => u.tokens > 0).length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', margin: '4px 0 8px' }}>Par utilisateur</div>
+                      {stats.topUsers.filter(u => u.tokens > 0).slice(0, 12).map((u) => {
+                        const max = Math.max(1, ...stats.topUsers.map(x => x.tokens));
+                        return (
+                          <div key={u.email} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                            <div style={{ width: 180, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={u.email}>{u.email}</div>
+                            <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 16 }}>
+                              <div style={{ width: `${(u.tokens / max) * 100}%`, background: 'linear-gradient(90deg,#059669,#0D9488)', height: '100%', borderRadius: 6, minWidth: 4 }} />
+                            </div>
+                            <div style={{ width: 62, fontSize: 12, fontWeight: 700, textAlign: 'right' }}>{fmtTokens(u.tokens)}</div>
+                            <div style={{ width: 66, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>${u.cost.toFixed(4)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                   {/* Où les utilisateurs s'arrêtent */}

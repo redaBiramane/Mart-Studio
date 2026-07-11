@@ -3,13 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { useI18n, localeCode } from '@/lib/i18n';
-import { llmLabel, llmEmoji } from '@/lib/llm-labels';
-
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k';
-  return String(n);
-}
+import { llmLabel, llmEmoji, fmtTokens } from '@/lib/llm-labels';
 
 interface Props {
   onNew: () => void;
@@ -203,16 +197,20 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
                         ● Nouveau
                       </span>
                     )}
-                    <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
-                      <span title={`Construit avec ${llmLabel(s.llmProvider, s.llmModel)}`} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        {llmEmoji(s.llmProvider)} {llmLabel(s.llmProvider, s.llmModel)}
-                      </span>
-                      {s.tokenUsage && s.tokenUsage.total > 0 && (
-                        <span title={`${s.tokenUsage.total.toLocaleString('fr-FR')} tokens · ${s.tokenUsage.requests} échanges`} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--primary-glow)', border: '1px solid var(--border-active)', color: 'var(--primary-light)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          ▦ {fmtTokens(s.tokenUsage.total)} tokens
-                        </span>
-                      )}
-                    </div>
+                    {(s.llmModel || (s.tokenUsage && s.tokenUsage.total > 0)) && (
+                      <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+                        {s.llmModel && (
+                          <span title={`Généré avec ${llmLabel(s.llmProvider, s.llmModel)}`} style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {llmEmoji(s.llmProvider)} {llmLabel(s.llmProvider, s.llmModel)}
+                          </span>
+                        )}
+                        {s.tokenUsage && s.tokenUsage.total > 0 && (
+                          <span title={`${s.tokenUsage.total.toLocaleString('fr-FR')} tokens · ${s.tokenUsage.requests} échanges`} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--primary-glow)', border: '1px solid var(--border-active)', color: 'var(--primary-light)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            ▦ {fmtTokens(s.tokenUsage.total)} tokens
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td style={{ ...td, color: 'var(--text-secondary)' }}>{s.domain || '—'}</td>
                   <td style={td}>

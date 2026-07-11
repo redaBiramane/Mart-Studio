@@ -2,9 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useWorkshopStore } from '@/lib/store';
+import { llmLabel, llmEmoji, fmtTokens, estimateCostUsd } from '@/lib/llm-labels';
+import { ConsumptionTab } from './Deliverables';
 
 export default function AdminPanel() {
-  const { llmSettings, updateLLMSettings } = useWorkshopStore();
+  const { llmSettings, updateLLMSettings, sessions, sharedInfo } = useWorkshopStore();
+  const [consOpen, setConsOpen] = useState<string | null>(null);
+
+  // Consommation IA de MES Data Products (hors produits partagés avec moi)
+  const myProducts = sessions.filter((s) => !sharedInfo[s.id]);
+  const consList = myProducts
+    .map((s) => ({ s, tu: s.tokenUsage || { input: 0, output: 0, total: 0, requests: 0 } }))
+    .filter((x) => x.tu.total > 0)
+    .sort((a, b) => b.tu.total - a.tu.total);
+  const grand = consList.reduce((acc, x) => ({
+    input: acc.input + x.tu.input, output: acc.output + x.tu.output, total: acc.total + x.tu.total,
+    requests: acc.requests + x.tu.requests, cost: acc.cost + estimateCostUsd(x.s.llmModel, x.tu.input, x.tu.output),
+  }), { input: 0, output: 0, total: 0, requests: 0, cost: 0 });
 
   const [provider, setProvider] = useState(llmSettings.provider);
   const [apiKey, setApiKey] = useState(llmSettings.apiKey);
@@ -212,6 +226,61 @@ export default function AdminPanel() {
         </div>
 
       </form>
+
+      {/* ── Consommation IA de mes Data Products ── */}
+      <div style={{ marginTop: 40 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>Consommation IA</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 18 }}>
+          Tokens consommés pour construire vos Data Products avec Marty.
+        </p>
+
+        {consList.length === 0 ? (
+          <div style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border)', borderRadius: 12, padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
+            Aucune consommation pour l’instant. Échangez avec Marty : les tokens apparaîtront ici.
+          </div>
+        ) : (
+          <>
+            {/* Totaux */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
+              {[
+                { l: 'Total tokens', v: fmtTokens(grand.total), c: '#059669' },
+                { l: 'Entrée', v: fmtTokens(grand.input), c: '#2563EB' },
+                { l: 'Sortie', v: fmtTokens(grand.output), c: '#7C3AED' },
+                { l: 'Échanges', v: String(grand.requests), c: '#D97706' },
+                { l: 'Coût estimé', v: `$${grand.cost.toFixed(4)}`, c: '#0D9488' },
+              ].map((k) => (
+                <div key={k.l} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: k.c }} />
+                  <div style={{ fontSize: 22, fontWeight: 800, color: k.c, letterSpacing: -0.3 }}>{k.v}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{k.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Par produit */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {consList.map(({ s, tu }) => (
+                <div key={s.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div onClick={() => setConsOpen(consOpen === s.id ? null : s.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', cursor: 'pointer', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{s.productName || 'Data Product'}</div>
+                      {s.llmModel && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{llmEmoji(s.llmProvider)} {llmLabel(s.llmProvider, s.llmModel)}</div>}
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary-light)', background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 999, padding: '3px 10px', whiteSpace: 'nowrap' }}>▦ {fmtTokens(tu.total)} tokens</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{tu.requests} échanges · ${estimateCostUsd(s.llmModel, tu.input, tu.output).toFixed(4)}</span>
+                    <span style={{ color: 'var(--text-muted)', transition: 'transform .2s', transform: consOpen === s.id ? 'rotate(90deg)' : 'none' }}>›</span>
+                  </div>
+                  {consOpen === s.id && (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: 16, background: 'var(--bg-elevated)' }}>
+                      <ConsumptionTab session={s} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

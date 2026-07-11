@@ -364,7 +364,7 @@ export interface WorkshopStore {
   loadMyLogs: () => Promise<void>;
   replyToIdea: (submitterId: string, submitterEmail: string, replyText: string, ideaText: string) => Promise<void>;
   fetchConversation: (productId: string) => Promise<ChatMessage[]>;
-  fetchStatsData: () => Promise<Array<{ status: string; currentStep: number; msgSteps: number[] }>>;
+  fetchStatsData: () => Promise<Array<{ status: string; currentStep: number; msgSteps: number[]; ownerEmail: string; name: string; tokens: TokenUsage; llmModel?: string; llmProvider?: string }>>;
   loadStepQuestions: () => Promise<void>;
   addStepQuestion: (step: number, text: string) => Promise<void>;
   updateStepQuestion: (id: string, text: string) => Promise<void>;
