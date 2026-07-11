@@ -41,7 +41,7 @@ function StatIcon({ name }: { name: string }) {
 }
 
 export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables }: Props) {
-  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession, sharedInfo } = useWorkshopStore();
+  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession, sharedInfo, seenShared } = useWorkshopStore();
   const { t, lang } = useI18n();
   const [q, setQ] = useState('');
   const [shareTarget, setShareTarget] = useState<{ id: string; name: string } | null>(null);
@@ -189,6 +189,11 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
                     {shared && (
                       <span title={`Partagé par ${shared.ownerEmail}`} style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 999, background: 'var(--primary-glow)', color: 'var(--primary-light)', whiteSpace: 'nowrap' }}>
                         {shared.role === 'viewer' ? 'Partagé · lecture' : 'Partagé · édition'}
+                      </span>
+                    )}
+                    {shared && !seenShared.includes(s.id) && (
+                      <span title="Nouveau partage — non encore ouvert" style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: '#DC2626', color: '#fff', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                        ● Nouveau
                       </span>
                     )}
                   </td>

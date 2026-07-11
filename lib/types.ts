@@ -310,6 +310,7 @@ export interface WorkshopStore {
   stepQuestions: Record<number, StepQuestion[]>;
   steps: StepDefinition[] | null; // étapes configurées par l'admin (null = défaut)
   sharedInfo: Record<string, SharedInfo>; // produits partagés AVEC MOI (id → rôle/proprio)
+  seenShared: string[]; // ids des produits partagés déjà ouverts (pour le badge « nouveau »)
 
   // Actions
   setCurrentPage: (page: WorkshopStore['currentPage']) => void;
@@ -342,6 +343,7 @@ export interface WorkshopStore {
   listShareableUsers: () => Promise<{ id: string; email: string; full_name: string }[]>;
   requestAccess: (productId: string) => Promise<string>;
   respondAccess: (productId: string, requesterEmail: string, decision: 'accept' | 'deny') => Promise<string>;
+  markSharedSeen: (id: string) => void;
   logActivity: (action: string, detail?: string) => Promise<void>;
   setUserRole: (id: string, role: UserRole) => Promise<string | null>;
   deleteUser: (id: string) => Promise<void>;

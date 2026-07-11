@@ -87,7 +87,9 @@ export default function Home() {
     document.documentElement.setAttribute('data-theme', next);
     try { localStorage.setItem('mart-theme', next); } catch { /* ignore */ }
   }
-  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs, respondAccess } = useWorkshopStore();
+  const { session, sessions, currentPage, setCurrentPage, authReady, user, profile, initAuth, signOut, activityLogs, adminProfiles, logActivity, myLogs, respondAccess, sharedInfo, seenShared } = useWorkshopStore();
+  // Produits partagés reçus et pas encore ouverts → pastille rouge « nouveau ».
+  const newSharedCount = Object.keys(sharedInfo).filter((id) => !seenShared.includes(id)).length;
   const [replyView, setReplyView] = useState<string | null>(null);
 
   useEffect(() => { initAuth(); }, [initAuth]);
@@ -197,7 +199,7 @@ export default function Home() {
 
   const navItems = [
     { key: 'dashboard' as Page, label: t('nav.dashboard') },
-    { key: 'products' as Page, label: t('nav.products') },
+    { key: 'products' as Page, label: t('nav.products'), badgeRed: newSharedCount > 0 ? newSharedCount : undefined },
     { key: 'workshop' as Page, label: t('nav.workshop'), badge: session?.status === 'active' ? `${session.currentStep}/7` : undefined },
     { key: 'deliverables' as Page, label: t('nav.deliverables') },
   ];
@@ -265,6 +267,9 @@ export default function Home() {
                 <span className="nav-item-icon"><NavIcon name={item.key} /></span>
                 <span>{item.label}</span>
                 {item.badge && <span className="nav-item-badge">{item.badge}</span>}
+                {'badgeRed' in item && item.badgeRed && (
+                  <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#DC2626', color: '#fff', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{item.badgeRed}</span>
+                )}
               </div>
             ))}
           </div>

@@ -94,6 +94,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       future: [],
       currentPage: 'dashboard',
       chatDraft: null,
+      seenShared: [],
 
       authReady: false,
       user: null,
@@ -487,12 +488,22 @@ export const useWorkshopStore = create<WorkshopStore>()(
       },
 
       loadSession: (id: string) => {
-        const { sessions } = get();
+        const { sessions, sharedInfo, seenShared } = get();
         const found = sessions.find((s) => s.id === id);
         if (found) {
           lastSnapshotAt = 0;
-          set({ session: found, past: [], future: [] });
+          // Un produit partagé qu'on ouvre pour la 1re fois n'est plus « nouveau ».
+          const markSeen = sharedInfo[id] && !seenShared.includes(id);
+          set({
+            session: found, past: [], future: [],
+            ...(markSeen ? { seenShared: [...seenShared, id] } : {}),
+          });
         }
+      },
+
+      markSharedSeen: (id: string) => {
+        const { seenShared } = get();
+        if (!seenShared.includes(id)) set({ seenShared: [...seenShared, id] });
       },
 
       duplicateSession: (id: string) => {
@@ -644,6 +655,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       partialize: (state) => ({
         sessions: state.sessions,
         llmSettings: state.llmSettings,
+        seenShared: state.seenShared,
       }),
     }
   )
