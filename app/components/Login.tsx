@@ -55,19 +55,19 @@ export default function Login({ onBack, initialMode = 'login' }: { onBack?: () =
       <div className="login-brandpane" style={{
         flex: '0 0 46%', position: 'relative', overflow: 'hidden', color: '#fff', padding: '48px 52px',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-        background: 'linear-gradient(150deg,#053b30 0%,#065F46 45%,#0D9488 100%)',
+        background: 'linear-gradient(155deg,#04382d 0%,#075a44 48%,#0e8266 100%)',
       }}>
         <div style={{ position: 'absolute', top: -80, right: -60, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle,rgba(18,181,165,.35),transparent 65%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -120, left: -60, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,255,255,.08),transparent 65%)', pointerEvents: 'none' }} />
 
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ background: '#fff', borderRadius: 12, padding: '9px 13px', display: 'inline-flex' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 18 }}>
+          <span style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', display: 'inline-flex', boxShadow: '0 12px 30px -12px rgba(0,0,0,0.35)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" style={{ height: 34, width: 'auto', display: 'block' }} />
+            <img src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" style={{ height: 54, width: 'auto', display: 'block' }} />
           </span>
-          <div style={{ borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: 14 }}>
-            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: -0.2 }}>Marty</div>
-            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: 1.2, opacity: 0.85 }}>SELF DATA MODELING PLATFORM</div>
+          <div style={{ borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: 18 }}>
+            <div style={{ fontWeight: 800, fontSize: 19, letterSpacing: -0.3 }}>Marty</div>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: 1.4, opacity: 0.85 }}>SELF DATA MODELING PLATFORM</div>
           </div>
         </div>
 
