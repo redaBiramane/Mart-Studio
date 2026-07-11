@@ -42,7 +42,8 @@ function StatIcon({ name }: { name: string }) {
 }
 
 export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables }: Props) {
-  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession, sharedInfo, seenShared } = useWorkshopStore();
+  const { sessions, deleteSession, loadSession, updateSessionData, duplicateSession, sharedInfo, seenShared, myLogs, respondAccess } = useWorkshopStore();
+  const accessRequests = myLogs.filter((l) => l.action === 'access_request');
   const { t, lang } = useI18n();
   const [q, setQ] = useState('');
   const [shareTarget, setShareTarget] = useState<{ id: string; name: string } | null>(null);
@@ -117,6 +118,32 @@ export default function DataProducts({ onNew, onOpenWorkshop, onOpenDeliverables
         </div>
         <button className="cta-btn" onClick={onNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Ico name="plus" size={17} /> {t('dp.new')}</button>
       </div>
+
+      {/* Demandes d'accès Éditeur à traiter (propriétaire) */}
+      {accessRequests.length > 0 && (
+        <div style={{ marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {accessRequests.map((l) => {
+            const [pid, reqEmail, pname] = (l.detail || '').split('§§');
+            return (
+              <div key={l.id} style={{ position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '14px 18px', borderRadius: 14, background: 'linear-gradient(135deg, rgba(217,119,6,0.12), rgba(217,119,6,0.04))', border: '1px solid rgba(217,119,6,0.35)', animation: 'fadeSlideUp .3s ease' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(217,119,6,0.18)', color: '#B45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, flexShrink: 0 }}>🔑</div>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.3, textTransform: 'uppercase', color: '#B45309', marginBottom: 2 }}>Demande d’accès Éditeur</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--text)' }}>
+                    <strong>{reqEmail || 'Un utilisateur'}</strong> demande à contribuer à «&nbsp;<strong>{pname || 'un data product'}</strong>&nbsp;»
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button type="button" onClick={() => respondAccess(pid, reqEmail, 'accept')} style={{ border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>Accepter
+                  </button>
+                  <button type="button" onClick={() => respondAccess(pid, reqEmail, 'deny')} style={{ borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'transparent', color: 'var(--accent-red)', border: '1px solid var(--accent-red)' }}>Refuser</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
