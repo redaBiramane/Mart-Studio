@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { WorkshopSession, WorkshopStore, ChatMessage } from './types';
+import { WorkshopSession, WorkshopStore, ChatMessage, LLMSettings } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 function generateId(): string {
@@ -472,7 +472,8 @@ export const useWorkshopStore = create<WorkshopStore>()(
       // ---- Sessions --------------------------------------------------------
 
       createSession: (mode: 'batch' | 'guided' | 'expert' = 'batch') => {
-        const newSession = { ...createEmptySession(), mode };
+        const ls = get().llmSettings;
+        const newSession = { ...createEmptySession(), mode, llmModel: ls?.model, llmProvider: ls?.provider };
         lastSnapshotAt = 0;
         set((state) => ({
           session: newSession,
@@ -512,6 +513,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
         set((state) => {
           if (!state.session) return state;
           const tu = state.session.tokenUsage || { input: 0, output: 0, total: 0, requests: 0 };
+          const ls = state.llmSettings;
           const updated = {
             ...state.session,
             tokenUsage: {
@@ -520,6 +522,8 @@ export const useWorkshopStore = create<WorkshopStore>()(
               total: tu.total + (total || (input || 0) + (output || 0)),
               requests: tu.requests + 1,
             },
+            llmModel: ls?.model || state.session.llmModel,
+            llmProvider: ls?.provider || state.session.llmProvider,
           };
           return { session: updated, sessions: state.sessions.map((s) => (s.id === updated.id ? updated : s)) };
         });
@@ -670,6 +674,20 @@ export const useWorkshopStore = create<WorkshopStore>()(
     }),
     {
       name: 'mart-studio-sessions',
+      version: 2,
+      // Migration v2 : le défaut est passé à Gemini Flash (gratuit). Les réglages
+      // persistés SANS clé perso (anthropic/opus par défaut) sont basculés sur
+      // Gemini Flash. Ceux qui ont mis leur propre clé sont conservés.
+      migrate: (persisted: unknown, version: number) => {
+        const s = (persisted || {}) as { llmSettings?: LLMSettings };
+        if (version < 2) {
+          const ls = s.llmSettings;
+          if (!ls || !ls.apiKey) {
+            s.llmSettings = { provider: 'google', apiKey: '', model: 'gemini-2.0-flash', customBaseUrl: '' };
+          }
+        }
+        return s;
+      },
       // En mode Supabase, la base est la source de vérité ; on ne persiste
       // localement que les réglages LLM et le cache des sessions (mode hors-ligne).
       partialize: (state) => ({

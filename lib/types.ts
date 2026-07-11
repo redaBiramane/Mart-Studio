@@ -215,6 +215,9 @@ export interface WorkshopSession {
 
   // Consommation IA cumulée pour construire ce Data Product (tokens)
   tokenUsage?: TokenUsage;
+  // Dernier modèle IA utilisé pour construire ce Data Product
+  llmModel?: string;
+  llmProvider?: string;
 }
 
 export interface TokenUsage {
