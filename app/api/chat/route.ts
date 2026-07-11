@@ -177,12 +177,7 @@ export async function POST(req: Request) {
     }
   } else {
     // Server fallback
-    if (llmSettings?.provider === 'google') {
-      const googleProvider = createGoogleGenerativeAI({
-        apiKey: process.env.GEMINI_API_KEY || '',
-      });
-      modelInstance = googleProvider(llmSettings.model || 'gemini-1.5-flash');
-    } else if (llmSettings?.provider === 'anthropic') {
+    if (llmSettings?.provider === 'anthropic') {
       const anthropicProvider = createAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY || '',
       });
@@ -193,12 +188,18 @@ export async function POST(req: Request) {
         baseURL: llmSettings.customBaseUrl || undefined,
       });
       modelInstance = customOpenAIProvider(llmSettings.model || 'custom-model');
-    } else {
-      // Défaut serveur : Claude (Anthropic)
-      const anthropicProvider = createAnthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY || '',
+    } else if (llmSettings?.provider === 'openai') {
+      const openaiProvider = createOpenAI({
+        apiKey: process.env.OPENAI_API_KEY || '',
       });
-      modelInstance = anthropicProvider(llmSettings?.model || 'claude-opus-4-8');
+      modelInstance = openaiProvider(llmSettings.model || 'gpt-4o');
+    } else {
+      // Défaut serveur GRATUIT pour tous : Google Gemini Flash (clé plateforme).
+      // Couvre le provider 'google' ET le cas « aucun provider / aucune clé ».
+      const googleProvider = createGoogleGenerativeAI({
+        apiKey: process.env.GEMINI_API_KEY || '',
+      });
+      modelInstance = googleProvider(llmSettings?.model?.startsWith('gemini') ? llmSettings.model : 'gemini-2.0-flash');
     }
   }
 

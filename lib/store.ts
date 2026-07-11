@@ -48,9 +48,9 @@ function createEmptySession(): WorkshopSession {
 }
 
 const defaultLLMSettings = {
-  provider: 'anthropic' as const,
-  apiKey: '',
-  model: 'claude-opus-4-8',
+  provider: 'google' as const,
+  apiKey: '', // vide → utilise la clé plateforme (GEMINI_API_KEY), gratuit pour tous
+  model: 'gemini-2.0-flash',
   customBaseUrl: '',
 };
 
