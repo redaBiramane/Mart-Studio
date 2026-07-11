@@ -8,6 +8,7 @@ import { STEPS, stepHasData } from '@/lib/constants';
 import StepSidebar from '@/app/components/StepSidebar';
 import ContextPanel from '@/app/components/ContextPanel';
 import VisualEditor from '@/app/components/VisualEditor';
+import GenerationOverlay from '@/app/components/GenerationOverlay';
 import { useI18n } from '@/lib/i18n';
 
 // Types minimaux pour l'API Web Speech (reconnaissance vocale du navigateur).
@@ -20,6 +21,7 @@ const wsModal: React.CSSProperties = { background: 'var(--bg-surface)', border: 
 export default function Workshop({ onNew }: { onNew?: () => void }) {
   const { session, llmSettings, setCurrentStep, addMessage, updateSessionData, completeSession, setCurrentPage, stepQuestions, steps, undo, redo, past, future, chatDraft, setChatDraft, sharedInfo, requestAccess } = useWorkshopStore();
   const [accessReq, setAccessReq] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [generating, setGenerating] = useState(false); // écran d'animation de fin d'atelier
   // Produit partagé avec moi en LECTURE SEULE → aucune modification possible.
   const readOnly = !!(session && sharedInfo[session.id]?.role === 'viewer');
   const sharedBy = session ? sharedInfo[session.id]?.ownerEmail : undefined;
@@ -787,6 +789,9 @@ ${truncated}
 
   return (
     <div className="workshop-layout">
+      {generating && session && (
+        <GenerationOverlay session={session} onDone={() => { setGenerating(false); setCurrentPage('deliverables'); }} />
+      )}
       {toast && (
         <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: 'var(--bg-code, #1f2430)', color: '#fff', padding: '11px 16px', borderRadius: 10, boxShadow: '0 12px 30px rgba(0,0,0,0.35)', fontSize: 13.5, maxWidth: 'min(520px, 90vw)', display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
           {toastKind === 'info' ? (
@@ -1172,7 +1177,7 @@ ${truncated}
                     disabled={isLoading}
                     onClick={() => {
                       completeSession();
-                      setCurrentPage('deliverables');
+                      setGenerating(true);
                     }}
                   >
                     Terminer l&apos;atelier ✓
