@@ -48,11 +48,14 @@ export default function GenerationOverlay({ session, onDone }: { session: Worksh
         @keyframes mgoBar{from{width:0}to{width:100%}}
       `}</style>
 
-      {/* Robot + halo */}
+      {/* Logo Marty (CA) + halo */}
       <div style={{ position: 'relative', marginBottom: 18 }}>
         <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', background: 'rgba(255,255,255,0.28)', animation: 'mgoHalo 1.8s ease-in-out infinite' }} />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/marty-avatar.svg" alt="Marty" width={86} height={86} style={{ position: 'relative', width: 86, height: 86, animation: 'mgoFloat 2.4s ease-in-out infinite' }} />
+        <div style={{ position: 'relative', width: 92, height: 92, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '10px 6px 8px', animation: 'mgoFloat 2.4s ease-in-out infinite', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/ca-monogram.svg" alt="Marty" style={{ width: '72%', maxHeight: '56%', objectFit: 'contain' }} />
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: '#006A4F', lineHeight: 1 }}>MARTY</span>
+        </div>
       </div>
 
       <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.3 }}>Marty construit votre MCD…</div>

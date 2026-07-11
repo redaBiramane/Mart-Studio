@@ -1322,11 +1322,12 @@ function MartyAvatar({ role }: { role: string }) {
   return (
     <div
       className="message-avatar"
-      style={{ background: '#fff', padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}
+      style={{ background: '#fff', padding: '4px 2px 3px', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, border: '1px solid var(--border)' }}
       title="Marty — Assistant Data Architect"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/marty-avatar.svg" alt="Marty" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <img src="/ca-monogram.svg" alt="Marty" style={{ width: '74%', maxHeight: '58%', objectFit: 'contain' }} />
+      <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.3, color: '#006A4F', lineHeight: 1 }}>MARTY</span>
     </div>
   );
 }
