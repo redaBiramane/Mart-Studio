@@ -397,6 +397,23 @@
   .visual-links path{fill:none;stroke:var(--teal);stroke-width:1.8;stroke-dasharray:6 6;
     animation:dash 1.5s linear infinite}
   .visual-links text{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+
+  /* ===== Bandeau d'intégrations (marquee) ===== */
+  .trust{padding:24px 0}
+  .trust-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:18px}
+  .marquee{position:relative;overflow:hidden;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent)}
+  .marquee-track{display:flex;align-items:center;gap:52px;width:max-content;animation:scrollx 30s linear infinite}
+  .marquee:hover .marquee-track{animation-play-state:paused}
+  @keyframes scrollx{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .wm{display:inline-flex;align-items:center;gap:11px;color:var(--ink-soft);opacity:.62;flex:0 0 auto;
+    transition:opacity .25s,color .25s,transform .25s;cursor:default}
+  .wm:hover{opacity:1;color:var(--emerald-deep);transform:translateY(-2px)}
+  .wm svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .wm b{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.02em}
+  @media(prefers-reduced-motion:reduce){.marquee-track{animation:none}}
 </style>
 
 <div class="m-wrap">
@@ -426,7 +443,7 @@
     <div class="hero-glow"><i></i><i></i></div>
     <div class="m-in hero-grid">
       <div>
-        <span class="badge"><span class="dot"></span>Data Architect IA · Sofinco</span>
+        <span class="badge"><span class="dot"></span>Conversational Data Modeling · Sofinco</span>
         <h1 class="hero-h">
           <span class="ln"><span class="w" style="animation-delay:.05s">De</span> <span class="w" style="animation-delay:.12s">l'idée</span> <span class="w" style="animation-delay:.19s">métier</span></span>
           <span class="ln"><em><span class="w" style="animation-delay:.30s">au</span> <span class="w" style="animation-delay:.37s">Produit</span> <span class="w" style="animation-delay:.44s">Data</span></em></span>
@@ -455,11 +472,29 @@
     </div>
   </header>
 
-  <!-- TRUST -->
+  <!-- INTÉGRATIONS -->
   <div class="trust reveal">
-    <div class="m-in trust-in">
-      <span>Conçu pour les métiers de la banque</span>
-      <b>Risque de crédit</b><b>Lutte anti-fraude</b><b>Relation client</b><b>Conformité &amp; RGPD</b><b>Gouvernance des données</b>
+    <div class="m-in" style="text-align:center">
+      <div class="trust-label">S'intègre à votre stack data — import &amp; export</div>
+      <div class="marquee">
+        <div class="marquee-track" id="wmTrack">
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 22l-8-4.5v-9L12 2Z"/><path d="M12 2v20M4 6.5l8 4.5 8-4.5"/></svg><b>Snowflake</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 8-8M20 12a8 8 0 0 1-8 8"/><path d="M12 8v8"/></svg><b>dbt</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/></svg><b>Power&nbsp;BI</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z"/><path d="M9.5 12l2 2 3.2-3.4"/></svg><b>Collibra</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg><b>SQL</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M8 6H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3M16 6h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3M9 12h6"/></svg><b>SAS</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M11 4v16"/></svg><b>Excel</b></span>
+          <!-- duplicata pour boucle continue -->
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 22l-8-4.5v-9L12 2Z"/><path d="M12 2v20M4 6.5l8 4.5 8-4.5"/></svg><b>Snowflake</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 8-8M20 12a8 8 0 0 1-8 8"/><path d="M12 8v8"/></svg><b>dbt</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/></svg><b>Power&nbsp;BI</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z"/><path d="M9.5 12l2 2 3.2-3.4"/></svg><b>Collibra</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg><b>SQL</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><path d="M8 6H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3M16 6h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3M9 12h6"/></svg><b>SAS</b></span>
+          <span class="wm"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M11 4v16"/></svg><b>Excel</b></span>
+        </div>
+      </div>
     </div>
   </div>
 
