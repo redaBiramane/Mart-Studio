@@ -414,6 +414,26 @@
     filter:grayscale(1);opacity:.7;transition:filter .3s,opacity .3s}
   .wm:hover img{filter:none;opacity:1}
   @media(prefers-reduced-motion:reduce){.marquee-track{animation:none}}
+
+  /* ===== Comparatif Humain vs Marty ===== */
+  .cmp{background:var(--paper);border:1px solid var(--line);border-radius:20px;overflow:hidden;
+    box-shadow:var(--shadow);max-width:860px;margin:0 auto}
+  .cmp-head,.cmp-row{display:grid;grid-template-columns:1.5fr 1fr 1fr;align-items:center;gap:16px;padding:17px 28px}
+  .cmp-head{background:linear-gradient(180deg,#fff,#f6faf8)}
+  .cmp-head div{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .cmp-head .cmp-m{color:var(--emerald-deep);font-weight:800;font-family:var(--display);letter-spacing:-.01em;font-size:15px;text-transform:none}
+  .cmp-row{border-top:1px solid var(--line);font-size:15px;transition:background .2s}
+  .cmp-row:hover{background:var(--ground)}
+  .cmp-row .task{font-weight:600;color:var(--ink)}
+  .cmp-row .human{color:var(--muted);font-variant-numeric:tabular-nums}
+  .cmp-row .marty{color:var(--emerald);font-weight:700;display:inline-flex;align-items:center;gap:7px}
+  .cmp-row .marty svg{width:15px;height:15px;stroke:var(--emerald);fill:none;stroke-width:2;flex:0 0 auto}
+  .cmp-note{text-align:center;color:var(--ink-soft);font-size:15px;margin:24px auto 0;max-width:56ch}
+  .cmp-note b{color:var(--emerald-deep)}
+  @media(max-width:640px){
+    .cmp-head,.cmp-row{grid-template-columns:1.25fr .9fr 1fr;padding:13px 15px;gap:8px}
+    .cmp-row{font-size:12.5px}.cmp-head div{font-size:10px}
+  }
 </style>
 
 <div class="m-wrap">
@@ -750,6 +770,27 @@
         </div>
         <pre id="codePane"></pre>
       </div>
+    </div>
+  </section>
+
+  <!-- COMPARATIF HUMAIN vs MARTY -->
+  <section class="blk" id="compare">
+    <div class="m-in">
+      <div class="head reveal" style="max-width:660px;margin-inline:auto;text-align:center">
+        <span class="eyebrow">Humain vs Marty</span>
+        <h2>Des jours de travail, <span style="color:var(--emerald)">en quelques secondes</span>.</h2>
+        <p>Ce qui mobilise un data architect pendant des heures, Marty le produit en un instant — pour quelques centimes.</p>
+      </div>
+      <div class="cmp reveal">
+        <div class="cmp-head"><div>Tâche</div><div>Humain</div><div class="cmp-m">Marty</div></div>
+        <div class="cmp-row"><span class="task">Concevoir le MCD / ERD</span><span class="human">1–2 jours</span><span class="marty"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>quelques secondes</span></div>
+        <div class="cmp-row"><span class="task">Écrire le DDL SQL</span><span class="human">2–3 heures</span><span class="marty"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>quelques secondes</span></div>
+        <div class="cmp-row"><span class="task">Générer le schéma dbt</span><span class="human">Une demi-journée</span><span class="marty"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>quelques secondes</span></div>
+        <div class="cmp-row"><span class="task">Dictionnaire de données</span><span class="human">1–2 jours</span><span class="marty"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>quelques secondes</span></div>
+        <div class="cmp-row"><span class="task">Contrôle qualité &amp; RGPD</span><span class="human">Quelques heures</span><span class="marty"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>instantané</span></div>
+        <div class="cmp-row"><span class="task">Rapport DAD complet</span><span class="human">Plusieurs jours</span><span class="marty"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>quelques minutes</span></div>
+      </div>
+      <p class="cmp-note reveal">Un seul Data Product par semaine et Marty est déjà rentabilisé — <b>quelques centimes par modèle</b>, et le modèle <b>Gemini gratuit</b> par défaut.</p>
     </div>
   </section>
 
