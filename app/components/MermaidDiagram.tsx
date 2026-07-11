@@ -30,6 +30,15 @@ export default function MermaidDiagram({ code }: { code: string }) {
   const baseWidth = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(0.6);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Échap pour quitter le plein écran
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
 
   function centerScroll() {
     const c = containerRef.current;
@@ -130,17 +139,36 @@ export default function MermaidDiagram({ code }: { code: string }) {
     background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6,
     padding: '4px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--text)',
   };
+  const greenBtn: React.CSSProperties = {
+    background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6,
+    padding: '5px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+    display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+  };
+
+  const wrapStyle: React.CSSProperties = fullscreen
+    ? { position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg-surface)', padding: 16, display: 'flex', flexDirection: 'column' }
+    : {};
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+    <div style={wrapStyle}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
         <button style={btn} onClick={() => setScale(s => Math.max(0.3, +(s - 0.2).toFixed(2)))} title="Dézoomer">➖</button>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 44, textAlign: 'center' }}>{Math.round(scale * 100)}%</span>
         <button style={btn} onClick={() => setScale(s => Math.min(3, +(s + 0.2).toFixed(2)))} title="Zoomer">➕</button>
         <button style={btn} onClick={() => { setScale(0.6); requestAnimationFrame(centerScroll); }} title="Ajuster et centrer">⤢ Ajuster</button>
-        <button style={{ ...btn, marginLeft: 'auto' }} onClick={downloadPng} title="Télécharger en PNG">⬇ Télécharger PNG</button>
+        <button style={{ ...greenBtn, marginLeft: 'auto' }} onClick={() => { setFullscreen(f => !f); requestAnimationFrame(centerScroll); }} title={fullscreen ? 'Quitter le plein écran (Échap)' : 'Afficher en plein écran'}>
+          {fullscreen ? (
+            <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3v6H3M21 9h-6V3M3 15h6v6M15 21v-6h6" /></svg>Quitter</>
+          ) : (
+            <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" /></svg>Plein écran</>
+          )}
+        </button>
+        <button style={greenBtn} onClick={downloadPng} title="Télécharger en PNG">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 11l5 4 5-4M5 21h14" /></svg>
+          Télécharger PNG
+        </button>
       </div>
-      <div ref={containerRef} style={{ overflow: 'auto', maxHeight: 620, background: '#ffffff', borderRadius: 8, padding: 16, border: '1px solid var(--border)', textAlign: 'center' }}>
+      <div ref={containerRef} style={{ overflow: 'auto', maxHeight: fullscreen ? undefined : 620, flex: fullscreen ? 1 : undefined, background: '#ffffff', borderRadius: 8, padding: 16, border: '1px solid var(--border)', textAlign: 'center' }}>
         <div ref={ref} style={{ display: 'inline-block' }} />
       </div>
     </div>
