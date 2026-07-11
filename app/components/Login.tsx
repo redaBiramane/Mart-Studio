@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { useWorkshopStore } from '@/lib/store';
 
 export default function Login({ onBack, initialMode = 'login' }: { onBack?: () => void; initialMode?: 'login' | 'signup' }) {
@@ -29,80 +28,131 @@ export default function Login({ onBack, initialMode = 'login' }: { onBack?: () =
   async function onForgot() {
     setInfo(null);
     const target = email.trim();
-    if (!target) {
-      setInfo('Saisissez votre email ci-dessus, puis cliquez à nouveau sur « Mot de passe oublié ».');
-      return;
-    }
+    if (!target) { setInfo('Saisissez votre email ci-dessus, puis cliquez à nouveau sur « Mot de passe oublié ».'); return; }
     setBusy(true);
     const err = await resetPassword(target);
     setBusy(false);
     setInfo(err ? err : `Un email de réinitialisation a été envoyé à ${target}.`);
   }
 
+  const input: React.CSSProperties = {
+    width: '100%', height: 46, padding: '0 14px', fontSize: 14.5, color: '#0B2A22',
+    background: '#F4F8F6', border: '1.5px solid #D8E5DE', borderRadius: 11, outline: 'none',
+  };
+  const label: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: '#33493F' };
+  const bullet = (t: string) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, fontSize: 14.5, lineHeight: 1.45 }}>
+      <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      </span>
+      <span>{t}</span>
+    </div>
+  );
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f3f4f6)', padding: 24 }}>
-      <div className="context-card" style={{ width: 'min(420px, 100%)', padding: 32, position: 'relative' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', background: '#EDF3F0', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
+      {/* Panneau gauche — marque CA */}
+      <div className="login-brandpane" style={{
+        flex: '0 0 46%', position: 'relative', overflow: 'hidden', color: '#fff', padding: '48px 52px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        background: 'linear-gradient(150deg,#053b30 0%,#065F46 45%,#0D9488 100%)',
+      }}>
+        <div style={{ position: 'absolute', top: -80, right: -60, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle,rgba(18,181,165,.35),transparent 65%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -120, left: -60, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,255,255,.08),transparent 65%)', pointerEvents: 'none' }} />
+
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ background: '#fff', borderRadius: 12, padding: '9px 13px', display: 'inline-flex' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ca-logo.png" alt="Crédit Agricole Personal Finance & Mobility" style={{ height: 34, width: 'auto', display: 'block' }} />
+          </span>
+          <div style={{ borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: 14 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: -0.2 }}>Marty</div>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: 1.2, opacity: 0.85 }}>SELF DATA MODELING PLATFORM</div>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', maxWidth: 420 }}>
+          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11.5, letterSpacing: 2, opacity: 0.8, marginBottom: 14 }}>CONVERSATIONAL DATA MODELING</div>
+          <h1 style={{ fontSize: 34, lineHeight: 1.08, fontWeight: 800, letterSpacing: -0.6, margin: 0 }}>De l&apos;idée métier<br />au Produit Data.</h1>
+          <p style={{ fontSize: 15.5, opacity: 0.92, lineHeight: 1.55, margin: '16px 0 28px' }}>
+            Décrivez votre besoin en langage simple. Marty conçoit le modèle complet — MCD, SQL, dbt, documentation.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            {bullet('Un modèle complet en quelques minutes')}
+            {bullet('Contrôle qualité & RGPD intégrés')}
+            {bullet('Gemini gratuit par défaut, Opus au choix')}
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', fontSize: 12, opacity: 0.8 }}>
+          Sofinco · Crédit Agricole Personal Finance &amp; Mobility
+        </div>
+      </div>
+
+      {/* Panneau droit — formulaire */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 28, position: 'relative' }}>
         {onBack && (
-          <button onClick={onBack} style={{ position: 'absolute', top: 16, left: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600 }}>
+          <button onClick={onBack} style={{ position: 'absolute', top: 22, right: 26, background: 'none', border: 'none', cursor: 'pointer', color: '#6B8378', fontSize: 13.5, fontWeight: 600 }}>
             ← Accueil
           </button>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <Image src="/mart-icon.svg" alt="Mart Studio" width={60} height={60} style={{ width: 60, height: 60 }} priority />
-          <h2 style={{ fontSize: 22, margin: '10px 0 0' }}>Mart Studio</h2>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: '2px 0 0' }}>
-            {mode === 'login' ? 'Connectez-vous pour accéder à l’atelier' : 'Créez votre compte'}
-          </p>
-        </div>
-
-        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {mode === 'signup' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 600 }}>Nom complet</label>
-              <input className="chat-input" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Prénom Nom" />
-            </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600 }}>Email</label>
-            <input className="chat-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.com" />
+        <div style={{ width: 'min(400px, 100%)' }}>
+          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11.5, letterSpacing: 2, color: '#0F766E', fontWeight: 600, marginBottom: 10 }}>
+            {mode === 'login' ? 'CONNEXION' : 'COMMENCER'}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600 }}>Mot de passe</label>
-            <input className="chat-input" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-            {mode === 'login' && (
-              <div style={{ textAlign: 'right' }}>
-                <button type="button" onClick={onForgot} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0 }}>
-                  Mot de passe oublié ?
-                </button>
+          <h2 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.5, color: '#0B2A22', margin: '0 0 8px', lineHeight: 1.1 }}>
+            {mode === 'login' ? 'Bon retour.' : 'Essayez Marty gratuitement.'}
+          </h2>
+          <p style={{ fontSize: 14.5, color: '#4A6459', margin: '0 0 26px', lineHeight: 1.5 }}>
+            {mode === 'login' ? 'Connectez-vous pour accéder à votre atelier.' : 'Modèle Gemini gratuit inclus. Aucune carte requise.'}
+          </p>
+
+          <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            {mode === 'signup' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <label style={label}>Nom complet</label>
+                <input style={input} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Prénom Nom" />
               </div>
             )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <label style={label}>Email</label>
+              <input style={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@sofinco.fr" autoComplete="email" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <label style={label}>Mot de passe</label>
+              <input style={input} type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+              {mode === 'login' && (
+                <div style={{ textAlign: 'right' }}>
+                  <button type="button" onClick={onForgot} disabled={busy} style={{ background: 'none', border: 'none', color: '#0F766E', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0 }}>Mot de passe oublié ?</button>
+                </div>
+              )}
+            </div>
+
+            {authError && <div style={{ fontSize: 13, color: '#DC2626' }}>{authError}</div>}
+            {info && <div style={{ fontSize: 13, color: '#0F766E' }}>{info}</div>}
+
+            <button type="submit" disabled={busy} style={{ marginTop: 4, height: 48, borderRadius: 11, border: 'none', cursor: busy ? 'default' : 'pointer', background: '#065F46', color: '#fff', fontWeight: 700, fontSize: 15, opacity: busy ? 0.7 : 1, boxShadow: '0 10px 24px -12px rgba(6,95,70,.9)' }}>
+              {busy ? '…' : mode === 'login' ? 'Se connecter' : 'Créer mon compte →'}
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13.5, color: '#4A6459' }}>
+            {mode === 'login' ? (
+              <>Pas encore de compte ?{' '}
+                <button onClick={() => { setMode('signup'); setInfo(null); }} style={{ background: 'none', border: 'none', color: '#0F766E', cursor: 'pointer', fontWeight: 700 }}>S&apos;inscrire</button>
+              </>
+            ) : (
+              <>Déjà un compte ?{' '}
+                <button onClick={() => { setMode('login'); setInfo(null); }} style={{ background: 'none', border: 'none', color: '#0F766E', cursor: 'pointer', fontWeight: 700 }}>Se connecter</button>
+              </>
+            )}
           </div>
-
-          {authError && <div style={{ fontSize: 13, color: 'var(--accent-red)' }}>{authError}</div>}
-          {info && <div style={{ fontSize: 13, color: 'var(--primary)' }}>{info}</div>}
-
-          <button type="submit" className="cta-btn" disabled={busy} style={{ marginTop: 4 }}>
-            {busy ? '…' : mode === 'login' ? 'Se connecter' : 'Créer le compte'}
-          </button>
-        </form>
-
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
-          {mode === 'login' ? (
-            <>Pas encore de compte ?{' '}
-              <button onClick={() => { setMode('signup'); setInfo(null); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>S&apos;inscrire</button>
-            </>
-          ) : (
-            <>Déjà un compte ?{' '}
-              <button onClick={() => { setMode('login'); setInfo(null); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>Se connecter</button>
-            </>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
-          <Image src="/sofinco-logo.svg" alt="Sofinco" width={110} height={23} style={{ width: 110, height: 23, opacity: 0.75 }} />
-          <span style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: 0.3 }}>Personal Finance &amp; Mobility</span>
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 860px){ .login-brandpane{ display:none !important; } }
+      `}</style>
     </div>
   );
 }
