@@ -46,7 +46,7 @@ function SIcon({ name, size = 16 }: { name: string; size?: number }) {
   );
 }
 
-export default function Supervision({ initialTab = 'activity' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports' }) {
+export default function Supervision({ initialTab = 'stats' }: { initialTab?: 'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports' }) {
   const { profile, user, adminProducts, adminProfiles, activityLogs, loadAdminData, setUserRole, deleteUser, fetchConversation, fetchStatsData, replyToIdea } = useWorkshopStore();
   const [tab, setTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports'>(initialTab);
   const [statsData, setStatsData] = useState<Array<{ status: string; currentStep: number; msgSteps: number[] }> | null>(null);
@@ -154,12 +154,12 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
   }
 
   const tabs: { key: typeof tab; icon: string; label: string }[] = [
+    { key: 'stats', icon: 'chart', label: 'Statistiques' },
     { key: 'activity', icon: 'clock', label: `Activité (${activityLogs.length})` },
     { key: 'products', icon: 'box', label: `Data Products (${adminProducts.length})` },
     { key: 'users', icon: 'users', label: `Utilisateurs (${adminProfiles.length})` },
     { key: 'ideas', icon: 'idea', label: `Idées (${activityLogs.filter(l => l.action === 'idea').length})` },
     { key: 'reports', icon: 'alert', label: `Signalements IA (${activityLogs.filter(l => l.action === 'report_ai').length})` },
-    { key: 'stats', icon: 'chart', label: 'Statistiques' },
   ];
 
   const ideas = activityLogs.filter(l => l.action === 'idea');
@@ -191,17 +191,24 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
         Vue administrateur : activité des utilisateurs, ensemble des Data Products et comptes.
       </p>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Utilisateurs', value: adminProfiles.length, icon: 'users' },
-          { label: 'Data Products', value: adminProducts.length, icon: 'box' },
-          { label: 'Terminés', value: adminProducts.filter(p => p.status === 'completed').length, icon: 'check' },
-          { label: 'Actions enregistrées', value: activityLogs.length, icon: 'clock' },
+          { label: 'Utilisateurs', value: adminProfiles.length, icon: 'users', color: '#2563EB', go: 'users' as typeof tab },
+          { label: 'Data Products', value: adminProducts.length, icon: 'box', color: '#059669', go: 'products' as typeof tab },
+          { label: 'Terminés', value: adminProducts.filter(p => p.status === 'completed').length, icon: 'check', color: '#0D9488', go: 'products' as typeof tab },
+          { label: 'Actions enregistrées', value: activityLogs.length, icon: 'clock', color: '#7C3AED', go: 'activity' as typeof tab },
         ].map(s => (
-          <div key={s.label} className="stat-card" style={{ flex: 1 }}>
-            <div style={{ marginBottom: 4, color: 'var(--primary)' }}><SIcon name={s.icon} size={26} /></div>
-            <div className="stat-value" style={{ fontSize: 26 }}>{s.value}</div>
-            <div className="stat-label">{s.label}</div>
+          <div
+            key={s.label}
+            onClick={() => setTab(s.go)}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.10)'; e.currentTarget.style.borderColor = s.color; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+            style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', transition: 'transform .18s, box-shadow .18s, border-color .18s' }}
+          >
+            <div style={{ position: 'absolute', top: -20, right: -20, width: 78, height: 78, borderRadius: '50%', background: s.color, opacity: 0.07 }} />
+            <div style={{ width: 40, height: 40, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: s.color + '1A', color: s.color, marginBottom: 10 }}><SIcon name={s.icon} size={22} /></div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>{s.value}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, fontWeight: 500 }}>{s.label} <span style={{ color: s.color }}>›</span></div>
           </div>
         ))}
       </div>
@@ -355,59 +362,101 @@ export default function Supervision({ initialTab = 'activity' }: { initialTab?: 
               <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Chargement des statistiques…</div>
             ) : (
               <>
-                {/* KPI globaux */}
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-                  {[
-                    { label: 'Data Products', value: stats.total, c: 'var(--primary)' },
-                    { label: 'En cours', value: stats.active, c: 'var(--accent-amber)' },
-                    { label: 'Terminés', value: stats.completed, c: 'var(--accent-emerald)' },
-                    { label: 'Taux de complétion', value: `${stats.completionRate}%`, c: 'var(--accent-blue)' },
-                    { label: 'Messages / produit (moy.)', value: stats.avgMsgs, c: 'var(--accent-purple)' },
-                  ].map(k => (
-                    <div key={k.label} className="stat-card" style={{ flex: 1, minWidth: 150 }}>
-                      <div className="stat-value" style={{ fontSize: 26, color: k.c }}>{k.value}</div>
-                      <div className="stat-label">{k.label}</div>
+                {/* Donut de complétion + KPI colorés + point de friction */}
+                {(() => {
+                  const rr = 46, cc = 2 * Math.PI * rr;
+                  const offC = cc - (stats.completionRate / 100) * cc;
+                  const frictionId = Object.entries(stats.stuckByStep).sort((a, b) => b[1] - a[1])[0];
+                  const frictionStep = frictionId && Number(frictionId[1]) > 0 ? STEPS.find(s => s.id === Number(frictionId[0])) : null;
+                  const chattyId = Object.entries(stats.msgByStep).sort((a, b) => b[1] - a[1])[0];
+                  const chattyStep = chattyId ? STEPS.find(s => s.id === Number(chattyId[0])) : null;
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 16, marginBottom: 18, alignItems: 'stretch' }} className="sv-stats-top">
+                      {/* Donut complétion */}
+                      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, alignSelf: 'flex-start' }}>Complétion globale</div>
+                        <svg width="130" height="130" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r={rr} fill="none" stroke="var(--bg-elevated)" strokeWidth="12" />
+                          <circle cx="60" cy="60" r={rr} fill="none" stroke="#059669" strokeWidth="12" strokeLinecap="round" strokeDasharray={cc} strokeDashoffset={offC} transform="rotate(-90 60 60)" style={{ transition: 'stroke-dashoffset .8s ease' }} />
+                          <text x="60" y="58" textAnchor="middle" fontSize="28" fontWeight="800" fill="var(--text)">{stats.completionRate}%</text>
+                          <text x="60" y="76" textAnchor="middle" fontSize="11" fill="var(--text-muted)">terminés</text>
+                        </svg>
+                        <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#059669' }} /> {stats.completed} terminés</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 2, background: 'var(--bg-elevated)', border: '1px solid var(--border)' }} /> {stats.active} en cours</span>
+                        </div>
+                      </div>
+                      {/* KPI + insights */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
+                          {[
+                            { label: 'Data Products', value: stats.total, c: '#059669' },
+                            { label: 'En cours', value: stats.active, c: '#D97706' },
+                            { label: 'Terminés', value: stats.completed, c: '#0D9488' },
+                            { label: 'Messages/produit', value: stats.avgMsgs, c: '#7C3AED' },
+                          ].map(k => (
+                            <div key={k.label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 14px 13px 17px', position: 'relative', overflow: 'hidden' }}>
+                              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: k.c }} />
+                              <div style={{ fontSize: 25, fontWeight: 800, color: k.c, letterSpacing: -0.3 }}>{k.value}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{k.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Insights parlants */}
+                        {frictionStep && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 10, padding: '11px 14px', fontSize: 13 }}>
+                            <span style={{ fontSize: 16 }}>⚠️</span>
+                            <span><strong>Point de friction :</strong> la plupart des produits non terminés s’arrêtent à l’étape <strong>{frictionStep.id}. {frictionStep.titleShort}</strong> ({frictionId[1]} produit{Number(frictionId[1]) > 1 ? 's' : ''}). À simplifier en priorité.</span>
+                          </div>
+                        )}
+                        {chattyStep && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--primary-glow)', border: '1px solid var(--border-active)', borderRadius: 10, padding: '11px 14px', fontSize: 13 }}>
+                            <span style={{ fontSize: 16 }}>💬</span>
+                            <span><strong>Étape la plus bavarde :</strong> <strong>{chattyStep.id}. {chattyStep.titleShort}</strong> ({chattyId[1]} messages) — questions peut-être peu claires.</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                   {/* Où les utilisateurs s'arrêtent */}
-                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Où les utilisateurs s&apos;arrêtent</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Répartition des produits <strong>non terminés</strong> par étape courante (l&apos;étape avec le plus de produits = point de friction / abandon).</div>
-                    {STEPS.map(s => {
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}><span>🚧</span> Où les utilisateurs s&apos;arrêtent</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Produits <strong>non terminés</strong> par étape courante. L&apos;étape la plus haute = point d&apos;abandon.</div>
+                    {(() => { const max = Math.max(1, ...Object.values(stats.stuckByStep)); return STEPS.map(s => {
                       const v = stats.stuckByStep[s.id] || 0;
-                      const max = Math.max(1, ...Object.values(stats.stuckByStep));
+                      const isMax = v > 0 && v === max;
                       return (
-                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
-                          <div style={{ width: 120, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.id}. {s.titleShort}</div>
-                          <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 16 }}>
-                            <div style={{ width: `${(v / max) * 100}%`, background: 'var(--accent-amber)', height: '100%', borderRadius: 6, minWidth: v > 0 ? 4 : 0 }} />
+                        <div key={s.id} onClick={() => setTab('products')} title="Voir les Data Products" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }}>
+                          <div style={{ width: 120, fontSize: 12, fontWeight: isMax ? 700 : 400, color: isMax ? 'var(--accent-amber)' : 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.id}. {s.titleShort}</div>
+                          <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 18 }}>
+                            <div style={{ width: `${(v / max) * 100}%`, background: isMax ? 'linear-gradient(90deg,#F59E0B,#D97706)' : 'rgba(217,119,6,0.4)', height: '100%', borderRadius: 6, minWidth: v > 0 ? 5 : 0, transition: 'width .5s' }} />
                           </div>
-                          <div style={{ width: 26, fontSize: 12, fontWeight: 700 }}>{v}</div>
+                          <div style={{ width: 26, fontSize: 12.5, fontWeight: 700, color: isMax ? 'var(--accent-amber)' : 'var(--text)' }}>{v}</div>
                         </div>
                       );
-                    })}
+                    }); })()}
                   </div>
 
                   {/* Volume de messages par étape */}
-                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Volume de messages par étape</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Total des messages échangés à chaque étape (une étape « bavarde » = questions peu claires ou sujet complexe → à optimiser).</div>
-                    {STEPS.map(s => {
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}><span>💬</span> Volume de messages par étape</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Messages échangés à chaque étape (une étape « bavarde » = à optimiser).</div>
+                    {(() => { const max = Math.max(1, ...Object.values(stats.msgByStep)); return STEPS.map(s => {
                       const v = stats.msgByStep[s.id] || 0;
-                      const max = Math.max(1, ...Object.values(stats.msgByStep));
+                      const isMax = v > 0 && v === max;
                       return (
-                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
-                          <div style={{ width: 120, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.id}. {s.titleShort}</div>
-                          <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 16 }}>
-                            <div style={{ width: `${(v / max) * 100}%`, background: 'var(--primary)', height: '100%', borderRadius: 6, minWidth: v > 0 ? 4 : 0 }} />
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                          <div style={{ width: 120, fontSize: 12, fontWeight: isMax ? 700 : 400, color: isMax ? 'var(--primary)' : 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.id}. {s.titleShort}</div>
+                          <div style={{ flex: 1, background: 'var(--bg-elevated)', borderRadius: 6, height: 18 }}>
+                            <div style={{ width: `${(v / max) * 100}%`, background: isMax ? 'linear-gradient(90deg,#047857,#0D9488)' : 'rgba(5,150,105,0.4)', height: '100%', borderRadius: 6, minWidth: v > 0 ? 5 : 0, transition: 'width .5s' }} />
                           </div>
-                          <div style={{ width: 34, fontSize: 12, fontWeight: 700 }}>{v}</div>
+                          <div style={{ width: 34, fontSize: 12.5, fontWeight: 700, color: isMax ? 'var(--primary)' : 'var(--text)' }}>{v}</div>
                         </div>
                       );
-                    })}
+                    }); })()}
                   </div>
                 </div>
 

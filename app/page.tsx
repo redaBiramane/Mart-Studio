@@ -50,7 +50,7 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports'>('activity');
+  const [supervisionTab, setSupervisionTab] = useState<'activity' | 'products' | 'users' | 'stats' | 'ideas' | 'reports'>('stats');
   const [showModeModal, setShowModeModal] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifSeen, setNotifSeen] = useState(0);
@@ -341,7 +341,7 @@ export default function Home() {
               <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 12, right: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 41 }}>
                 {isAdmin && (
                   <>
-                    <button className="user-menu-item" onClick={() => { setSupervisionTab('activity'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="supervision" /> {t('menu.supervision')}</button>
+                    <button className="user-menu-item" onClick={() => { setSupervisionTab('stats'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="supervision" /> {t('menu.supervision')}</button>
                     <button className="user-menu-item" onClick={() => { setSupervisionTab('users'); setCurrentPage('supervision'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="users" /> {t('menu.users')}</button>
                     <button className="user-menu-item" onClick={() => { setCurrentPage('admin'); setSidebarOpen(false); setUserMenuOpen(false); }}><NavIcon name="admin" /> {t('menu.llm')}</button>
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
