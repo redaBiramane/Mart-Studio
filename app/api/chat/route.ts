@@ -223,6 +223,13 @@ export async function POST(req: Request) {
     onError: (error) => {
       captureServerError(error, { where: 'chat.stream' });
       const msg = error instanceof Error ? error.message : String(error);
+      const low = msg.toLowerCase();
+      // Quota / limite de débit atteint (Gemini gratuit surtout) → message clair, pas « bug ».
+      const isQuota = low.includes('429') || low.includes('quota') || low.includes('rate limit')
+        || low.includes('rate-limit') || low.includes('resource_exhausted') || low.includes('too many requests') || low.includes('overloaded');
+      if (isQuota) {
+        return 'QUOTA::Le modèle gratuit est temporairement saturé (limite d’utilisation atteinte). Patientez une minute et réessayez, ou ajoutez votre propre clé API dans « Configuration LLM » pour un accès dédié.';
+      }
       return `Erreur du fournisseur LLM : ${msg}`;
     },
   });

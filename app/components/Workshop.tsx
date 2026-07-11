@@ -1101,20 +1101,26 @@ ${truncated}
               </div>
             </div>
           )}
-          {error && (
-            <div style={{
-              background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c',
-              borderRadius: 'var(--radius)', padding: '12px 16px', margin: '8px 0', fontSize: 13,
-            }}>
-              <strong>⚠️ Erreur du fournisseur LLM</strong>
-              <div style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-word' }}>
-                {error.message || String(error)}
+          {error && (() => {
+            const raw = error.message || String(error);
+            const isQuota = raw.startsWith('QUOTA::') || /quota|saturé|429|rate.?limit|too many requests/i.test(raw);
+            if (isQuota) {
+              const txt = raw.startsWith('QUOTA::') ? raw.slice(7) : 'Le modèle gratuit est temporairement saturé (limite d’utilisation atteinte). Patientez une minute et réessayez, ou ajoutez votre propre clé API dans « Configuration LLM ».';
+              return (
+                <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid var(--accent-amber)', color: 'var(--accent-amber)', borderRadius: 'var(--radius)', padding: '12px 16px', margin: '8px 0', fontSize: 13, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>⏳</span>
+                  <div style={{ lineHeight: 1.5 }}>{txt}</div>
+                </div>
+              );
+            }
+            return (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 'var(--radius)', padding: '12px 16px', margin: '8px 0', fontSize: 13 }}>
+                <strong>⚠️ Erreur du fournisseur LLM</strong>
+                <div style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-word' }}>{raw}</div>
+                <div style={{ marginTop: 6, color: '#7f1d1d' }}>Vérifiez votre clé API et vos crédits dans « Configuration LLM ».</div>
               </div>
-              <div style={{ marginTop: 6, color: '#7f1d1d' }}>
-                Vérifiez votre clé API et vos crédits dans « Configuration LLM ».
-              </div>
-            </div>
-          )}
+            );
+          })()}
           <div ref={messagesEndRef} />
         </div>
 
