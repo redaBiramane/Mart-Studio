@@ -44,7 +44,7 @@ interface DesignResponse {
     kpis: unknown[];
     rules: unknown[];
   };
-  deliverables: { sql: string; dbml: string; dbt: string; dictionary: string };
+  deliverables: { sql: string; dbml: string; dbt: string; dictionary: string; mermaid: string };
   usage: { input: number; output: number; total: number };
   meta: { provider: string; model: string; entities: number; attributes: number; relations: number };
 }
@@ -135,6 +135,7 @@ async function main() {
     'schema.dbml': data.deliverables.dbml,
     'schema.yml': data.deliverables.dbt,
     'dictionary.md': data.deliverables.dictionary,
+    'erd.mmd': data.deliverables.mermaid,
   };
   for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
 

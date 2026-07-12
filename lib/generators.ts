@@ -66,6 +66,7 @@ export interface Deliverables {
   dbml: string;
   dbt: string;
   dictionary: string;
+  mermaid: string;
 }
 
 // ---- Utilitaires de nommage / typage ----
@@ -404,6 +405,45 @@ export function generateDictionary(model: DesignModel): string {
   return md.trimEnd() + '\n';
 }
 
+// ---- Diagramme MCD / ERD (Mermaid) ----
+
+// Type Mermaid : type SQL sans la taille, en minuscules (varchar, bigint…).
+function mmdType(type: string): string {
+  return mapSqlType(type).replace(/\(.*\)/, '').toLowerCase() || 'varchar';
+}
+
+export function generateMermaid(model: DesignModel): string {
+  const fks = foreignKeys(model);
+  const code = (name: string) => snake(name).toUpperCase() || 'ENTITE';
+  let out = 'erDiagram\n';
+
+  model.entities.forEach((e) => {
+    out += `    ${code(e.name)} {\n`;
+    model.attributes.filter((a) => a.entityName === e.name).forEach((c) => {
+      const tag = c.isPK ? ' "PK"' : '';
+      out += `        ${mmdType(c.type)} ${c.name}${tag}\n`;
+    });
+    fks.filter((f) => f.entityName === e.name).forEach((f) => {
+      out += `        bigint ${f.column} "FK"\n`;
+    });
+    out += `    }\n`;
+  });
+
+  const names = new Set(model.entities.map((e) => code(e.name)));
+  model.relations.forEach((rel) => {
+    const s = code(rel.source), t = code(rel.target);
+    if (!names.has(s) || !names.has(t)) return; // relation orpheline → ignorée
+    const card = rel.cardinality === '1:1' ? '||--||'
+      : rel.cardinality === '1:N' ? '||--o{'
+      : rel.cardinality === 'N:1' ? '}o--||'
+      : '}o--o{';
+    const label = (oneLine(rel.description) || 'lié à').replace(/"/g, "'");
+    out += `    ${s} ${card} ${t} : "${label}"\n`;
+  });
+
+  return out;
+}
+
 // ---- Agrégat ----
 
 export function buildDeliverables(model: DesignModel): Deliverables {
@@ -412,5 +452,6 @@ export function buildDeliverables(model: DesignModel): Deliverables {
     dbml: generateDBML(model),
     dbt: generateDbt(model),
     dictionary: generateDictionary(model),
+    mermaid: generateMermaid(model),
   };
 }
