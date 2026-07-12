@@ -137,7 +137,10 @@ async function main() {
     'dictionary.md': data.deliverables.dictionary,
     'erd.mmd': data.deliverables.mermaid,
   };
-  for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
+  // Ignore les livrables absents (ex. API pas encore redéployée) plutôt que d'écrire "undefined".
+  for (const [name, content] of Object.entries(files)) {
+    if (typeof content === 'string' && content.length) writeFileSync(join(dir, name), content);
+  }
 
   // ---- Résumé ----
   console.log(C.green(`\n✓ Modèle généré en ${secs}s`) + C.dim(` (${data.meta.model})`));
