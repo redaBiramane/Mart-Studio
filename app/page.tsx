@@ -15,6 +15,7 @@ import Supervision from './components/Supervision';
 import QuestionsAdmin from './components/QuestionsAdmin';
 import Help from './components/Help';
 import Profile, { UserAvatar } from './components/Profile';
+import Integrations from './components/Integrations';
 import Login from './components/Login';
 import Landing from './components/Landing';
 import Image from 'next/image';
@@ -28,6 +29,7 @@ function NavIcon({ name }: { name: string }) {
     products: <><rect x="3" y="4" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="4" width="7.5" height="7.5" rx="1.5" /><rect x="3" y="14.5" width="7.5" height="5.5" rx="1.5" /><rect x="13.5" y="14.5" width="7.5" height="5.5" rx="1.5" /></>,
     workshop: <><path d="M12 6.5 13.7 11l4.5 1.7-4.5 1.7L12 19l-1.7-4.6L5.8 12.7 10.3 11 12 6.5Z" /><path d="M5 4v3M3.5 5.5h3M18 15v3M16.5 16.5h3" /></>,
     deliverables: <><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></>,
+    integrations: <><path d="M9 2v5M15 2v5" /><path d="M7 7h10v4a5 5 0 0 1-10 0V7Z" /><path d="M12 16v3a3 3 0 0 0 3 3" /></>,
     docs: <><path d="M6.5 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M8 7h8M8 11h8M8 15h5" /></>,
     supervision: <><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3Z" /><path d="M9.2 12l2 2 3.6-3.8" /></>,
     admin: <><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1" /></>,
@@ -203,6 +205,7 @@ export default function Home() {
     { key: 'products' as Page, label: t('nav.products'), badgeRed: newSharedCount > 0 ? newSharedCount : undefined },
     { key: 'workshop' as Page, label: t('nav.workshop'), badge: session?.status === 'active' ? `${session.currentStep}/7` : undefined },
     { key: 'deliverables' as Page, label: t('nav.deliverables') },
+    { key: 'integrations' as Page, label: 'Intégrations' },
   ];
 
   const adminItems = [
@@ -397,6 +400,7 @@ export default function Home() {
               {currentPage === 'questions' && t('nav.questions')}
               {currentPage === 'help' && t('menu.help')}
               {currentPage === 'profile' && 'Mon profil'}
+              {currentPage === 'integrations' && 'Intégrations'}
             </h1>
           </div>
           <div className="header-actions">
@@ -494,6 +498,7 @@ export default function Home() {
           {currentPage === 'questions' && <QuestionsAdmin />}
           {currentPage === 'help' && <Help onOpenDocs={() => setCurrentPage('docs')} onStartWorkshop={startNewSession} onSuggestIdea={() => { setShowIdea(true); setIdeaSent(false); }} isAdmin={isAdmin} />}
           {currentPage === 'profile' && <Profile />}
+          {currentPage === 'integrations' && <Integrations />}
           {currentPage === 'docs' && <Documentation onStartWorkshop={startNewSession} />}
         </div>
       </div>

@@ -318,7 +318,7 @@ export interface WorkshopStore {
   // Historique d'annulation du modèle (hors messages) pour la session active
   past: Partial<WorkshopSession>[];
   future: Partial<WorkshopSession>[];
-  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help' | 'profile';
+  currentPage: 'dashboard' | 'products' | 'workshop' | 'deliverables' | 'admin' | 'docs' | 'supervision' | 'questions' | 'help' | 'profile' | 'integrations';
   chatDraft: string | null; // texte à pré-remplir dans le chat (ex. depuis la Lecture métier)
 
   // Auth / admin state
