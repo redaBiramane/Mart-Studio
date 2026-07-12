@@ -434,6 +434,39 @@
     .cmp-head,.cmp-row{grid-template-columns:1.25fr .9fr 1fr;padding:13px 15px;gap:8px}
     .cmp-row{font-size:12.5px}.cmp-head div{font-size:10px}
   }
+
+  /* ===== Différenciateur ===== */
+  .pipe{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:46px}
+  .pipe-group{flex:1;min-width:210px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .pipe-group[data-phase="atelier"]{flex:1.5}
+  .pipe-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;text-align:center}
+  .pipe-items{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+  .node{font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--ground);color:var(--ink-soft);transition:background .3s,color .3s,transform .3s,box-shadow .3s}
+  .node.lit{background:var(--emerald-deep);color:#fff;border-color:transparent;transform:translateY(-2px);box-shadow:0 8px 18px -8px rgba(6,95,70,.75)}
+  .pipe-arrow{display:flex;align-items:center;justify-content:center;color:var(--teal)}
+  .pipe-arrow svg{width:26px;height:26px}
+  @media(max-width:860px){.pipe-arrow{transform:rotate(90deg)}}
+
+  .innov{display:grid;grid-template-columns:1fr 1.1fr;gap:34px;align-items:center;border-radius:24px;padding:42px;color:#fff;margin-bottom:40px;
+    background:radial-gradient(120% 130% at 0 0,#0a3a2d,#04241c);position:relative;overflow:hidden}
+  .innov::after{content:"";position:absolute;top:-70px;right:-40px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(44,217,191,.22),transparent 65%);pointer-events:none}
+  @media(max-width:860px){.innov{grid-template-columns:1fr;padding:30px}}
+  .innov h3{font-size:clamp(24px,3.2vw,34px);line-height:1.12;margin:12px 0 12px;position:relative}
+  .innov h3 b{color:#5FF0D6}
+  .innov-left p{opacity:.9;font-size:15px;line-height:1.6;position:relative}
+  .innov-right{display:grid;grid-template-columns:1fr 1fr;gap:11px;position:relative}
+  @media(max-width:560px){.innov-right{grid-template-columns:1fr}}
+  .cap{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.16);border-radius:12px;padding:11px 13px;font-size:13.5px;font-weight:600}
+  .cap svg{width:16px;height:16px;stroke:#5FF0D6;fill:none;stroke-width:2.4;flex:0 0 auto}
+
+  .reverse{background:#062B22;border:1px solid #10493a;border-radius:22px;padding:34px;text-align:center;color:#dff2ea}
+  .rev-badge{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#053b30;background:linear-gradient(135deg,#5FE0C8,#2CD9BF);border-radius:999px;padding:5px 13px;font-weight:800;margin-bottom:14px}
+  .reverse>p{font-size:15.5px;opacity:.92;max-width:580px;margin:0 auto 22px;line-height:1.55}
+  .rev-terminal{background:#04211a;border:1px solid #10493a;border-radius:14px;padding:18px 20px;max-width:660px;margin:0 auto;text-align:left;font-family:var(--mono);font-size:13px;line-height:2;color:#8fd3bf}
+  .rev-terminal .ok{color:#5FE0C8}
+  .rev-terminal .rev-result{color:#eafaf4}
+  .rev-terminal b.cnt{color:#5FF0D6;font-size:17px;font-variant-numeric:tabular-nums}
+  .rev-note{font-size:11px;opacity:.6;margin-top:12px}
 </style>
 
 <div class="m-wrap">
@@ -589,6 +622,75 @@
           <div class="iff"><h4><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 5 14 2.5-7H21"/></svg>Score de maturité (DAD)</h4><p>Évaluation automatique selon le Design Authority.</p><div class="bar" style="--w:70%"><i></i></div></div>
           <div class="iff"><h4><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Rapidité</h4><p>Un Data Product complet et standardisé en minutes.</p><div class="bar" style="--w:94%"><i></i></div></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIFFÉRENCIATEUR -->
+  <section class="blk" id="difference" style="padding-top:24px">
+    <div class="m-in">
+      <div class="head reveal" style="max-width:700px;margin-inline:auto;text-align:center">
+        <span class="eyebrow">Ce qui différencie Marty</span>
+        <h2>Un workflow complet, <span style="color:var(--emerald)">de bout en bout</span>.</h2>
+        <p>Du besoin métier au rapport DAD, en un seul parcours guidé par l’IA. Peu de solutions couvrent l’intégralité de cet enchaînement.</p>
+      </div>
+
+      <!-- Pipeline animé -->
+      <div class="pipe reveal">
+        <div class="pipe-group" data-phase="in">
+          <div class="pipe-label">Entrée</div>
+          <div class="pipe-items">
+            <span class="node">Besoin métier</span>
+            <span class="node">Conversation IA</span>
+          </div>
+        </div>
+        <div class="pipe-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="pipe-group" data-phase="atelier">
+          <div class="pipe-label">Atelier IA — 7 étapes</div>
+          <div class="pipe-items">
+            <span class="node">Contexte</span><span class="node">Entités</span><span class="node">Relations</span>
+            <span class="node">Attributs</span><span class="node">KPI</span><span class="node">Règles métier</span><span class="node">Validation</span>
+          </div>
+        </div>
+        <div class="pipe-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="pipe-group" data-phase="out">
+          <div class="pipe-label">6 livrables</div>
+          <div class="pipe-items">
+            <span class="node">MCD / ERD</span><span class="node">SQL</span><span class="node">DBML</span>
+            <span class="node">dbt</span><span class="node">Dictionnaire</span><span class="node">Rapport DAD</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Le plus innovant -->
+      <div class="innov reveal">
+        <div class="innov-left">
+          <div class="eyebrow" style="color:#5FF0D6">Le plus innovant</div>
+          <h3>Ce ne sont pas les livrables.<br>C’est l’IA qui devient votre <b>Data Architect</b>.</h3>
+          <p>Marty ne se contente pas de générer des fichiers : il conduit un véritable atelier de conception, comme un architecte senior à vos côtés.</p>
+        </div>
+        <div class="innov-right">
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Anime l’atelier</div>
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Pose les bonnes questions</div>
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Détecte les oublis</div>
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Propose des compléments</div>
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Vérifie la cohérence</div>
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Calcule un score de maturité</div>
+          <div class="cap"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Produit les artefacts</div>
+        </div>
+      </div>
+
+      <!-- Reverse engineering -->
+      <div class="reverse reveal">
+        <span class="rev-badge">Reverse engineering intelligent</span>
+        <p>Vous partez de l’existant ? Importez vos <strong>SAS · SQL · Excel · CSV</strong> — Marty reconstruit le modèle.</p>
+        <div class="rev-terminal">
+          <div><span class="ok">▸</span> import : paie_2024.sas · clients.xlsx · schema.sql · transactions.csv</div>
+          <div><span class="ok">▸</span> analyse du contenu…</div>
+          <div class="rev-result"><span class="ok">✓</span> Marty a détecté <b class="cnt" data-c="42">0</b> entités · <b class="cnt" data-c="186">0</b> attributs · <b class="cnt" data-c="58">0</b> relations</div>
+          <div class="rev-result"><span class="ok">✓</span> MCD reconstruit — prêt à documenter.</div>
+        </div>
+        <div class="rev-note">Exemple illustratif du rendu d’un import.</div>
       </div>
     </div>
   </section>
@@ -1021,6 +1123,29 @@
       if(v==='visuel') requestAnimationFrame(drawVisualLinks);
     });
   });
+
+  /* ---- Pipeline différenciateur : impulsion qui parcourt le flux ---- */
+  var pnodes = [].slice.call(document.querySelectorAll('.pipe .node'));
+  if(pnodes.length){
+    if(reduce){ pnodes.forEach(function(n){ n.classList.add('lit'); }); }
+    else { var ppi = 0; setInterval(function(){
+      pnodes.forEach(function(n){ n.classList.remove('lit'); });
+      pnodes[ppi].classList.add('lit'); ppi = (ppi + 1) % pnodes.length;
+    }, 340); }
+  }
+  /* ---- Compteurs reverse engineering ---- */
+  var cnts = [].slice.call(document.querySelectorAll('.cnt'));
+  if(cnts.length){
+    var cio2 = new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(!e.isIntersecting) return; var el = e.target, tg = +el.dataset.c, t0 = null;
+        if(reduce){ el.textContent = tg; cio2.unobserve(el); return; }
+        function tk(ts){ if(!t0)t0=ts; var p=Math.min((ts-t0)/1200,1); el.textContent=Math.round((1-Math.pow(1-p,3))*tg); if(p<1)requestAnimationFrame(tk); }
+        requestAnimationFrame(tk); cio2.unobserve(el);
+      });
+    },{threshold:.6});
+    cnts.forEach(function(c){ cio2.observe(c); });
+  }
 
   /* ---- Hero canvas : MCD qui se construit ---- */
   var cv = document.getElementById('erd'); if(!cv) return;
