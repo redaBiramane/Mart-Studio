@@ -40,6 +40,14 @@ export default function Login({ onBack, initialMode = 'login' }: { onBack?: () =
     background: '#F4F8F6', border: '1.5px solid #D8E5DE', borderRadius: 11, outline: 'none',
   };
   const label: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: '#33493F' };
+  const bullet = (t: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, fontSize: 14.5, lineHeight: 1.4 }}>
+      <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      </span>
+      <span>{t}</span>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: '#EDF3F0', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
@@ -66,19 +74,18 @@ export default function Login({ onBack, initialMode = 'login' }: { onBack?: () =
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
           <div style={{
             background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', borderRadius: 26,
-            padding: '40px 42px 34px', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            maxWidth: 480, width: '100%', textAlign: 'center', boxShadow: '0 34px 70px -34px rgba(0,0,0,0.55)',
+            padding: '40px 42px', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 34px 70px -34px rgba(0,0,0,0.55)',
           }}>
-            <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 52, lineHeight: 0.6, color: 'rgba(255,255,255,0.45)' }}>&ldquo;</div>
-            <p style={{ fontSize: 23, lineHeight: 1.42, fontWeight: 700, letterSpacing: -0.3, margin: '10px 0 28px', color: '#fff' }}>
-              De l&apos;idée métier au Produit Data complet — MCD, SQL, dbt et documentation, en quelques minutes.
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11.5, letterSpacing: 2, opacity: 0.8, marginBottom: 14 }}>CONVERSATIONAL DATA MODELING</div>
+            <h1 style={{ fontSize: 34, lineHeight: 1.08, fontWeight: 800, letterSpacing: -0.6, margin: 0 }}>De l&apos;idée métier<br />au Produit Data.</h1>
+            <p style={{ fontSize: 15.5, opacity: 0.92, lineHeight: 1.55, margin: '16px auto 26px', maxWidth: 400 }}>
+              Décrivez votre besoin en langage simple. Marty conçoit le modèle complet — MCD, SQL, dbt, documentation.
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 13 }}>
-              <span style={{ width: 44, height: 44, borderRadius: '50%', background: '#fff', color: '#065F46', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 19, flexShrink: 0 }}>M</span>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 700, fontSize: 14.5 }}>Marty</div>
-                <div style={{ fontSize: 12.5, opacity: 0.82 }}>Data Architect IA · Sofinco</div>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {bullet('Un modèle complet en quelques minutes')}
+              {bullet('Contrôle qualité & RGPD intégrés')}
+              {bullet('Gemini gratuit par défaut, Opus au choix')}
             </div>
           </div>
         </div>
