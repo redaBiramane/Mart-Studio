@@ -1,0 +1,19 @@
+{
+  "name": "marty-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Client CLI d'exemple pour l'API Marty (POST /api/v1/design).",
+  "bin": {
+    "marty": "src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "design": "tsx src/index.ts design"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
