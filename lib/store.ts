@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { WorkshopSession, WorkshopStore, ChatMessage, LLMSettings } from './types';
+import { WorkshopSession, WorkshopStore, ChatMessage } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 function generateId(): string {
@@ -746,15 +746,10 @@ export const useWorkshopStore = create<WorkshopStore>()(
     }),
     {
       name: 'mart-studio-sessions',
+      // v3 : les réglages LLM deviennent PAR UTILISATEUR (clé locale dédiée).
+      // Sans fonction migrate, le bump de version fait écarter l'ancien état
+      // persisté (dont l'ancienne clé LLM globale) → chacun repart sur Gemini.
       version: 3,
-      // v3 : les réglages LLM deviennent PAR UTILISATEUR (clé locale dédiée). On
-      // purge l'ancien réglage global du navigateur pour ne plus qu'un compte
-      // hérite de la clé d'un autre — chaque utilisateur repart sur Gemini.
-      migrate: (persisted: unknown) => {
-        const s = (persisted || {}) as { llmSettings?: LLMSettings };
-        delete s.llmSettings;
-        return s;
-      },
       // En mode Supabase, la base est la source de vérité ; on ne persiste
       // localement que les réglages LLM et le cache des sessions (mode hors-ligne).
       partialize: (state) => ({
