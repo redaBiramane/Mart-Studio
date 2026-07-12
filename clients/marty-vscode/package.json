@@ -1,0 +1,59 @@
+{
+  "name": "marty-vscode",
+  "displayName": "Marty — Data Product Generator",
+  "description": "Décris ton idée métier, reçois un modèle de données complet et ses livrables (SQL, DBML, dbt, dictionnaire, ERD) directement dans VSCode.",
+  "version": "0.1.0",
+  "publisher": "marty",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "Data Science"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redaBiramane/Mart-Studio"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "marty.open",
+        "title": "Générer un Data Product",
+        "category": "Marty"
+      },
+      {
+        "command": "marty.setApiKey",
+        "title": "Définir la clé API",
+        "category": "Marty"
+      }
+    ],
+    "configuration": {
+      "title": "Marty",
+      "properties": {
+        "marty.apiUrl": {
+          "type": "string",
+          "default": "https://www.martstudio.it.com",
+          "description": "URL de base de l'API Marty (sans slash final)."
+        },
+        "marty.provider": {
+          "type": "string",
+          "enum": ["anthropic", "google"],
+          "default": "anthropic",
+          "description": "Fournisseur IA par défaut (anthropic = Claude Opus, google = Gemini Flash)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.7.0"
+  }
+}
