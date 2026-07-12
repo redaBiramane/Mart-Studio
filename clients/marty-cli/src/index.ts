@@ -15,8 +15,24 @@
 //     MARTY_API_KEY   clé d'API          (obligatoire)
 // ============================================================
 
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+
+// Charge le fichier .env du dossier courant (tsx/node ne le fait pas seul).
+function loadDotenv(): void {
+  const p = resolve(process.cwd(), '.env');
+  if (!existsSync(p)) return;
+  for (const raw of readFileSync(p, 'utf8').split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const k = line.slice(0, eq).trim();
+    let v = line.slice(eq + 1).trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    if (!(k in process.env)) process.env[k] = v; // les variables déjà exportées priment
+  }
+}
 
 // ---- Types du contrat d'API (sous-ensemble utile) ----
 interface DesignResponse {
@@ -74,6 +90,7 @@ function parseArgs(argv: string[]) {
 }
 
 async function main() {
+  loadDotenv();
   const url = (process.env.MARTY_API_URL || 'http://localhost:3000').replace(/\/$/, '');
   const key = process.env.MARTY_API_KEY;
   if (!key) die('MARTY_API_KEY manquante. Copiez .env.example en .env et renseignez votre clé (ou exportez la variable).');
