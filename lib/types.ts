@@ -348,6 +348,7 @@ export interface WorkshopStore {
   undo: () => void;
   redo: () => void;
   updateLLMSettings: (settings: Partial<LLMSettings>) => void;
+  loadLLMSettings: (userId: string) => void;
   completeSession: () => void;
   deleteSession: (id: string) => void;
   setLoading: (loading: boolean) => void;

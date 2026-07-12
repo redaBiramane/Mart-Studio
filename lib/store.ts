@@ -72,6 +72,20 @@ function savePrefs(uid: string, p: import('./types').ProfilePrefs) {
   try { localStorage.setItem(PREFS_KEY(uid), JSON.stringify(p)); } catch { /* ignore */ }
 }
 
+// Réglages LLM : stockés PAR UTILISATEUR. Un nouvel utilisateur repart sur le
+// défaut (Gemini gratuit), sans hériter de la clé d'un autre compte du navigateur.
+const LLM_KEY = (uid: string) => `mart-llm:${uid}`;
+function loadLLM(uid: string): import('./types').LLMSettings {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LLM_KEY(uid)) : null;
+    if (raw) return { ...defaultLLMSettings, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return { ...defaultLLMSettings };
+}
+function saveLLM(uid: string, s: import('./types').LLMSettings) {
+  try { localStorage.setItem(LLM_KEY(uid), JSON.stringify(s)); } catch { /* ignore */ }
+}
+
 // ---- Supabase sync helpers ----------------------------------------------
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -148,7 +162,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
             return;
           }
           set({ user: { id: sUser.id, email: sUser.email || '' }, accessToken: data.session?.access_token ?? null });
-          get().loadProfilePrefs(sUser.id);
+          get().loadProfilePrefs(sUser.id); get().loadLLMSettings(sUser.id);
           if (prof) set({ profile: prof });
           await get().loadUserSessions();
           await get().loadStepQuestions();
@@ -160,7 +174,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           const u = sess?.user;
           if (u) {
             set({ user: { id: u.id, email: u.email || '' }, accessToken: sess?.access_token ?? null });
-            get().loadProfilePrefs(u.id);
+            get().loadProfilePrefs(u.id); get().loadLLMSettings(u.id);
           } else {
             set({ user: null, profile: null, accessToken: null, sessions: [], session: null, profilePrefs: { ...DEFAULT_PREFS } });
           }
@@ -183,7 +197,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
           return false;
         }
         set({ user: { id: data.user.id, email: data.user.email || '' }, accessToken: data.session?.access_token ?? null });
-        get().loadProfilePrefs(data.user.id);
+        get().loadProfilePrefs(data.user.id); get().loadLLMSettings(data.user.id);
         if (prof) set({ profile: prof });
         await get().loadUserSessions();
         await get().loadStepQuestions();
@@ -228,7 +242,7 @@ export const useWorkshopStore = create<WorkshopStore>()(
       signOut: async () => {
         await get().logActivity('logout');
         if (supabase) await supabase.auth.signOut();
-        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], myLogs: [], currentPage: 'dashboard', profilePrefs: { ...DEFAULT_PREFS } });
+        set({ user: null, accessToken: null, profile: null, session: null, sessions: [], adminProducts: [], adminProfiles: [], activityLogs: [], myLogs: [], currentPage: 'dashboard', profilePrefs: { ...DEFAULT_PREFS }, llmSettings: { ...defaultLLMSettings } });
       },
 
       loadUserSessions: async () => {
@@ -717,33 +731,34 @@ export const useWorkshopStore = create<WorkshopStore>()(
       },
 
       updateLLMSettings: (settings) => {
-        set((state) => ({ llmSettings: { ...state.llmSettings, ...settings } }));
+        set((state) => {
+          const merged = { ...state.llmSettings, ...settings };
+          const uid = state.user?.id;
+          if (uid) saveLLM(uid, merged); // persistance PAR utilisateur
+          return { llmSettings: merged };
+        });
       },
+
+      loadLLMSettings: (userId) => set({ llmSettings: loadLLM(userId) }),
 
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       setSending: (sending: boolean) => set({ isSending: sending }),
     }),
     {
       name: 'mart-studio-sessions',
-      version: 2,
-      // Migration v2 : le défaut est passé à Gemini Flash (gratuit). Les réglages
-      // persistés SANS clé perso (anthropic/opus par défaut) sont basculés sur
-      // Gemini Flash. Ceux qui ont mis leur propre clé sont conservés.
-      migrate: (persisted: unknown, version: number) => {
+      version: 3,
+      // v3 : les réglages LLM deviennent PAR UTILISATEUR (clé locale dédiée). On
+      // purge l'ancien réglage global du navigateur pour ne plus qu'un compte
+      // hérite de la clé d'un autre — chaque utilisateur repart sur Gemini.
+      migrate: (persisted: unknown) => {
         const s = (persisted || {}) as { llmSettings?: LLMSettings };
-        if (version < 2) {
-          const ls = s.llmSettings;
-          if (!ls || !ls.apiKey) {
-            s.llmSettings = { provider: 'google', apiKey: '', model: 'gemini-2.0-flash', customBaseUrl: '' };
-          }
-        }
+        delete s.llmSettings;
         return s;
       },
       // En mode Supabase, la base est la source de vérité ; on ne persiste
       // localement que les réglages LLM et le cache des sessions (mode hors-ligne).
       partialize: (state) => ({
         sessions: state.sessions,
-        llmSettings: state.llmSettings,
         seenShared: state.seenShared,
       }),
     }
