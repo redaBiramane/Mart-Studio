@@ -205,7 +205,8 @@ export default function Home() {
     { key: 'products' as Page, label: t('nav.products'), badgeRed: newSharedCount > 0 ? newSharedCount : undefined },
     { key: 'workshop' as Page, label: t('nav.workshop'), badge: session?.status === 'active' ? `${session.currentStep}/7` : undefined },
     { key: 'deliverables' as Page, label: t('nav.deliverables') },
-    { key: 'integrations' as Page, label: 'Intégrations' },
+    // Intégrations masqué pour l'instant — réactiver en décommentant la ligne ci-dessous.
+    // { key: 'integrations' as Page, label: 'Intégrations' },
   ];
 
   const adminItems = [
