@@ -235,11 +235,19 @@ export async function POST(req: Request) {
       captureServerError(error, { where: 'chat.stream' });
       const msg = error instanceof Error ? error.message : String(error);
       const low = msg.toLowerCase();
-      // Quota / limite de débit atteint (Gemini gratuit surtout) → message clair, pas « bug ».
+      const usingPlatformKey = !llmSettings?.apiKey; // clé plateforme partagée (offre gratuite)
+      // 429 / quota = limite d'utilisation atteinte (souvent le quota GRATUIT partagé).
       const isQuota = low.includes('429') || low.includes('quota') || low.includes('rate limit')
-        || low.includes('rate-limit') || low.includes('resource_exhausted') || low.includes('too many requests') || low.includes('overloaded');
+        || low.includes('rate-limit') || low.includes('resource_exhausted') || low.includes('resource exhausted') || low.includes('too many requests');
+      // 503 / overloaded = fournisseur momentanément surchargé (pas ta faute, transitoire).
+      const isOverload = low.includes('overloaded') || low.includes('503') || low.includes('service unavailable') || low.includes('unavailable');
       if (isQuota) {
-        return 'QUOTA::Le modèle gratuit est temporairement saturé (limite d’utilisation atteinte). Patientez une minute et réessayez, ou ajoutez votre propre clé API dans « Configuration LLM » pour un accès dédié.';
+        return usingPlatformKey
+          ? 'QUOTA::Le modèle gratuit (clé plateforme, partagée entre les utilisateurs) a atteint sa limite Google du moment. Réessayez plus tard, ou ajoutez votre propre clé API dans « Configuration LLM » pour un accès dédié sans limite partagée.'
+          : 'QUOTA::Votre clé API a atteint sa limite d’utilisation. Vérifiez vos quotas/crédits chez le fournisseur.';
+      }
+      if (isOverload) {
+        return 'OVERLOAD::Le service IA est momentanément surchargé côté fournisseur. Patientez quelques instants et réessayez — ce n’est pas une limite de votre côté.';
       }
       return `Erreur du fournisseur LLM : ${msg}`;
     },

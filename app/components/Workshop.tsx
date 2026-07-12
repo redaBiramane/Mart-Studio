@@ -1106,9 +1106,13 @@ ${truncated}
           )}
           {error && (() => {
             const raw = error.message || String(error);
-            const isQuota = raw.startsWith('QUOTA::') || /quota|saturé|429|rate.?limit|too many requests/i.test(raw);
-            if (isQuota) {
-              const txt = raw.startsWith('QUOTA::') ? raw.slice(7) : 'Le modèle gratuit est temporairement saturé (limite d’utilisation atteinte). Patientez une minute et réessayez, ou ajoutez votre propre clé API dans « Configuration LLM ».';
+            const isOverload = raw.startsWith('OVERLOAD::') || /overloaded|503|service unavailable/i.test(raw);
+            const isQuota = raw.startsWith('QUOTA::') || /quota|saturé|429|rate.?limit|too many requests|resource.?exhausted/i.test(raw);
+            if (isQuota || isOverload) {
+              const txt = raw.startsWith('QUOTA::') ? raw.slice(7)
+                : raw.startsWith('OVERLOAD::') ? raw.slice(10)
+                : isOverload ? 'Le service IA est momentanément surchargé côté fournisseur. Patientez quelques instants et réessayez.'
+                : 'La limite d’utilisation du modèle a été atteinte. Réessayez plus tard, ou ajoutez votre propre clé API dans « Configuration LLM ».';
               return (
                 <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid var(--accent-amber)', color: 'var(--accent-amber)', borderRadius: 'var(--radius)', padding: '12px 16px', margin: '8px 0', fontSize: 13, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <span style={{ fontSize: 18, flexShrink: 0 }}>⏳</span>
