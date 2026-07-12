@@ -193,13 +193,18 @@ export async function POST(req: Request) {
         apiKey: process.env.OPENAI_API_KEY || '',
       });
       modelInstance = openaiProvider(llmSettings.model || 'gpt-4o');
-    } else {
-      // Défaut serveur GRATUIT pour tous : Google Gemini Flash (clé plateforme).
-      // Couvre le provider 'google' ET le cas « aucun provider / aucune clé ».
+    } else if (llmSettings?.provider === 'google') {
+      // L'utilisateur a choisi explicitement Gemini (clé plateforme GEMINI_API_KEY).
       const googleProvider = createGoogleGenerativeAI({
         apiKey: process.env.GEMINI_API_KEY || '',
       });
-      modelInstance = googleProvider(llmSettings?.model?.startsWith('gemini') ? llmSettings.model : 'gemini-2.0-flash');
+      modelInstance = googleProvider(llmSettings.model || 'gemini-2.0-flash');
+    } else {
+      // Défaut serveur : Claude Opus (clé plateforme ANTHROPIC_API_KEY).
+      const anthropicProvider = createAnthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY || '',
+      });
+      modelInstance = anthropicProvider(llmSettings?.model || 'claude-opus-4-8');
     }
   }
 
@@ -243,7 +248,7 @@ export async function POST(req: Request) {
       const isOverload = low.includes('overloaded') || low.includes('503') || low.includes('service unavailable') || low.includes('unavailable');
       if (isQuota) {
         return usingPlatformKey
-          ? 'QUOTA::Le modèle gratuit (clé plateforme, partagée entre les utilisateurs) a atteint sa limite Google du moment. Réessayez plus tard, ou ajoutez votre propre clé API dans « Configuration LLM » pour un accès dédié sans limite partagée.'
+          ? 'QUOTA::La clé IA de la plateforme (partagée entre les utilisateurs) a atteint sa limite du moment. Réessayez dans un instant, ou ajoutez votre propre clé API dans « Configuration LLM » pour un accès dédié.'
           : 'QUOTA::Votre clé API a atteint sa limite d’utilisation. Vérifiez vos quotas/crédits chez le fournisseur.';
       }
       if (isOverload) {

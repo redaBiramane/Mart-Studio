@@ -48,9 +48,9 @@ function createEmptySession(): WorkshopSession {
 }
 
 const defaultLLMSettings = {
-  provider: 'google' as const,
-  apiKey: '', // vide → utilise la clé plateforme (GEMINI_API_KEY), gratuit pour tous
-  model: 'gemini-2.0-flash',
+  provider: 'anthropic' as const,
+  apiKey: '', // vide → utilise la clé plateforme (ANTHROPIC_API_KEY, côté serveur)
+  model: 'claude-opus-4-8',
   customBaseUrl: '',
 };
 
@@ -78,7 +78,12 @@ const LLM_KEY = (uid: string) => `mart-llm:${uid}`;
 function loadLLM(uid: string): import('./types').LLMSettings {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LLM_KEY(uid)) : null;
-    if (raw) return { ...defaultLLMSettings, ...JSON.parse(raw) };
+    if (raw) {
+      const s = JSON.parse(raw) as import('./types').LLMSettings;
+      // Si l'utilisateur a mis SA propre clé, on respecte son choix.
+      // Sinon (pas de clé perso), on suit le défaut plateforme COURANT (Opus).
+      if (s.apiKey) return { ...defaultLLMSettings, ...s };
+    }
   } catch { /* ignore */ }
   return { ...defaultLLMSettings };
 }
