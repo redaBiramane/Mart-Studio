@@ -7,7 +7,7 @@
 // ============================================================
 
 import { lintModel, qualityScore } from './linter';
-import type { WorkshopSession, Entity, Relation } from './types';
+import type { WorkshopSession, Entity, Relation, BusinessRule, TokenUsage } from './types';
 
 // ---- Modèle d'entrée (contrat de l'API) ----
 
@@ -526,10 +526,67 @@ export function generateSemantic(model: DesignModel): string {
   return md.trimEnd() + '\n';
 }
 
+// ---- Persistance : projection du modèle en Data Product de l'application ----
+
+// Construit une WorkshopSession complète, identique à ce que produirait l'atelier
+// du site. Permet d'enregistrer une génération d'API comme un vrai Data Product,
+// que l'utilisateur retrouve ensuite sur martstudio.it.com et peut enrichir.
+export function buildWorkshopSession(
+  m: DesignModel,
+  meta?: { tokenUsage?: TokenUsage; llmModel?: string; llmProvider?: string; id?: string },
+): WorkshopSession {
+  const now = Date.now();
+  const base = toSession(m, { withForeignKeys: false });
+  return {
+    id: meta?.id || `ws_${now}_${Math.random().toString(36).substring(2, 9)}`,
+    createdAt: now,
+    updatedAt: now,
+    currentStep: 1,
+    status: 'active',
+    mode: 'expert',
+    productName: m.product.name || 'Data Product',
+    businessProblem: m.product.businessProblem || '',
+    objective: m.product.objective || '',
+    users: [],
+    domain: m.product.domain || '',
+    productOwner: '',
+    dataSteward: '',
+    businessDecision: '',
+    frequency: '',
+    existingSimilar: '',
+    contextSummary: m.product.objective || '',
+    entities: base.entities,
+    granularity: null,
+    relations: base.relations,
+    attributes: base.attributes,
+    kpis: m.kpis.map((k, i) => ({
+      id: `k${i}`, name: k.name, formula: k.formula || '', frequency: '',
+      aggregationLevels: [], filters: [], analysisAxes: [], description: k.description || '',
+    })),
+    businessRules: m.rules.map((r, i) => ({
+      id: `br${i}`, name: r.name, description: r.description || '',
+      type: (r.type as BusinessRule['type']) || 'validation', entities: [],
+    })),
+    dataSources: [],
+    qualityRules: [],
+    governance: null,
+    architecture: null,
+    maturityScores: null,
+    validationNotes: [],
+    messages: [],
+    tokenUsage: meta?.tokenUsage,
+    llmModel: meta?.llmModel,
+    llmProvider: meta?.llmProvider,
+  };
+}
+
 // ---- Contrôle qualité (réutilise le linter déterministe de l'application) ----
 
 // Le linter raisonne sur une WorkshopSession : on projette le modèle dessus.
-function toSession(m: DesignModel): WorkshopSession {
+// `withForeignKeys` : les colonnes de FK sont dérivées des relations à la génération
+// du DDL. On les injecte pour le LINTER (sinon il les croit manquantes), mais PAS
+// pour la persistance (le site les dérive lui-même, comme pour ses propres ateliers).
+function toSession(m: DesignModel, opts?: { withForeignKeys?: boolean }): WorkshopSession {
   const entities = m.entities.map((e, i) => ({
     id: `e${i}`, name: e.name, definition: e.definition || '', description: e.definition || '',
     example: '', responsible: '', type: (e.type as Entity['type']) || 'transactional', lifecycle: 'created' as const,
@@ -540,15 +597,15 @@ function toSession(m: DesignModel): WorkshopSession {
     isPrimaryKey: !!a.isPK, isForeignKey: !!a.isFK, isNaturalKey: false,
     isRequired: a.required !== false, isSensitive: !!a.sensitive, isHistorized: false,
   }));
-  // Les colonnes de clé étrangère sont dérivées des relations à la génération du
-  // DDL : on les injecte ici, sinon le linter les croirait manquantes.
-  foreignKeys(m).forEach((f, i) => {
-    attributes.push({
-      id: `fk${i}`, entityId: idOf(f.entityName), name: f.column, type: 'BIGINT', description: f.description,
-      isPrimaryKey: false, isForeignKey: true, isNaturalKey: false,
-      isRequired: false, isSensitive: false, isHistorized: false,
+  if (opts?.withForeignKeys !== false) {
+    foreignKeys(m).forEach((f, i) => {
+      attributes.push({
+        id: `fk${i}`, entityId: idOf(f.entityName), name: f.column, type: 'BIGINT', description: f.description,
+        isPrimaryKey: false, isForeignKey: true, isNaturalKey: false,
+        isRequired: false, isSensitive: false, isHistorized: false,
+      });
     });
-  });
+  }
   const relations = m.relations.map((r, i) => ({
     id: `r${i}`, sourceEntityId: idOf(r.source), targetEntityId: idOf(r.target),
     sourceEntityName: r.source, targetEntityName: r.target,

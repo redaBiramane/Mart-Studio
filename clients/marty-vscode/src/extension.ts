@@ -20,7 +20,18 @@ const SECRET_ACCESS = 'marty.accessToken';
 const SECRET_REFRESH = 'marty.refreshToken';
 const SECRET_EMAIL = 'marty.email';
 
+interface HistoryItem {
+  id: string;
+  name: string;
+  domain: string;
+  updatedAt: string;
+  entities: number;
+  tokens: number;
+  model: string;
+}
+
 interface DesignResponse {
+  productId?: string | null;
   product: { name: string; objective?: string; domain?: string };
   model: {
     entities: { name: string; definition?: string }[];
@@ -53,6 +64,8 @@ async function refreshLauncher(context: vscode.ExtensionContext): Promise<void> 
   const email = (await context.secrets.get(SECRET_EMAIL)) || '';
   const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
   launcherView?.webview.postMessage({ type: 'init', email, provider });
+  if (email) void loadHistory(context);
+  else launcherView?.webview.postMessage({ type: 'history', products: [] });
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -92,6 +105,9 @@ class LauncherProvider implements vscode.WebviewViewProvider {
           break;
         case 'open':
           openPanel(this.context);
+          break;
+        case 'openProduct':
+          await openProduct(this.context, String(msg.id || ''));
           break;
         case 'signIn':
           await signIn(this.context);
@@ -179,6 +195,64 @@ async function refreshToken(context: vscode.ExtensionContext): Promise<string | 
     return data.accessToken;
   } catch {
     return undefined;
+  }
+}
+
+// Appel authentifié : renouvelle le jeton en silence si la session a expiré.
+async function authFetch(
+  context: vscode.ExtensionContext,
+  path: string,
+  init?: RequestInit,
+): Promise<Response | undefined> {
+  let token = await context.secrets.get(SECRET_ACCESS);
+  if (!token) {
+    token = await signIn(context);
+    if (!token) return undefined;
+  }
+  const call = (t: string) => fetch(`${apiUrl()}${path}`, {
+    ...init,
+    headers: { 'content-type': 'application/json', ...(init?.headers || {}), authorization: `Bearer ${t}` },
+  });
+
+  let res = await call(token);
+  if (res.status === 401) {
+    const fresh = (await refreshToken(context)) || (await signIn(context));
+    if (!fresh) return res;
+    res = await call(fresh);
+  }
+  return res;
+}
+
+// ---- Historique des générations ----
+
+async function loadHistory(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    const res = await authFetch(context, '/api/v1/products');
+    if (!res || !res.ok) { launcherView?.webview.postMessage({ type: 'history', products: [] }); return; }
+    const data = (await res.json()) as { products?: HistoryItem[] };
+    launcherView?.webview.postMessage({ type: 'history', products: data.products || [] });
+  } catch {
+    launcherView?.webview.postMessage({ type: 'history', products: [] });
+  }
+}
+
+// Rouvre un Data Product : les livrables sont reconstruits côté serveur à partir du
+// modèle enregistré — aucun appel à l'IA, donc instantané et gratuit.
+async function openProduct(context: vscode.ExtensionContext, id: string): Promise<void> {
+  openPanel(context);
+  panel?.webview.postMessage({ type: 'progress', message: 'Chargement du Data Product…' });
+  try {
+    const res = await authFetch(context, `/api/v1/products?id=${encodeURIComponent(id)}`);
+    if (!res || !res.ok) {
+      const detail = res ? ((await res.json()) as { error?: string }).error : 'requête impossible';
+      panel?.webview.postMessage({ type: 'error', message: detail || 'Chargement impossible.' });
+      return;
+    }
+    lastResult = (await res.json()) as DesignResponse;
+    if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
+    panel?.webview.postMessage({ type: 'result', data: lastResult });
+  } catch (e) {
+    panel?.webview.postMessage({ type: 'error', message: `Chargement impossible : ${(e as Error).message}` });
   }
 }
 
@@ -307,6 +381,7 @@ async function generate(context: vscode.ExtensionContext, description: string, p
     // L'onglet porte le nom du Data Product généré.
     if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
     panel?.webview.postMessage({ type: 'result', data: lastResult });
+    void loadHistory(context); // la nouvelle génération apparaît dans l'historique
   } catch (e) {
     panel?.webview.postMessage({ type: 'error', message: `Requête échouée : ${(e as Error).message}` });
   }
@@ -389,12 +464,22 @@ async function downloadZip() {
 // l'utilisateur colle dans Marty (mode Expert) pour enrichir le modèle.
 async function continueOnWeb() {
   if (!lastResult) return;
-  const url = apiUrl();
+  await vscode.env.openExternal(vscode.Uri.parse(apiUrl()));
+
+  // Généré depuis un compte : le Data Product est DÉJÀ enregistré côté site.
+  if (lastResult.productId) {
+    panel?.webview.postMessage({ type: 'saved', message: 'Data Product déjà enregistré sur le site — ouvre « Data Products ».' });
+    vscode.window.showInformationMessage(
+      `Marty : « ${lastResult.product.name} » est déjà enregistré dans ton espace. Ouvre l'onglet « Data Products » pour poursuivre l'atelier (KPI, règles, gouvernance, rapport DAD…).`,
+    );
+    return;
+  }
+
+  // Cas d'une clé machine (pas de compte) : pas de propriétaire, on repasse par le DDL.
   await vscode.env.clipboard.writeText(lastResult.deliverables.sql);
-  await vscode.env.openExternal(vscode.Uri.parse(url));
   panel?.webview.postMessage({ type: 'saved', message: 'DDL copié — colle-le dans Marty (mode Expert).' });
   vscode.window.showInformationMessage(
-    'Marty : le DDL SQL a été copié. Sur martstudio.it.com, crée un Data Product en mode « Expert » et colle-le pour poursuivre l\'atelier (KPI, règles, gouvernance…).',
+    'Marty : le DDL SQL a été copié. Crée un Data Product en mode « Expert » et colle-le pour poursuivre l\'atelier.',
   );
 }
 
@@ -435,6 +520,14 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
   .acct .on { background:#1aa06d; }
   .acct .off { background:#e09100; }
   .acct .who { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sect { margin-top:18px; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px;
+    color: var(--vscode-descriptionForeground); border-top:1px solid var(--vscode-editorWidget-border,#4443);
+    padding-top:12px; margin-bottom:6px; }
+  .item { padding:7px 9px; border-radius:6px; cursor:pointer; margin-bottom:3px; }
+  .item:hover { background: var(--vscode-list-hoverBackground); }
+  .item .t { font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item .s { font-size:10.5px; color: var(--vscode-descriptionForeground); margin-top:2px; }
+  .empty { font-size:11.5px; color: var(--vscode-descriptionForeground); font-style:italic; padding:4px 0; }
 </style>
 </head>
 <body>
@@ -458,15 +551,39 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
 
   <button class="primary" id="go">Générer un Data Product</button>
 
+  <div class="sect">Mes générations</div>
+  <div id="hist"><div class="empty">Aucune génération pour l'instant.</div></div>
+
 <script nonce="${n}">
   const vscode = acquireVsCodeApi();
   const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   let signedIn = false;
 
   window.addEventListener('load', () => vscode.postMessage({ type: 'ready' }));
 
+  function renderHistory(products) {
+    const box = $('hist');
+    if (!products || !products.length) {
+      box.innerHTML = '<div class="empty">' + (signedIn ? 'Aucune génération pour l\\'instant.' : 'Connecte-toi pour voir ton historique.') + '</div>';
+      return;
+    }
+    box.innerHTML = '';
+    products.forEach((p) => {
+      const d = new Date(p.updatedAt);
+      const when = isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.title = 'Rouvrir ce Data Product';
+      el.innerHTML = '<div class="t">' + esc(p.name) + '</div><div class="s">' + esc(when) + ' • ' + (p.entities || 0) + ' entités</div>';
+      el.addEventListener('click', () => vscode.postMessage({ type: 'openProduct', id: p.id }));
+      box.appendChild(el);
+    });
+  }
+
   window.addEventListener('message', (e) => {
     const m = e.data;
+    if (m.type === 'history') { renderHistory(m.products); return; }
     if (m.type !== 'init') return;
     signedIn = !!m.email;
     $('who').textContent = signedIn ? m.email : 'Non connecté';
@@ -652,7 +769,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       if (m.provider) $('provider').value = m.provider;
     } else if (m.type === 'progress') {
       $('go').disabled = true;
-      setStatus('<span class="spinner"></span> Génération en cours… (~50 s avec Claude Opus)');
+      setStatus('<span class="spinner"></span> ' + esc(m.message || 'Génération en cours… (~50 s avec Claude Opus)'));
       $('results').classList.add('hidden');
     } else if (m.type === 'error') {
       $('go').disabled = false;

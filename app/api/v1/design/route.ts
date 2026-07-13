@@ -19,8 +19,9 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { normalizeModel, buildDeliverables, buildQualityReport } from '@/lib/generators';
+import { normalizeModel, buildDeliverables, buildQualityReport, buildWorkshopSession } from '@/lib/generators';
 import { estimateCostUsd } from '@/lib/llm-labels';
+import type { WorkshopSession } from '@/lib/types';
 import { captureServerError } from '@/lib/sentry-server';
 
 export const maxDuration = 120;
@@ -213,10 +214,25 @@ export async function POST(req: Request): Promise<Response> {
     const usd = estimateCostUsd(modelName, usage.input, usage.output);
     const cost = { usd: Number(usd.toFixed(4)), eur: Number((usd * USD_TO_EUR).toFixed(4)) };
 
+    // --- Persistance : la génération devient un vrai Data Product ---
+    // L'utilisateur la retrouve dans son historique ET sur martstudio.it.com, où il
+    // peut poursuivre l'atelier. (Seulement pour un compte : une clé machine n'a pas
+    // de propriétaire à qui rattacher le produit.)
+    let productId: string | null = null;
+    if (userId) {
+      const session = buildWorkshopSession(dm, {
+        tokenUsage: { input: usage.input, output: usage.output, total: usage.total, requests: 1 },
+        llmModel: modelName,
+        llmProvider: provider,
+      });
+      productId = await saveProduct(session, userId, auditLabel);
+    }
+
     // --- Audit best-effort (non bloquant) ---
     void auditLog(auditLabel, userId, dm.entities.length, usage.total, provider, cost.eur);
 
     return json({
+      productId,
       product: dm.product,
       model: {
         entities: dm.entities,
@@ -252,6 +268,35 @@ export async function POST(req: Request): Promise<Response> {
       return json({ error: 'Le modèle n\'a pas renvoyé un modèle exploitable. Reformulez la description et réessayez.' }, 502);
     }
     return json({ error: `Erreur de génération : ${msg}` }, 500);
+  }
+}
+
+// Enregistre la génération dans data_products (même format que l'atelier du site,
+// pour que le produit soit ouvrable et modifiable sur martstudio.it.com).
+async function saveProduct(session: WorkshopSession, userId: string, email: string): Promise<string | null> {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !serviceKey) return null;
+    const supa = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await supa.from('data_products').upsert({
+      id: session.id,
+      owner_id: userId,
+      owner_email: email,
+      name: session.productName || 'Data Product',
+      domain: session.domain || null,
+      status: session.status,
+      data: session,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error('[api.v1.design] enregistrement du produit impossible:', error.message);
+      return null;
+    }
+    return session.id;
+  } catch (e) {
+    captureServerError(e, { where: 'api.v1.design.saveProduct' });
+    return null; // ne jamais perdre la génération pour un échec d'enregistrement
   }
 }
 

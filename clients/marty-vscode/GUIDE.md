@@ -11,7 +11,7 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 ## 1. Ce dont vous avez besoin
 
 - **VSCode** (version 1.85 ou plus récente).
-- Le fichier **`marty-vscode-0.5.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
+- Le fichier **`marty-vscode-0.6.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
 - Votre **compte Marty** — celui que vous avez déjà sur
   [martstudio.it.com](https://www.martstudio.it.com). Pas encore de compte ? Créez-le sur le site.
 
@@ -26,7 +26,7 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 2. Ouvrez le panneau **Extensions** : `Cmd+Shift+X` (Mac) ou `Ctrl+Shift+X` (Windows/Linux).
 3. En haut du panneau, cliquez le menu **`…`** (« Vues et plus d'actions »).
 4. Choisissez **« Installer à partir d'un VSIX… »** (*Install from VSIX…*).
-5. Sélectionnez le fichier **`marty-vscode-0.5.0.vsix`**.
+5. Sélectionnez le fichier **`marty-vscode-0.6.0.vsix`**.
 6. VSCode confirme l'installation. C'est terminé.
 
 > L'icône verte Marty apparaît dans la liste de vos extensions.
@@ -92,9 +92,22 @@ Chaque onglet a un bouton **📋 Copier**.
 | --- | --- |
 | **💾 Enregistrer dans le projet** | Écrit les fichiers dans `marty-out/<nom-du-produit>/` de votre dossier VSCode ouvert. |
 | **📦 Télécharger le package (.zip)** | Crée une archive `.zip` contenant tous les livrables, à l'emplacement de votre choix (pratique pour l'envoyer à un collègue). |
-| **🌐 Continuer sur martstudio.it.com** | Copie le **DDL SQL** et ouvre l'application web. Créez-y un Data Product en mode **Expert** et collez le DDL pour poursuivre l'atelier complet (KPI, règles, qualité, gouvernance, rapport DAD…). |
+| **🌐 Continuer sur martstudio.it.com** | Ouvre l'application web. **Votre Data Product y est déjà enregistré** : ouvrez-le depuis « Data Products » pour poursuivre l'atelier complet (KPI, règles, gouvernance, rapport DAD…). |
 
 Fichiers produits : `schema.sql`, `schema.dbml`, `schema.yml`, `dictionary.md`, `semantic-layer.md`, `quality.md`, `erd.mmd`, `model.json`.
+
+---
+
+## 5 bis. Vos générations sont conservées
+
+Chaque génération est **automatiquement enregistrée** dans votre espace Marty. Vous ne
+perdez donc plus rien en fermant VSCode.
+
+- **Dans VSCode** : la section **« Mes générations »** (barre latérale) liste vos Data Products.
+  Cliquez sur l'un d'eux pour le **rouvrir instantanément** — les livrables sont reconstruits
+  sans rappeler l'IA (donc **sans coût ni attente**).
+- **Sur le site** : ils apparaissent dans **« Data Products »**, où vous pouvez poursuivre
+  l'atelier complet.
 
 ---
 
