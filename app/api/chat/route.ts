@@ -246,6 +246,17 @@ export async function POST(req: Request) {
         || low.includes('rate-limit') || low.includes('resource_exhausted') || low.includes('resource exhausted') || low.includes('too many requests');
       // 503 / overloaded = fournisseur momentanément surchargé (pas ta faute, transitoire).
       const isOverload = low.includes('overloaded') || low.includes('503') || low.includes('service unavailable') || low.includes('unavailable');
+      // Clé refusée par le fournisseur (révoquée, faute de frappe, mauvais provider).
+      // Cas fréquent : une ancienne clé personnelle est restée dans « Configuration LLM »
+      // et prend le pas sur la clé de la plateforme.
+      const isBadKey = low.includes('invalid x-api-key') || low.includes('invalid api key')
+        || low.includes('incorrect api key') || low.includes('authentication_error')
+        || low.includes('api key not valid') || low.includes('401') || low.includes('unauthorized');
+      if (isBadKey) {
+        return usingPlatformKey
+          ? 'BADKEY::La clé IA de la plateforme est invalide ou expirée. Contactez l’administrateur (la clé serveur doit être renouvelée).'
+          : 'BADKEY::Votre clé API personnelle est invalide ou a été révoquée. Ouvrez « Configuration LLM » et VIDEZ le champ « Clé API » pour repasser sur la clé de la plateforme (Claude Opus, incluse) — ou saisissez une clé valide.';
+      }
       if (isQuota) {
         return usingPlatformKey
           ? 'QUOTA::La clé IA de la plateforme (partagée entre les utilisateurs) a atteint sa limite du moment. Réessayez dans un instant, ou ajoutez votre propre clé API dans « Configuration LLM » pour un accès dédié.'

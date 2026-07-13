@@ -1108,6 +1108,18 @@ ${truncated}
             const raw = error.message || String(error);
             const isOverload = raw.startsWith('OVERLOAD::') || /overloaded|503|service unavailable/i.test(raw);
             const isQuota = raw.startsWith('QUOTA::') || /quota|saturé|429|rate.?limit|too many requests|resource.?exhausted/i.test(raw);
+            const isBadKey = raw.startsWith('BADKEY::') || /invalid x-api-key|invalid api key|authentication_error/i.test(raw);
+            // Clé refusée : on explique QUOI faire, au lieu d'afficher « invalid x-api-key ».
+            if (isBadKey) {
+              const txt = raw.startsWith('BADKEY::') ? raw.slice(8)
+                : 'La clé API utilisée est invalide ou révoquée. Ouvrez « Configuration LLM » et videz le champ « Clé API » pour repasser sur la clé de la plateforme (Claude Opus, incluse).';
+              return (
+                <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid var(--accent-amber)', color: 'var(--accent-amber)', borderRadius: 'var(--radius)', padding: '12px 16px', margin: '8px 0', fontSize: 13, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>🔑</span>
+                  <div style={{ lineHeight: 1.5 }}>{txt}</div>
+                </div>
+              );
+            }
             if (isQuota || isOverload) {
               const txt = raw.startsWith('QUOTA::') ? raw.slice(7)
                 : raw.startsWith('OVERLOAD::') ? raw.slice(10)
