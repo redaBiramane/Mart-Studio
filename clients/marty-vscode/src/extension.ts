@@ -4,13 +4,21 @@
 // Panneau webview : l'utilisateur décrit son idée métier, l'extension
 // appelle POST /api/v1/design (API Marty) et affiche le modèle + les
 // livrables (SQL, DBML, dbt, dictionnaire, ERD). Enregistrement dans le
-// projet en un clic. La clé API est stockée via SecretStorage.
+// projet en un clic.
+//
+// Authentification : l'utilisateur se connecte avec le compte Marty qu'il
+// possède déjà sur martstudio.it.com — aucune clé d'API à distribuer. Les
+// jetons de session sont conservés dans le coffre chiffré de VSCode.
 // ============================================================
 
 import * as vscode from 'vscode';
 import { createZip } from './zip';
 
-const SECRET_KEY = 'marty.apiKey';
+// Jetons du compte Marty (l'utilisateur se connecte avec le compte qu'il a déjà
+// sur martstudio.it.com — aucune clé d'API à distribuer).
+const SECRET_ACCESS = 'marty.accessToken';
+const SECRET_REFRESH = 'marty.refreshToken';
+const SECRET_EMAIL = 'marty.email';
 
 interface DesignResponse {
   product: { name: string; objective?: string; domain?: string };
@@ -39,10 +47,15 @@ let pendingDescription: string | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    vscode.commands.registerCommand('marty.setApiKey', () => setApiKey(context)),
+    vscode.commands.registerCommand('marty.signIn', () => signIn(context)),
+    vscode.commands.registerCommand('marty.signOut', () => signOut(context)),
     vscode.commands.registerCommand('marty.open', () => openPanel(context)),
     vscode.window.registerWebviewViewProvider('marty.launcher', new LauncherProvider(context)),
   );
+}
+
+function apiUrl(): string {
+  return (vscode.workspace.getConfiguration('marty').get<string>('apiUrl') || 'https://www.martstudio.it.com').replace(/\/$/, '');
 }
 
 // ---- Vue de la barre latérale (icône Marty dans la barre d'activité) ----
@@ -64,8 +77,8 @@ class LauncherProvider implements vscode.WebviewViewProvider {
         case 'open':
           openPanel(this.context);
           break;
-        case 'setKey':
-          await setApiKey(this.context);
+        case 'signIn':
+          await signIn(this.context);
           break;
       }
     });
@@ -76,22 +89,76 @@ export function deactivate() {
   panel?.dispose();
 }
 
-// ---- Clé API ----
+// ---- Compte Marty (connexion / déconnexion / jeton) ----
 
-async function setApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
-  const value = await vscode.window.showInputBox({
-    title: 'Marty — Clé API',
-    prompt: 'Colle ta clé API Marty (fournie par ton administrateur).',
-    placeHolder: 'marty_…',
+// Connexion avec le compte martstudio.it.com. Les jetons sont conservés dans le
+// coffre chiffré de VSCode (SecretStorage), jamais en clair.
+async function signIn(context: vscode.ExtensionContext): Promise<string | undefined> {
+  const email = await vscode.window.showInputBox({
+    title: 'Marty — Connexion (1/2)',
+    prompt: 'Ton email Marty (le même que sur martstudio.it.com).',
+    placeHolder: 'prenom.nom@exemple.com',
+    ignoreFocusOut: true,
+  });
+  if (!email?.trim()) return undefined;
+
+  const password = await vscode.window.showInputBox({
+    title: 'Marty — Connexion (2/2)',
+    prompt: 'Ton mot de passe Marty.',
     password: true,
     ignoreFocusOut: true,
   });
-  if (value && value.trim()) {
-    await context.secrets.store(SECRET_KEY, value.trim());
-    vscode.window.showInformationMessage('Marty : clé API enregistrée.');
-    return value.trim();
+  if (!password) return undefined;
+
+  try {
+    const res = await fetch(`${apiUrl()}/api/v1/auth`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password }),
+    });
+    const data = (await res.json()) as { accessToken?: string; refreshToken?: string; email?: string; error?: string };
+    if (!res.ok || !data.accessToken) {
+      vscode.window.showErrorMessage(`Marty : ${data.error || 'connexion impossible.'}`);
+      return undefined;
+    }
+    await context.secrets.store(SECRET_ACCESS, data.accessToken);
+    if (data.refreshToken) await context.secrets.store(SECRET_REFRESH, data.refreshToken);
+    await context.secrets.store(SECRET_EMAIL, data.email || email.trim());
+    vscode.window.showInformationMessage(`Marty : connecté en tant que ${data.email || email.trim()}.`);
+    return data.accessToken;
+  } catch (e) {
+    vscode.window.showErrorMessage(`Marty : connexion impossible (${(e as Error).message}).`);
+    return undefined;
   }
-  return undefined;
+}
+
+async function signOut(context: vscode.ExtensionContext): Promise<void> {
+  await context.secrets.delete(SECRET_ACCESS);
+  await context.secrets.delete(SECRET_REFRESH);
+  await context.secrets.delete(SECRET_EMAIL);
+  vscode.window.showInformationMessage('Marty : déconnecté.');
+  panel?.webview.postMessage({ type: 'init', email: '' });
+}
+
+// Renouvelle le jeton d'accès expiré à partir du jeton de rafraîchissement.
+async function refreshToken(context: vscode.ExtensionContext): Promise<string | undefined> {
+  const rt = await context.secrets.get(SECRET_REFRESH);
+  if (!rt) return undefined;
+  try {
+    const res = await fetch(`${apiUrl()}/api/v1/auth`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { accessToken?: string; refreshToken?: string };
+    if (!data.accessToken) return undefined;
+    await context.secrets.store(SECRET_ACCESS, data.accessToken);
+    if (data.refreshToken) await context.secrets.store(SECRET_REFRESH, data.refreshToken);
+    return data.accessToken;
+  } catch {
+    return undefined;
+  }
 }
 
 // ---- Panneau ----
@@ -122,8 +189,8 @@ function openPanel(context: vscode.ExtensionContext, description?: string) {
     switch (msg?.type) {
       case 'ready': {
         const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
-        const hasKey = !!(await context.secrets.get(SECRET_KEY));
-        panel?.webview.postMessage({ type: 'init', provider, hasKey });
+        const email = (await context.secrets.get(SECRET_EMAIL)) || '';
+        panel?.webview.postMessage({ type: 'init', provider, email });
         // Génération demandée depuis la barre latérale : le webview est prêt, on lance.
         if (pendingDescription) {
           const d = pendingDescription;
@@ -152,9 +219,14 @@ function openPanel(context: vscode.ExtensionContext, description?: string) {
       case 'openExternal':
         if (msg.url) vscode.env.openExternal(vscode.Uri.parse(String(msg.url)));
         break;
-      case 'setKey':
-        await setApiKey(context);
-        panel?.webview.postMessage({ type: 'init', hasKey: true });
+      case 'signIn': {
+        await signIn(context);
+        const em = (await context.secrets.get(SECRET_EMAIL)) || '';
+        panel?.webview.postMessage({ type: 'init', email: em });
+        break;
+      }
+      case 'signOut':
+        await signOut(context);
         break;
     }
   });
@@ -169,24 +241,36 @@ async function generate(context: vscode.ExtensionContext, description: string, p
     panel?.webview.postMessage({ type: 'error', message: 'Décris ton idée métier (au moins 10 caractères).' });
     return;
   }
-  let apiKey = await context.secrets.get(SECRET_KEY);
-  if (!apiKey) {
-    apiKey = await setApiKey(context);
-    if (!apiKey) {
-      panel?.webview.postMessage({ type: 'error', message: 'Aucune clé API. Configure-la pour générer.' });
+  let token = await context.secrets.get(SECRET_ACCESS);
+  if (!token) {
+    token = await signIn(context);
+    if (!token) {
+      panel?.webview.postMessage({ type: 'error', message: 'Connecte-toi à ton compte Marty pour générer.' });
       return;
     }
   }
-  const cfg = vscode.workspace.getConfiguration('marty');
-  const url = (cfg.get<string>('apiUrl') || 'https://www.martstudio.it.com').replace(/\/$/, '');
+
+  const call = (t: string) => fetch(`${apiUrl()}/api/v1/design`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+    body: JSON.stringify({ description, options: { provider } }),
+  });
 
   panel?.webview.postMessage({ type: 'progress' });
   try {
-    const res = await fetch(`${url}/api/v1/design`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ description, options: { provider } }),
-    });
+    let res = await call(token);
+
+    // Jeton expiré (les sessions durent ~1 h) : on le renouvelle en silence et on
+    // rejoue la requête, pour que l'utilisateur n'ait pas à se reconnecter.
+    if (res.status === 401) {
+      const fresh = (await refreshToken(context)) || (await signIn(context));
+      if (!fresh) {
+        panel?.webview.postMessage({ type: 'error', message: 'Session expirée. Reconnecte-toi.' });
+        return;
+      }
+      res = await call(fresh);
+    }
+
     if (!res.ok) {
       let detail = res.statusText;
       try { detail = ((await res.json()) as { error?: string }).error || detail; } catch { /* corps non-JSON */ }
@@ -279,7 +363,7 @@ async function downloadZip() {
 // l'utilisateur colle dans Marty (mode Expert) pour enrichir le modèle.
 async function continueOnWeb() {
   if (!lastResult) return;
-  const url = (vscode.workspace.getConfiguration('marty').get<string>('apiUrl') || 'https://www.martstudio.it.com').replace(/\/$/, '');
+  const url = apiUrl();
   await vscode.env.clipboard.writeText(lastResult.deliverables.sql);
   await vscode.env.openExternal(vscode.Uri.parse(url));
   panel?.webview.postMessage({ type: 'saved', message: 'DDL copié — colle-le dans Marty (mode Expert).' });
@@ -322,14 +406,14 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
   <p class="hint">Décris ton idée métier — Marty conçoit le modèle et ses livrables.</p>
   <textarea id="d" placeholder="Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances, garanties…"></textarea>
   <button class="primary" id="go">Générer un Data Product</button>
-  <button class="link" id="key">🔑 Définir la clé API</button>
+  <button class="link" id="key">👤 Se connecter / changer de compte</button>
 <script nonce="${n}">
   const vscode = acquireVsCodeApi();
   document.getElementById('go').addEventListener('click', () => {
     const description = document.getElementById('d').value.trim();
     vscode.postMessage(description ? { type: 'generate', description } : { type: 'open' });
   });
-  document.getElementById('key').addEventListener('click', () => vscode.postMessage({ type: 'setKey' }));
+  document.getElementById('key').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
 </script>
 </body>
 </html>`;
@@ -438,7 +522,8 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         <option value="google">Gemini Flash (rapide)</option>
       </select>
     </label>
-    <button class="ghost" id="setkey">Changer la clé API</button>
+    <button class="ghost" id="account">👤 Compte</button>
+    <span id="who" style="font-size:12px;color:var(--vscode-descriptionForeground)"></span>
   </div>
 
   <div class="status hidden" id="status"></div>
@@ -467,7 +552,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     const description = $('desc').value;
     vscode.postMessage({ type: 'generate', description, provider: $('provider').value });
   });
-  $('setkey').addEventListener('click', () => vscode.postMessage({ type: 'setKey' }));
+  $('account').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
   $('save').addEventListener('click', () => vscode.postMessage({ type: 'save' }));
   $('zip').addEventListener('click', () => vscode.postMessage({ type: 'zip' }));
   $('web').addEventListener('click', () => vscode.postMessage({ type: 'continueWeb' }));
@@ -483,7 +568,8 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     const m = e.data;
     if (m.type === 'init') {
       if (m.provider) $('provider').value = m.provider;
-      if (m.hasKey === false) setStatus('⚠️ Aucune clé API configurée. Clique « Changer la clé API » ou lance une génération pour la saisir.');
+      $('who').textContent = m.email ? 'Connecté : ' + m.email : '';
+      if (!m.email) setStatus('👤 Non connecté. Clique « Compte » (ou lance une génération) pour te connecter avec ton compte Marty.');
     } else if (m.type === 'prefill') {
       $('desc').value = m.description || '';
     } else if (m.type === 'progress') {

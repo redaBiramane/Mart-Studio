@@ -8,9 +8,9 @@ L'extension appelle l'API Marty (`POST /api/v1/design`) — aucun traitement loc
 
 ## Installation (interne, via .vsix)
 
-1. Récupère le fichier `marty-vscode-0.3.0.vsix` (généré par `npm run package`).
+1. Récupère le fichier `marty-vscode-0.4.0.vsix` (généré par `npm run package`).
 2. Dans VSCode : **Extensions** → menu `…` en haut → **Install from VSIX…** → choisis le fichier.
-   (ou en ligne de commande : `code --install-extension marty-vscode-0.3.0.vsix`)
+   (ou en ligne de commande : `code --install-extension marty-vscode-0.4.0.vsix`)
 
 ## Configuration
 

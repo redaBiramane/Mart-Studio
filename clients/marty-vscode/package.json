@@ -2,7 +2,7 @@
   "name": "marty-vscode",
   "displayName": "Marty — Data Product Generator",
   "description": "Décris ton idée métier, reçois un modèle de données complet et ses livrables (SQL, DBML, dbt, dictionnaire, ERD) directement dans VSCode.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "marty",
   "engines": {
     "vscode": "^1.85.0"
@@ -44,8 +44,13 @@
         "category": "Marty"
       },
       {
-        "command": "marty.setApiKey",
-        "title": "Définir la clé API",
+        "command": "marty.signIn",
+        "title": "Se connecter (compte Marty)",
+        "category": "Marty"
+      },
+      {
+        "command": "marty.signOut",
+        "title": "Se déconnecter",
         "category": "Marty"
       }
     ],

@@ -11,9 +11,12 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 ## 1. Ce dont vous avez besoin
 
 - **VSCode** (version 1.85 ou plus récente).
-- Le fichier **`marty-vscode-0.3.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
-- Une **clé API Marty** (format `marty_…`), fournie par l'administrateur. Elle est **personnelle** :
-  ne la partagez pas.
+- Le fichier **`marty-vscode-0.4.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
+- Votre **compte Marty** — celui que vous avez déjà sur
+  [martstudio.it.com](https://www.martstudio.it.com). Pas encore de compte ? Créez-le sur le site.
+
+> ℹ️ **Aucune clé API à saisir** (ni Claude, ni OpenAI). L'IA est appelée par le serveur Marty ;
+> vous vous identifiez simplement avec votre compte habituel.
 
 ---
 
@@ -23,21 +26,22 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 2. Ouvrez le panneau **Extensions** : `Cmd+Shift+X` (Mac) ou `Ctrl+Shift+X` (Windows/Linux).
 3. En haut du panneau, cliquez le menu **`…`** (« Vues et plus d'actions »).
 4. Choisissez **« Installer à partir d'un VSIX… »** (*Install from VSIX…*).
-5. Sélectionnez le fichier **`marty-vscode-0.3.0.vsix`**.
+5. Sélectionnez le fichier **`marty-vscode-0.4.0.vsix`**.
 6. VSCode confirme l'installation. C'est terminé.
 
 > L'icône verte Marty apparaît dans la liste de vos extensions.
 
 ---
 
-## 3. Enregistrer votre clé API (une seule fois)
+## 3. Se connecter (une seule fois)
 
-1. Ouvrez la palette de commandes : `Cmd+Shift+P` (Mac) / `Ctrl+Shift+P` (Windows/Linux).
-2. Tapez **`Marty : Définir la clé API`** et validez.
-3. Collez votre clé `marty_…` et appuyez sur Entrée.
+1. Cliquez l'**icône Marty** dans la barre d'activité → **« 👤 Se connecter / changer de compte »**.
+   *(ou palette de commandes → **`Marty : Se connecter`**)*
+2. Saisissez votre **email**, puis votre **mot de passe** Marty — les mêmes que sur le site.
 
-> Votre clé est stockée **de façon chiffrée** dans le coffre sécurisé de VSCode
-> (*SecretStorage*). Elle n'apparaît jamais en clair et n'est pas synchronisée.
+> Votre session est stockée **de façon chiffrée** dans le coffre sécurisé de VSCode
+> (*SecretStorage*) et **se renouvelle automatiquement**. Vous n'aurez plus à y revenir.
+> Pour changer de compte : **`Marty : Se déconnecter`**.
 
 ---
 
@@ -107,8 +111,10 @@ Fichiers produits : `schema.sql`, `schema.dbml`, `schema.yml`, `dictionary.md`, 
 
 | Message / symptôme | Cause & solution |
 | --- | --- |
-| *« Aucune clé API »* | Vous n'avez pas encore enregistré votre clé → étape 3. |
-| *HTTP 401 — Clé invalide* | Clé erronée ou révoquée → redemandez-en une à l'administrateur. |
+| *« Non connecté »* | Connectez-vous → étape 3. |
+| *Email ou mot de passe incorrect* | Vérifiez vos identifiants sur [martstudio.it.com](https://www.martstudio.it.com) (les mêmes). |
+| *Session expirée* | L'extension la renouvelle seule ; si le message persiste, reconnectez-vous. |
+| *Compte désactivé (403)* | Votre accès a été retiré → contactez l'administrateur. |
 | *HTTP 429 — Trop de requêtes* | Limite atteinte, patientez une minute. |
 | *HTTP 503 — Service surchargé* | Réessayez dans quelques instants. |
 | La commande Marty n'apparaît pas | Rechargez VSCode (`Cmd/Ctrl+Shift+P` → *Reload Window*). |

@@ -1,17 +1,18 @@
-# Marty pour VSCode — Démarrage rapide (5 minutes)
+# Marty pour VSCode — Démarrage rapide (3 minutes)
 
 > Décris ton idée métier → reçois un **modèle de données** complet et ses **livrables**
 > (SQL, DBML, dbt, dictionnaire, couche sémantique, contrôle qualité, diagramme ERD).
 
-Tu as reçu **2 éléments** de l'administrateur :
+Tu as besoin de **2 choses** :
 
 | | |
 | --- | --- |
-| 📦 `marty-vscode-0.3.0.vsix` | L'extension à installer |
-| 🔑 Une clé `marty_…` | **Personnelle** — ne la partage pas |
+| 📦 `marty-vscode-0.4.0.vsix` | L'extension à installer |
+| 👤 Ton compte Marty | **Celui que tu as déjà** sur [martstudio.it.com](https://www.martstudio.it.com) |
 
-> ℹ️ **Tu n'as besoin d'AUCUNE clé Claude / OpenAI.** L'IA est appelée par le serveur Marty.
-> Ta clé `marty_…` sert uniquement à t'identifier auprès de l'API interne.
+> ℹ️ **Aucune clé API à saisir.** Ni Claude, ni OpenAI, ni quoi que ce soit.
+> Tu te connectes avec ton compte Marty habituel — c'est tout.
+> *(Pas encore de compte ? Crée-le sur [martstudio.it.com](https://www.martstudio.it.com).)*
 
 ---
 
@@ -19,18 +20,19 @@ Tu as reçu **2 éléments** de l'administrateur :
 
 1. Dans VSCode : `Cmd+Shift+X` (Mac) / `Ctrl+Shift+X` (Windows) → panneau **Extensions**.
 2. Clique le menu **`…`** en haut du panneau → **« Install from VSIX… »**.
-3. Sélectionne le fichier **`marty-vscode-0.3.0.vsix`**.
+3. Sélectionne le fichier **`marty-vscode-0.4.0.vsix`**.
 
 ✅ Une **icône Marty** (verte) apparaît dans la barre d'activité, à gauche.
 
 ---
 
-## 2️⃣ Enregistrer ta clé
+## 2️⃣ Se connecter (une seule fois)
 
-1. `Cmd+Shift+P` / `Ctrl+Shift+P` → tape **`Marty : Définir la clé API`**.
-2. Colle ta clé `marty_…` → Entrée.
+1. Clique l'**icône Marty** → **« 👤 Se connecter / changer de compte »**.
+2. Saisis ton **email** puis ton **mot de passe** Marty.
 
-> Elle est stockée **chiffrée** dans le coffre sécurisé de VSCode. À faire **une seule fois**.
+> Ta session est conservée **chiffrée** dans le coffre sécurisé de VSCode, et se
+> renouvelle toute seule. Tu n'auras plus à y revenir.
 
 ---
 
@@ -80,8 +82,9 @@ Décris la **structure** et le **besoin** — ne colle jamais de **données rée
 | Symptôme | Solution |
 | --- | --- |
 | Pas d'icône Marty | `Cmd/Ctrl+Shift+P` → **Reload Window** |
-| *« Aucune clé API »* | Refais l'étape 2️⃣ |
-| *HTTP 401* | Clé invalide/révoquée → redemande-la à l'administrateur |
+| *« Non connecté »* | Refais l'étape 2️⃣ |
+| *Email ou mot de passe incorrect* | Vérifie sur [martstudio.it.com](https://www.martstudio.it.com) (même identifiants) |
 | *HTTP 429* | Limite atteinte → patiente une minute |
+| *Compte désactivé* | Contacte l'administrateur |
 
 Guide complet : `GUIDE.md`. Une question ? Contacte l'équipe Marty.

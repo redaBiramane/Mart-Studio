@@ -52,6 +52,31 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
+// Vérifie un jeton de session Supabase (compte Marty) et renvoie l'identité réelle.
+// Même mécanisme que /api/chat : l'utilisateur se connecte avec le compte qu'il a déjà.
+async function verifyMartyAccount(token: string): Promise<{ id: string; email: string; banned: boolean } | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  try {
+    const supa = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await supa.auth.getUser(token);
+    if (error || !data.user) return null;
+
+    // Un compte banni ne doit plus pouvoir consommer l'IA.
+    let banned = false;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceKey) {
+      const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: profile } = await admin.from('profiles').select('role').eq('id', data.user.id).single();
+      banned = profile?.role === 'banned';
+    }
+    return { id: data.user.id, email: data.user.email || data.user.id, banned };
+  } catch {
+    return null;
+  }
+}
+
 // Extrait le premier objet JSON d'un texte (tolère un éventuel ```json … ```).
 function extractJson(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -90,20 +115,42 @@ export async function POST(req: Request): Promise<Response> {
   // --- Authentification par clé d'API ---
   const configured = (process.env.MARTY_API_KEYS || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
-  if (configured.length === 0) {
-    return json({ error: 'API non configurée : définissez la variable d\'environnement MARTY_API_KEYS côté serveur.' }, 503);
-  }
   const provided = (
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
     req.headers.get('x-api-key') ||
     ''
   ).trim();
-  if (!provided || !configured.some((k) => safeEqual(k, provided))) {
-    return json({ error: 'Clé d\'API manquante ou invalide.' }, 401);
+  if (!provided) {
+    return json({ error: 'Authentification requise : connectez-vous avec votre compte Marty, ou fournissez une clé d\'API.' }, 401);
   }
-  const keyLabel = `key_${provided.slice(-4)}`;
 
-  if (rateLimited(provided)) {
+  // Deux identités possibles :
+  //  - clé d'API « marty_… » (CLI, scripts, intégrations machine) ;
+  //  - jeton de session Supabase (extension VSCode / compte Marty) → identité réelle.
+  let identity: string;   // clé de limitation de débit
+  let auditLabel: string; // ce qui apparaît dans le journal
+  let userId: string | null = null;
+
+  if (provided.startsWith('marty_')) {
+    if (!configured.some((k) => safeEqual(k, provided))) {
+      return json({ error: 'Clé d\'API invalide.' }, 401);
+    }
+    identity = provided;
+    auditLabel = `api:key_${provided.slice(-4)}`;
+  } else {
+    const user = await verifyMartyAccount(provided);
+    if (!user) {
+      return json({ error: 'Session expirée ou invalide. Reconnectez-vous à votre compte Marty.' }, 401);
+    }
+    if (user.banned) {
+      return json({ error: 'Compte désactivé. Contactez votre administrateur.' }, 403);
+    }
+    identity = user.id;
+    userId = user.id;
+    auditLabel = user.email;
+  }
+
+  if (rateLimited(identity)) {
     return json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, 429);
   }
 
@@ -155,7 +202,7 @@ export async function POST(req: Request): Promise<Response> {
     };
 
     // --- Audit best-effort (non bloquant) ---
-    void auditLog(keyLabel, dm.entities.length, usage.total, provider);
+    void auditLog(auditLabel, userId, dm.entities.length, usage.total, provider);
 
     return json({
       product: dm.product,
@@ -196,15 +243,15 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 // Journalise l'appel dans activity_logs (clé service = droits d'écriture).
-async function auditLog(keyLabel: string, entities: number, tokens: number, provider: string): Promise<void> {
+async function auditLog(label: string, userId: string | null, entities: number, tokens: number, provider: string): Promise<void> {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !serviceKey) return;
     const supa = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     await supa.from('activity_logs').insert({
-      user_id: null,
-      user_email: `api:${keyLabel}`,
+      user_id: userId,
+      user_email: label,
       action: 'api_design',
       detail: `${entities} entités • ${tokens} tokens • ${provider}`,
     });
