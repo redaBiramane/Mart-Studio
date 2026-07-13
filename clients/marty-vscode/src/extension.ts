@@ -41,9 +41,18 @@ interface DesignResponse {
 }
 
 let panel: vscode.WebviewPanel | undefined;
+let launcherView: vscode.WebviewView | undefined;
 let lastResult: DesignResponse | undefined;
-// Description saisie depuis la barre latérale, à lancer dès que le panneau est prêt.
+// Saisie faite depuis la barre latérale, à lancer dès que le panneau est prêt.
 let pendingDescription: string | undefined;
+let pendingProvider: string | undefined;
+
+// Rafraîchit le statut de connexion affiché dans la barre latérale.
+async function refreshLauncher(context: vscode.ExtensionContext): Promise<void> {
+  const email = (await context.secrets.get(SECRET_EMAIL)) || '';
+  const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
+  launcherView?.webview.postMessage({ type: 'init', email, provider });
+}
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -64,21 +73,32 @@ class LauncherProvider implements vscode.WebviewViewProvider {
   constructor(private readonly context: vscode.ExtensionContext) {}
 
   resolveWebviewView(view: vscode.WebviewView): void {
+    launcherView = view;
     view.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'media')],
     };
     view.webview.html = getLauncherHtml(view.webview, this.context.extensionUri);
+    view.onDidDispose(() => { launcherView = undefined; });
+
     view.webview.onDidReceiveMessage(async (msg) => {
       switch (msg?.type) {
+        case 'ready':
+          await refreshLauncher(this.context);
+          break;
         case 'generate':
-          openPanel(this.context, String(msg.description || ''));
+          openPanel(this.context, String(msg.description || ''), String(msg.provider || 'anthropic'));
           break;
         case 'open':
           openPanel(this.context);
           break;
         case 'signIn':
           await signIn(this.context);
+          await refreshLauncher(this.context);
+          break;
+        case 'signOut':
+          await signOut(this.context);
+          await refreshLauncher(this.context);
           break;
       }
     });
@@ -163,20 +183,21 @@ async function refreshToken(context: vscode.ExtensionContext): Promise<string | 
 
 // ---- Panneau ----
 
-function openPanel(context: vscode.ExtensionContext, description?: string) {
+function openPanel(context: vscode.ExtensionContext, description?: string, provider?: string) {
   const desc = description?.trim();
+  const prov = provider || vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
   if (panel) {
     panel.reveal(vscode.ViewColumn.Active);
     // Panneau déjà chargé : on peut lancer tout de suite.
     if (desc) {
-      const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
-      panel.webview.postMessage({ type: 'prefill', description: desc });
-      void generate(context, desc, provider);
+      panel.webview.postMessage({ type: 'prefill', description: desc, provider: prov });
+      void generate(context, desc, prov);
     }
     return;
   }
   // Panneau pas encore créé : on attend son message « ready » pour lancer.
   pendingDescription = desc || undefined;
+  pendingProvider = desc ? prov : undefined;
   panel = vscode.window.createWebviewPanel('marty', 'Marty', vscode.ViewColumn.Active, {
     enableScripts: true,
     retainContextWhenHidden: true,
@@ -194,9 +215,11 @@ function openPanel(context: vscode.ExtensionContext, description?: string) {
         // Génération demandée depuis la barre latérale : le webview est prêt, on lance.
         if (pendingDescription) {
           const d = pendingDescription;
+          const p = pendingProvider || provider;
           pendingDescription = undefined;
-          panel?.webview.postMessage({ type: 'prefill', description: d });
-          await generate(context, d, provider);
+          pendingProvider = undefined;
+          panel?.webview.postMessage({ type: 'prefill', description: d, provider: p });
+          await generate(context, d, p);
         }
         break;
       }
@@ -223,10 +246,12 @@ function openPanel(context: vscode.ExtensionContext, description?: string) {
         await signIn(context);
         const em = (await context.secrets.get(SECRET_EMAIL)) || '';
         panel?.webview.postMessage({ type: 'init', email: em });
+        await refreshLauncher(context); // garde la barre latérale synchronisée
         break;
       }
       case 'signOut':
         await signOut(context);
+        await refreshLauncher(context);
         break;
     }
   });
@@ -398,22 +423,65 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     border-radius:6px; padding:8px 10px; cursor:pointer; font-weight:600; font-size:12px; }
   button.primary:hover { background:#0aa07d; }
   button.link { background:none; border:none; color: var(--vscode-textLink-foreground); cursor:pointer;
-    padding:6px 0 0; font-size:11.5px; text-align:left; }
+    padding:0; font-size:11.5px; text-align:left; }
+  label.f { display:block; font-size:11px; color: var(--vscode-descriptionForeground); margin:12px 0 4px; }
+  select { width:100%; padding:6px 8px; border-radius:6px; font-size:12px;
+    background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground);
+    border: 1px solid var(--vscode-dropdown-border, transparent); }
+  .acct { display:flex; align-items:center; gap:6px; padding:7px 9px; border-radius:6px; margin-bottom:12px;
+    background: var(--vscode-editorWidget-background); border:1px solid var(--vscode-editorWidget-border, #4443); font-size:11.5px; }
+  .acct .dot { width:7px; height:7px; border-radius:50%; flex:none; }
+  .acct .on { background:#1aa06d; }
+  .acct .off { background:#e09100; }
+  .acct .who { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 </head>
 <body>
   <div class="brand"><img class="logo" src="${iconUri}" alt="" /><b>Marty</b></div>
+
+  <div class="acct">
+    <span class="dot off" id="dot"></span>
+    <span class="who" id="who">Non connecté</span>
+    <button class="link" id="acct">Se connecter</button>
+  </div>
+
   <p class="hint">Décris ton idée métier — Marty conçoit le modèle et ses livrables.</p>
   <textarea id="d" placeholder="Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances, garanties…"></textarea>
+
+  <label class="f" for="p">Modèle IA</label>
+  <select id="p">
+    <option value="anthropic">Claude Opus — précis (~50 s)</option>
+    <option value="google">Gemini Flash — rapide</option>
+  </select>
+
   <button class="primary" id="go">Générer un Data Product</button>
-  <button class="link" id="key">👤 Se connecter / changer de compte</button>
+
 <script nonce="${n}">
   const vscode = acquireVsCodeApi();
-  document.getElementById('go').addEventListener('click', () => {
-    const description = document.getElementById('d').value.trim();
-    vscode.postMessage(description ? { type: 'generate', description } : { type: 'open' });
+  const $ = (id) => document.getElementById(id);
+  let signedIn = false;
+
+  window.addEventListener('load', () => vscode.postMessage({ type: 'ready' }));
+
+  window.addEventListener('message', (e) => {
+    const m = e.data;
+    if (m.type !== 'init') return;
+    signedIn = !!m.email;
+    $('who').textContent = signedIn ? m.email : 'Non connecté';
+    $('who').title = signedIn ? m.email : '';
+    $('dot').className = 'dot ' + (signedIn ? 'on' : 'off');
+    $('acct').textContent = signedIn ? 'Changer' : 'Se connecter';
+    if (m.provider) $('p').value = m.provider;
   });
-  document.getElementById('key').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
+
+  // « Changer » relance la connexion : le nouveau compte remplace l'ancien.
+  $('acct').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
+
+  $('go').addEventListener('click', () => {
+    const description = $('d').value.trim();
+    const provider = $('p').value;
+    vscode.postMessage(description ? { type: 'generate', description, provider } : { type: 'open' });
+  });
 </script>
 </body>
 </html>`;
@@ -572,6 +640,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       if (!m.email) setStatus('👤 Non connecté. Clique « Compte » (ou lance une génération) pour te connecter avec ton compte Marty.');
     } else if (m.type === 'prefill') {
       $('desc').value = m.description || '';
+      if (m.provider) $('provider').value = m.provider;
     } else if (m.type === 'progress') {
       $('go').disabled = true;
       setStatus('<span class="spinner"></span> Génération en cours… (~50 s avec Claude Opus)');
