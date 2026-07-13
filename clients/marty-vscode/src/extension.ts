@@ -8,6 +8,7 @@
 // ============================================================
 
 import * as vscode from 'vscode';
+import { createZip } from './zip';
 
 const SECRET_KEY = 'marty.apiKey';
 
@@ -103,8 +104,10 @@ function openPanel(context: vscode.ExtensionContext, description?: string) {
   panel = vscode.window.createWebviewPanel('marty', 'Marty', vscode.ViewColumn.Active, {
     enableScripts: true,
     retainContextWhenHidden: true,
+    // Autorise le chargement du bundle Mermaid embarqué (rendu du diagramme hors ligne).
+    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
   });
-  panel.webview.html = getHtml(panel.webview);
+  panel.webview.html = getHtml(panel.webview, context.extensionUri);
 
   panel.webview.onDidReceiveMessage(async (msg) => {
     switch (msg?.type) {
@@ -126,6 +129,12 @@ function openPanel(context: vscode.ExtensionContext, description?: string) {
         break;
       case 'save':
         await saveToProject();
+        break;
+      case 'zip':
+        await downloadZip();
+        break;
+      case 'continueWeb':
+        await continueOnWeb();
         break;
       case 'copy':
         await vscode.env.clipboard.writeText(String(msg.text || ''));
@@ -189,6 +198,24 @@ function slug(s: string): string {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'data-product';
 }
 
+// Les livrables à écrire, quel que soit le mode (projet ou archive).
+function deliverableFiles(result: DesignResponse): Record<string, string> {
+  const d = result.deliverables;
+  const files: Record<string, string> = {
+    'model.json': JSON.stringify(result.model, null, 2),
+    'schema.sql': d.sql,
+    'schema.dbml': d.dbml,
+    'schema.yml': d.dbt,
+    'dictionary.md': d.dictionary,
+    'erd.mmd': d.mermaid,
+  };
+  // Un livrable absent (API plus ancienne) ne doit pas produire un fichier vide.
+  for (const [k, v] of Object.entries(files)) {
+    if (typeof v !== 'string' || !v.length) delete files[k];
+  }
+  return files;
+}
+
 async function saveToProject() {
   if (!lastResult) return;
   let base: vscode.Uri;
@@ -201,27 +228,51 @@ async function saveToProject() {
     base = picked[0];
   }
   const dir = vscode.Uri.joinPath(base, slug(lastResult.product.name));
-  const d = lastResult.deliverables;
-  const files: Record<string, string> = {
-    'model.json': JSON.stringify(lastResult.model, null, 2),
-    'schema.sql': d.sql,
-    'schema.dbml': d.dbml,
-    'schema.yml': d.dbt,
-    'dictionary.md': d.dictionary,
-    'erd.mmd': d.mermaid,
-  };
+  const files = deliverableFiles(lastResult);
   const enc = new TextEncoder();
   for (const [name, content] of Object.entries(files)) {
-    if (typeof content === 'string' && content.length) {
-      await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(dir, name), enc.encode(content));
-    }
+    await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(dir, name), enc.encode(content));
   }
-  panel?.webview.postMessage({ type: 'saved' });
+  panel?.webview.postMessage({ type: 'saved', message: `Enregistré dans ${dir.fsPath}` });
   const open = await vscode.window.showInformationMessage(`Marty : livrables enregistrés dans ${dir.fsPath}`, 'Ouvrir le SQL');
   if (open) {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(dir, 'schema.sql'));
     vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
   }
+}
+
+// Archive .zip de tous les livrables, à l'emplacement choisi par l'utilisateur.
+async function downloadZip() {
+  if (!lastResult) return;
+  const name = slug(lastResult.product.name);
+  const folders = vscode.workspace.workspaceFolders;
+  const defaultUri = vscode.Uri.joinPath(folders?.length ? folders[0].uri : vscode.Uri.file(''), `${name}.zip`);
+  const target = await vscode.window.showSaveDialog({
+    defaultUri,
+    filters: { 'Archive ZIP': ['zip'] },
+    saveLabel: 'Télécharger le package',
+  });
+  if (!target) return;
+
+  const entries = Object.entries(deliverableFiles(lastResult)).map(([file, content]) => ({ name: `${name}/${file}`, content }));
+  await vscode.workspace.fs.writeFile(target, createZip(entries));
+
+  panel?.webview.postMessage({ type: 'saved', message: `Package enregistré : ${target.fsPath}` });
+  const reveal = await vscode.window.showInformationMessage(`Marty : package enregistré (${entries.length} fichiers).`, 'Révéler dans le Finder');
+  if (reveal) vscode.commands.executeCommand('revealFileInOS', target);
+}
+
+// Reprendre l'atelier complet sur l'application web : on copie le DDL, que
+// l'utilisateur colle dans Marty (mode Expert) pour enrichir le modèle.
+async function continueOnWeb() {
+  if (!lastResult) return;
+  const url = (vscode.workspace.getConfiguration('marty').get<string>('apiUrl') || 'https://www.martstudio.it.com').replace(/\/$/, '');
+  await vscode.env.clipboard.writeText(lastResult.deliverables.sql);
+  await vscode.env.openExternal(vscode.Uri.parse(url));
+  panel?.webview.postMessage({ type: 'saved', message: 'DDL copié — colle-le dans Marty (mode Expert).' });
+  vscode.window.showInformationMessage(
+    'Marty : le DDL SQL a été copié. Sur martstudio.it.com, crée un Data Product en mode « Expert » et colle-le pour poursuivre l\'atelier (KPI, règles, gouvernance…).',
+  );
 }
 
 // ---- HTML de la barre latérale ----
@@ -277,9 +328,10 @@ function nonce(): string {
   return Array.from({ length: 24 }, () => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 62)]).join('');
 }
 
-function getHtml(webview: vscode.Webview): string {
+function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const n = nonce();
-  const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${n}'; img-src ${webview.cspSource} data:;`;
+  const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'mermaid.min.js'));
+  const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${n}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};`;
   return /* html */ `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -328,7 +380,10 @@ function getHtml(webview: vscode.Webview): string {
   .sens { background: #e0910022; color: #e09100; }
   .rel { padding: 4px 0; }
   .mono { font-family: var(--vscode-editor-font-family, monospace); }
-  .save-bar { position: sticky; bottom: 0; padding: 12px 0; background: var(--vscode-editor-background); }
+  .save-bar { position: sticky; bottom: 0; padding: 12px 0; background: var(--vscode-editor-background);
+    display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--vscode-editorWidget-border, #4443); }
+  .graph { overflow-x: auto; padding: 10px 0; }
+  .graph svg { max-width: 100%; height: auto; }
 </style>
 </head>
 <body>
@@ -356,10 +411,13 @@ function getHtml(webview: vscode.Webview): string {
     <div id="panes"></div>
     <div class="save-bar">
       <button class="primary" id="save">💾 Enregistrer dans le projet</button>
+      <button class="ghost" id="zip">📦 Télécharger le package (.zip)</button>
+      <button class="ghost" id="web">🌐 Continuer sur martstudio.it.com</button>
     </div>
   </div>
 </div>
 
+<script nonce="${n}" src="${mermaidUri}"></script>
 <script nonce="${n}">
   const vscode = acquireVsCodeApi();
   const $ = (id) => document.getElementById(id);
@@ -373,6 +431,8 @@ function getHtml(webview: vscode.Webview): string {
   });
   $('setkey').addEventListener('click', () => vscode.postMessage({ type: 'setKey' }));
   $('save').addEventListener('click', () => vscode.postMessage({ type: 'save' }));
+  $('zip').addEventListener('click', () => vscode.postMessage({ type: 'zip' }));
+  $('web').addEventListener('click', () => vscode.postMessage({ type: 'continueWeb' }));
 
   function setStatus(html, isErr) {
     const el = $('status');
@@ -400,7 +460,7 @@ function getHtml(webview: vscode.Webview): string {
       $('status').classList.add('hidden');
       render(m.data);
     } else if (m.type === 'saved') {
-      setStatus('✓ Livrables enregistrés.');
+      setStatus('✓ ' + esc(m.message || 'Livrables enregistrés.'));
     } else if (m.type === 'copied') {
       setStatus('✓ Copié dans le presse-papiers.');
     }
@@ -421,6 +481,46 @@ function getHtml(webview: vscode.Webview): string {
     const pre = document.createElement('pre'); pre.textContent = text || '(vide)';
     div.appendChild(tb); div.appendChild(pre);
     return div;
+  }
+
+  // Onglet ERD : diagramme rendu (Mermaid embarqué, hors ligne) + code repliable.
+  function erdPane(code) {
+    const div = document.createElement('div');
+    const tb = document.createElement('div'); tb.className = 'toolbar';
+    tb.appendChild(copyBtn(code));
+
+    const live = document.createElement('button');
+    live.className = 'ghost'; live.textContent = '🔗 Ouvrir mermaid.live';
+    live.addEventListener('click', () => vscode.postMessage({ type: 'openExternal', url: 'https://mermaid.live/edit' }));
+    tb.appendChild(live);
+
+    const graph = document.createElement('div'); graph.className = 'graph';
+    const pre = document.createElement('pre'); pre.textContent = code || '(vide)'; pre.style.display = 'none';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'ghost'; toggle.textContent = '</> Voir le code';
+    toggle.addEventListener('click', () => {
+      const showCode = pre.style.display === 'none';
+      pre.style.display = showCode ? 'block' : 'none';
+      graph.style.display = showCode ? 'none' : 'block';
+      toggle.textContent = showCode ? '🖼 Voir le diagramme' : '</> Voir le code';
+    });
+    tb.appendChild(toggle);
+
+    div.appendChild(tb); div.appendChild(graph); div.appendChild(pre);
+    renderMermaid(code, graph);
+    return div;
+  }
+
+  async function renderMermaid(code, container) {
+    try {
+      const dark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
+      window.mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict' });
+      const { svg } = await window.mermaid.render('erd' + Math.random().toString(36).slice(2), code);
+      container.innerHTML = svg;
+    } catch (err) {
+      container.innerHTML = '<div class="status err">Diagramme non rendu : ' + esc(err && err.message ? err.message : err) + ' — utilise « Voir le code ».</div>';
+    }
   }
 
   function modelPane(data) {
@@ -461,9 +561,6 @@ function getHtml(webview: vscode.Webview): string {
       '<br>' + (meta.entities || 0) + ' entités • ' + (meta.attributes || 0) + ' attributs • ' + (meta.relations || 0) + ' relations' +
       ' <span style="opacity:.6">• ' + esc(meta.model) + ' • ' + (data.usage ? data.usage.total : 0) + ' tokens</span>';
 
-    const mermaidBtn = document.createElement('button');
-    mermaidBtn.className = 'ghost'; mermaidBtn.textContent = '🔗 Ouvrir mermaid.live';
-    mermaidBtn.addEventListener('click', () => vscode.postMessage({ type: 'openExternal', url: 'https://mermaid.live/edit' }));
     const dbmlBtn = document.createElement('button');
     dbmlBtn.className = 'ghost'; dbmlBtn.textContent = '🔗 Ouvrir dbdiagram.io';
     dbmlBtn.addEventListener('click', () => vscode.postMessage({ type: 'openExternal', url: 'https://dbdiagram.io/d' }));
@@ -475,7 +572,7 @@ function getHtml(webview: vscode.Webview): string {
       ['DBML', codePane(d.dbml, [dbmlBtn])],
       ['dbt', codePane(d.dbt)],
       ['Dictionnaire', codePane(d.dictionary)],
-      ['ERD (Mermaid)', codePane(d.mermaid, [mermaidBtn])],
+      ['Diagramme ERD', erdPane(d.mermaid)],
     ];
 
     const tabs = $('tabs'); tabs.innerHTML = '';

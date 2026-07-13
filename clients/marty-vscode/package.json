@@ -2,12 +2,15 @@
   "name": "marty-vscode",
   "displayName": "Marty — Data Product Generator",
   "description": "Décris ton idée métier, reçois un modèle de données complet et ses livrables (SQL, DBML, dbt, dictionnaire, ERD) directement dans VSCode.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "publisher": "marty",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Data Science"],
+  "categories": [
+    "Other",
+    "Data Science"
+  ],
   "icon": "media/icon.png",
   "repository": {
     "type": "git",
@@ -56,7 +59,10 @@
         },
         "marty.provider": {
           "type": "string",
-          "enum": ["anthropic", "google"],
+          "enum": [
+            "anthropic",
+            "google"
+          ],
           "default": "anthropic",
           "description": "Fournisseur IA par défaut (anthropic = Claude Opus, google = Gemini Flash)."
         }
@@ -66,13 +72,15 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "vscode:prepublish": "npm run compile",
+    "copy-mermaid": "node scripts/copy-mermaid.mjs",
+    "vscode:prepublish": "npm run compile && npm run copy-mermaid",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.2.0",
+    "mermaid": "^11.16.0",
     "typescript": "^5.7.0"
   }
 }
