@@ -21,7 +21,13 @@ interface DesignResponse {
     kpis: { name: string; formula?: string; description?: string }[];
     rules: { name: string; type?: string; description?: string }[];
   };
-  deliverables: { sql: string; dbml: string; dbt: string; dictionary: string; mermaid: string };
+  deliverables: { sql: string; dbml: string; dbt: string; dictionary: string; mermaid: string; semantic: string; quality: string };
+  quality?: {
+    score: number;
+    errors: number;
+    warnings: number;
+    findings: Array<{ severity: 'error' | 'warning' | 'info'; category: string; entityName: string; target?: string; message: string; current?: string; suggested?: string }>;
+  };
   usage: { input: number; output: number; total: number };
   meta: { provider: string; model: string; entities: number; attributes: number; relations: number };
 }
@@ -45,8 +51,11 @@ class LauncherProvider implements vscode.WebviewViewProvider {
   constructor(private readonly context: vscode.ExtensionContext) {}
 
   resolveWebviewView(view: vscode.WebviewView): void {
-    view.webview.options = { enableScripts: true };
-    view.webview.html = getLauncherHtml(view.webview);
+    view.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'media')],
+    };
+    view.webview.html = getLauncherHtml(view.webview, this.context.extensionUri);
     view.webview.onDidReceiveMessage(async (msg) => {
       switch (msg?.type) {
         case 'generate':
@@ -185,6 +194,8 @@ async function generate(context: vscode.ExtensionContext, description: string, p
       return;
     }
     lastResult = (await res.json()) as DesignResponse;
+    // L'onglet porte le nom du Data Product généré.
+    if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
     panel?.webview.postMessage({ type: 'result', data: lastResult });
   } catch (e) {
     panel?.webview.postMessage({ type: 'error', message: `Requête échouée : ${(e as Error).message}` });
@@ -208,6 +219,8 @@ function deliverableFiles(result: DesignResponse): Record<string, string> {
     'schema.yml': d.dbt,
     'dictionary.md': d.dictionary,
     'erd.mmd': d.mermaid,
+    'semantic-layer.md': d.semantic,
+    'quality.md': d.quality,
   };
   // Un livrable absent (API plus ancienne) ne doit pas produire un fichier vide.
   for (const [k, v] of Object.entries(files)) {
@@ -277,9 +290,10 @@ async function continueOnWeb() {
 
 // ---- HTML de la barre latérale ----
 
-function getLauncherHtml(webview: vscode.Webview): string {
+function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const n = nonce();
-  const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${n}';`;
+  const iconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'icon.png'));
+  const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${n}'; img-src ${webview.cspSource};`;
   return /* html */ `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -290,8 +304,7 @@ function getLauncherHtml(webview: vscode.Webview): string {
   * { box-sizing: border-box; }
   body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); font-size: 12px; padding: 12px 10px; }
   .brand { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-  .logo { width:26px; height:26px; border-radius:7px; background:linear-gradient(155deg,var(--ca-dark),var(--ca-green));
-          color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; }
+  .logo { width:28px; height:28px; border-radius:7px; display:block; }
   .brand b { font-size: 13px; }
   p.hint { color: var(--vscode-descriptionForeground); margin: 0 0 10px; line-height: 1.45; }
   textarea { width:100%; min-height:96px; padding:8px; border-radius:6px; resize:vertical; font-family:inherit; font-size:12px;
@@ -305,7 +318,7 @@ function getLauncherHtml(webview: vscode.Webview): string {
 </style>
 </head>
 <body>
-  <div class="brand"><span class="logo">CA</span><b>Marty</b></div>
+  <div class="brand"><img class="logo" src="${iconUri}" alt="" /><b>Marty</b></div>
   <p class="hint">Décris ton idée métier — Marty conçoit le modèle et ses livrables.</p>
   <textarea id="d" placeholder="Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances, garanties…"></textarea>
   <button class="primary" id="go">Générer un Data Product</button>
@@ -331,6 +344,7 @@ function nonce(): string {
 function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const n = nonce();
   const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'mermaid.min.js'));
+  const iconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'icon.png'));
   const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${n}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};`;
   return /* html */ `<!DOCTYPE html>
 <html lang="fr">
@@ -343,8 +357,8 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   * { box-sizing: border-box; }
   body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 0; margin: 0; font-size: 13px; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 20px 24px 60px; }
-  h1 { font-size: 18px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .logo { width: 26px; height: 26px; border-radius: 6px; background: linear-gradient(155deg,var(--ca-dark),var(--ca-green)); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; }
+  h1 { font-size: 18px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .logo { width: 30px; height: 30px; border-radius: 7px; display: block; }
   .sub { color: var(--vscode-descriptionForeground); margin: 0 0 18px; }
   textarea { width: 100%; min-height: 90px; padding: 10px 12px; border-radius: 8px; resize: vertical;
     background: var(--vscode-input-background); color: var(--vscode-input-foreground);
@@ -384,11 +398,35 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--vscode-editorWidget-border, #4443); }
   .graph { overflow-x: auto; padding: 10px 0; }
   .graph svg { max-width: 100%; height: auto; }
+  /* Markdown rendu (Semantic Layer, Dictionnaire) */
+  .md h1 { font-size: 17px; margin: 2px 0 10px; }
+  .md h2 { font-size: 15px; margin: 18px 0 8px; }
+  .md h3 { font-size: 13.5px; margin: 14px 0 6px; color: var(--ca-green); }
+  .md p { margin: 6px 0; line-height: 1.55; }
+  .md ul { padding-left: 18px; margin: 6px 0; }
+  .md li { margin: 4px 0; line-height: 1.5; }
+  .md blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid var(--ca-green);
+    background: var(--vscode-editorWidget-background); color: var(--vscode-descriptionForeground); }
+  .md code { font-family: var(--vscode-editor-font-family, monospace); font-size: 11.5px;
+    background: var(--vscode-textCodeBlock-background); padding: 1px 5px; border-radius: 4px; }
+  .md table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
+  .md th { color: var(--vscode-descriptionForeground); font-weight: 600; }
+  .md em { opacity: .75; }
+  /* Contrôle qualité */
+  .score { display: flex; align-items: center; gap: 16px; margin: 4px 0 14px; }
+  .score .num { font-size: 34px; font-weight: 800; line-height: 1; }
+  .finding { border-left: 3px solid; padding: 8px 12px; margin-bottom: 8px; border-radius: 0 6px 6px 0;
+    background: var(--vscode-editorWidget-background); }
+  .finding.error { border-color: #e05252; }
+  .finding.warning { border-color: #e09100; }
+  .finding.info { border-color: #3b9dd8; }
+  .finding .where { font-family: var(--vscode-editor-font-family, monospace); font-weight: 600; }
+  .finding .fix { font-size: 11.5px; opacity: .8; margin-top: 4px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1><span class="logo">CA</span> Marty — Générateur de Data Product</h1>
+  <h1><img class="logo" src="${iconUri}" alt="" /> Marty — Générateur de Data Product</h1>
   <p class="sub">Décris ton idée métier, reçois le modèle et ses livrables.</p>
 
   <textarea id="desc" placeholder="Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances de remboursement, garanties, et analyse du risque…"></textarea>
@@ -483,6 +521,98 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     return div;
   }
 
+  // --- Rendu Markdown minimal (titres, listes, tableaux, gras, code) ---
+  function inlineMd(s) {
+    return esc(s)
+      .replace(/\`([^\`]+)\`/g, '<code>$1</code>')
+      .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
+      .replace(/(^|[\\s(])_([^_]+)_/g, '$1<em>$2</em>');
+  }
+
+  function mdToHtml(md) {
+    const lines = String(md || '').split('\\n');
+    let html = '', i = 0;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^\\s*$/.test(l)) { i++; continue; }
+      const h = l.match(/^(#{1,4})\\s+(.*)$/);
+      if (h) { const lv = h[1].length; html += '<h' + lv + '>' + inlineMd(h[2]) + '</h' + lv + '>'; i++; continue; }
+      // Tableau : ligne d'en-tête suivie d'une ligne de séparation
+      if (/^\\s*\\|/.test(l) && /^\\s*\\|[\\s:|-]*$/.test(lines[i + 1] || '')) {
+        const head = l.split('|').slice(1, -1).map((c) => c.trim());
+        i += 2;
+        let rows = '';
+        while (i < lines.length && /^\\s*\\|/.test(lines[i])) {
+          const cells = lines[i].split('|').slice(1, -1).map((c) => c.trim());
+          rows += '<tr>' + cells.map((c) => '<td>' + inlineMd(c) + '</td>').join('') + '</tr>';
+          i++;
+        }
+        html += '<table><thead><tr>' + head.map((c) => '<th>' + inlineMd(c) + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
+        continue;
+      }
+      if (/^\\s*[-*]\\s+/.test(l)) {
+        let items = '';
+        while (i < lines.length && /^\\s*[-*]\\s+/.test(lines[i])) {
+          let item = lines[i].replace(/^\\s*[-*]\\s+/, ''); i++;
+          // lignes de continuation indentées
+          while (i < lines.length && /^\\s{2,}\\S/.test(lines[i]) && !/^\\s*[-*]\\s+/.test(lines[i])) { item += ' ' + lines[i].trim(); i++; }
+          items += '<li>' + inlineMd(item) + '</li>';
+        }
+        html += '<ul>' + items + '</ul>';
+        continue;
+      }
+      if (/^\\s*>/.test(l)) { html += '<blockquote>' + inlineMd(l.replace(/^\\s*>\\s?/, '')) + '</blockquote>'; i++; continue; }
+      let p = l; i++;
+      while (i < lines.length && !/^\\s*$/.test(lines[i]) && !/^(#|\\||\\s*[-*]\\s|>)/.test(lines[i])) { p += ' ' + lines[i]; i++; }
+      html += '<p>' + inlineMd(p) + '</p>';
+    }
+    return html;
+  }
+
+  function mdPane(md) {
+    const div = document.createElement('div');
+    const tb = document.createElement('div'); tb.className = 'toolbar';
+    tb.appendChild(copyBtn(md || ''));
+    const body = document.createElement('div'); body.className = 'md';
+    body.innerHTML = mdToHtml(md) || '<p>(Livrable indisponible — rechargez après le redéploiement de l\\'API.)</p>';
+    div.appendChild(tb); div.appendChild(body);
+    return div;
+  }
+
+  // --- Onglet Qualité : score + anomalies détectées ---
+  function qualityPane(data) {
+    const q = data.quality;
+    const div = document.createElement('div');
+    const tb = document.createElement('div'); tb.className = 'toolbar';
+    tb.appendChild(copyBtn(data.deliverables.quality || ''));
+    div.appendChild(tb);
+
+    if (!q) { return mdPane(data.deliverables.quality); }
+
+    const color = q.score >= 80 ? '#1aa06d' : q.score >= 50 ? '#e09100' : '#e05252';
+    const head = document.createElement('div'); head.className = 'score';
+    head.innerHTML = '<div class="num" style="color:' + color + '">' + q.score + '<span style="font-size:14px;opacity:.6">/100</span></div>'
+      + '<div>' + q.errors + ' erreur(s) • ' + q.warnings + ' avertissement(s)'
+      + '<br><span style="opacity:.7">Contrôles déterministes : clés, intégrité référentielle, types, RGPD, granularité.</span></div>';
+    div.appendChild(head);
+
+    if (!q.findings.length) {
+      div.insertAdjacentHTML('beforeend', '<div class="finding info">✅ Aucun problème détecté.</div>');
+      return div;
+    }
+    const rank = { error: 0, warning: 1, info: 2 };
+    q.findings.slice().sort((a, b) => rank[a.severity] - rank[b.severity]).forEach((f) => {
+      const where = f.target ? f.entityName + '.' + f.target : f.entityName;
+      const icon = f.severity === 'error' ? '🔴' : f.severity === 'warning' ? '🟠' : '🟡';
+      let h = '<div class="finding ' + f.severity + '">'
+        + '<div>' + icon + ' <span class="where">' + esc(where) + '</span> <span style="opacity:.6">· ' + esc(f.category) + '</span></div>'
+        + '<div>' + esc(f.message) + '</div>';
+      if (f.current && f.suggested) h += '<div class="fix">Actuel : ' + esc(f.current) + ' → Suggéré : ' + esc(f.suggested) + '</div>';
+      div.insertAdjacentHTML('beforeend', h + '</div>');
+    });
+    return div;
+  }
+
   // Onglet ERD : diagramme rendu (Mermaid embarqué, hors ligne) + code repliable.
   function erdPane(code) {
     const div = document.createElement('div');
@@ -570,8 +700,10 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       ['Modèle', modelPane(data)],
       ['SQL DDL', codePane(d.sql)],
       ['DBML', codePane(d.dbml, [dbmlBtn])],
-      ['dbt', codePane(d.dbt)],
-      ['Dictionnaire', codePane(d.dictionary)],
+      ['DBT', codePane(d.dbt)],
+      ['Semantic Layer', mdPane(d.semantic)],
+      ['Dictionnaire', mdPane(d.dictionary)],
+      ['Qualité', qualityPane(data)],
       ['Diagramme ERD', erdPane(d.mermaid)],
     ];
 

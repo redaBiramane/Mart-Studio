@@ -6,6 +6,9 @@
 // dictionnaire de données. Utilisées par l'API publique /api/v1/design.
 // ============================================================
 
+import { lintModel, qualityScore } from './linter';
+import type { WorkshopSession, Entity, Relation } from './types';
+
 // ---- Modèle d'entrée (contrat de l'API) ----
 
 export interface DesignEntity {
@@ -67,6 +70,24 @@ export interface Deliverables {
   dbt: string;
   dictionary: string;
   mermaid: string;
+  semantic: string;
+  quality: string;
+}
+
+// Rapport de qualité structuré (pour un affichage riche côté client).
+export interface QualityReport {
+  score: number;
+  errors: number;
+  warnings: number;
+  findings: Array<{
+    severity: 'error' | 'warning' | 'info';
+    category: string;
+    entityName: string;
+    target?: string;
+    message: string;
+    current?: string;
+    suggested?: string;
+  }>;
 }
 
 // ---- Utilitaires de nommage / typage ----
@@ -444,14 +465,151 @@ export function generateMermaid(model: DesignModel): string {
   return out;
 }
 
+// ---- Couche sémantique (lecture métier) ----
+
+// Traduit une cardinalité en phrase compréhensible par un non-technicien.
+function relationClause(r: DesignRelation): string {
+  const s = `**${r.source}**`, t = `**${r.target}**`;
+  switch (r.cardinality) {
+    case '1:1': return `Un ${s} correspond à un seul ${t} (et réciproquement).`;
+    case 'N:1': return `Plusieurs ${s} peuvent se rattacher à un même ${t}.`;
+    case 'N:N': return `Un ${s} peut être associé à plusieurs ${t} — et un ${t} à plusieurs ${s}.`;
+    default: return `Un ${s} peut avoir plusieurs ${t} ; chaque ${t} appartient à un seul ${s}.`;
+  }
+}
+
+export function generateSemantic(model: DesignModel): string {
+  const p = model.product;
+  let md = `# Couche sémantique — ${p.name}\n\n`;
+  md += `_Lecture métier du modèle : à quoi servent les objets, comment ils se relient, ce qu'on mesure._\n\n`;
+  if (p.objective) md += `## À quoi sert ce Data Product\n\n${oneLine(p.objective)}\n\n`;
+  if (p.businessProblem) md += `**Problème métier adressé** : ${oneLine(p.businessProblem)}\n\n`;
+
+  md += `## Les objets métier\n\n`;
+  model.entities.forEach((e) => {
+    const attrs = model.attributes.filter((a) => a.entityName === e.name);
+    md += `### ${e.name}\n\n`;
+    if (e.definition) md += `${oneLine(e.definition)}\n\n`;
+    const pk = attrs.find((a) => a.isPK);
+    if (pk) md += `- Identifié de façon unique par \`${pk.name}\`.\n`;
+    const business = attrs.filter((a) => !a.isPK).slice(0, 8).map((a) => oneLine(a.description) || a.name);
+    if (business.length) md += `- On en connaît : ${business.join(' ; ')}.\n`;
+    const pii = attrs.filter((a) => a.sensitive).map((a) => `\`${a.name}\``);
+    if (pii.length) md += `- ⚠️ Contient des **données personnelles** (${pii.join(', ')}) — usage encadré (RGPD).\n`;
+    md += `\n`;
+  });
+
+  if (model.relations.length) {
+    md += `## Comment les objets se relient\n\n`;
+    model.relations.forEach((r) => {
+      md += `- ${relationClause(r)}${r.description ? ` _(${oneLine(r.description)})_` : ''}\n`;
+    });
+    md += `\n`;
+  }
+
+  if (model.kpis.length) {
+    md += `## Ce que l'on mesure\n\n`;
+    model.kpis.forEach((k) => {
+      md += `- **${k.name}**${k.description ? ` — ${oneLine(k.description)}` : ''}${k.formula ? `\n  Calcul : \`${oneLine(k.formula)}\`` : ''}\n`;
+    });
+    md += `\n`;
+  }
+
+  if (model.rules.length) {
+    md += `## Les règles à respecter\n\n`;
+    model.rules.forEach((r) => {
+      md += `- **${r.name}** : ${oneLine(r.description)}\n`;
+    });
+    md += `\n`;
+  }
+
+  return md.trimEnd() + '\n';
+}
+
+// ---- Contrôle qualité (réutilise le linter déterministe de l'application) ----
+
+// Le linter raisonne sur une WorkshopSession : on projette le modèle dessus.
+function toSession(m: DesignModel): WorkshopSession {
+  const entities = m.entities.map((e, i) => ({
+    id: `e${i}`, name: e.name, definition: e.definition || '', description: e.definition || '',
+    example: '', responsible: '', type: (e.type as Entity['type']) || 'transactional', lifecycle: 'created' as const,
+  }));
+  const idOf = (name: string) => entities.find((e) => e.name === name)?.id || name;
+  const attributes = m.attributes.map((a, i) => ({
+    id: `a${i}`, entityId: idOf(a.entityName), name: a.name, type: a.type, description: a.description || '',
+    isPrimaryKey: !!a.isPK, isForeignKey: !!a.isFK, isNaturalKey: false,
+    isRequired: a.required !== false, isSensitive: !!a.sensitive, isHistorized: false,
+  }));
+  // Les colonnes de clé étrangère sont dérivées des relations à la génération du
+  // DDL : on les injecte ici, sinon le linter les croirait manquantes.
+  foreignKeys(m).forEach((f, i) => {
+    attributes.push({
+      id: `fk${i}`, entityId: idOf(f.entityName), name: f.column, type: 'BIGINT', description: f.description,
+      isPrimaryKey: false, isForeignKey: true, isNaturalKey: false,
+      isRequired: false, isSensitive: false, isHistorized: false,
+    });
+  });
+  const relations = m.relations.map((r, i) => ({
+    id: `r${i}`, sourceEntityId: idOf(r.source), targetEntityId: idOf(r.target),
+    sourceEntityName: r.source, targetEntityName: r.target,
+    type: (r.cardinality as Relation['type']) || '1:N',
+    isRequired: r.required !== false, description: r.description || '', isHierarchy: false,
+  }));
+  return { entities, attributes, relations, granularity: null, kpis: [], businessRules: [] } as unknown as WorkshopSession;
+}
+
+export function buildQualityReport(model: DesignModel): QualityReport {
+  const findings = lintModel(toSession(model));
+  return {
+    score: qualityScore(findings),
+    errors: findings.filter((f) => f.severity === 'error').length,
+    warnings: findings.filter((f) => f.severity === 'warning').length,
+    findings: findings.map((f) => ({
+      severity: f.severity, category: f.category, entityName: f.entityName,
+      target: f.target, message: f.message, current: f.current, suggested: f.suggested,
+    })),
+  };
+}
+
+export function generateQuality(model: DesignModel, report: QualityReport): string {
+  const p = model.product;
+  let md = `# Contrôle qualité — ${p.name}\n\n`;
+  md += `**Score : ${report.score}/100** — ${report.errors} erreur(s), ${report.warnings} avertissement(s).\n\n`;
+
+  const block = (title: string, sev: 'error' | 'warning' | 'info') => {
+    const list = report.findings.filter((f) => f.severity === sev);
+    if (!list.length) return '';
+    let s = `## ${title}\n\n`;
+    list.forEach((f) => {
+      const where = f.target ? `${f.entityName}.${f.target}` : f.entityName;
+      s += `- **${where}** — ${oneLine(f.message)}`;
+      if (f.current && f.suggested) s += `\n  _Actuel : ${f.current} → Suggéré : ${f.suggested}_`;
+      s += `\n`;
+    });
+    return s + `\n`;
+  };
+
+  md += block('🔴 Erreurs', 'error');
+  md += block('🟠 Avertissements', 'warning');
+  md += block('🟡 Suggestions', 'info');
+
+  if (!report.findings.length) {
+    md += `✅ Aucun problème détecté : clés, intégrité référentielle, types et données sensibles sont cohérents.\n`;
+  }
+  return md.trimEnd() + '\n';
+}
+
 // ---- Agrégat ----
 
-export function buildDeliverables(model: DesignModel): Deliverables {
+export function buildDeliverables(model: DesignModel, report?: QualityReport): Deliverables {
+  const quality = report ?? buildQualityReport(model);
   return {
     sql: generateSQL(model),
     dbml: generateDBML(model),
     dbt: generateDbt(model),
     dictionary: generateDictionary(model),
     mermaid: generateMermaid(model),
+    semantic: generateSemantic(model),
+    quality: generateQuality(model, quality),
   };
 }

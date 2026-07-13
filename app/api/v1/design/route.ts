@@ -19,7 +19,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { normalizeModel, buildDeliverables } from '@/lib/generators';
+import { normalizeModel, buildDeliverables, buildQualityReport } from '@/lib/generators';
 import { captureServerError } from '@/lib/sentry-server';
 
 export const maxDuration = 120;
@@ -145,7 +145,8 @@ export async function POST(req: Request): Promise<Response> {
 
     const parsed = extractJson(result.text);
     const dm = normalizeModel(parsed);
-    const deliverables = buildDeliverables(dm);
+    const quality = buildQualityReport(dm);
+    const deliverables = buildDeliverables(dm, quality);
 
     const usage = {
       input: result.usage?.inputTokens ?? 0,
@@ -166,6 +167,7 @@ export async function POST(req: Request): Promise<Response> {
         rules: dm.rules,
       },
       deliverables,
+      quality,
       usage,
       meta: {
         provider,

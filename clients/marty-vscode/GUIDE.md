@@ -11,7 +11,7 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 ## 1. Ce dont vous avez besoin
 
 - **VSCode** (version 1.85 ou plus récente).
-- Le fichier **`marty-vscode-0.2.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
+- Le fichier **`marty-vscode-0.3.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
 - Une **clé API Marty** (format `marty_…`), fournie par l'administrateur. Elle est **personnelle** :
   ne la partagez pas.
 
@@ -23,7 +23,7 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 2. Ouvrez le panneau **Extensions** : `Cmd+Shift+X` (Mac) ou `Ctrl+Shift+X` (Windows/Linux).
 3. En haut du panneau, cliquez le menu **`…`** (« Vues et plus d'actions »).
 4. Choisissez **« Installer à partir d'un VSIX… »** (*Install from VSIX…*).
-5. Sélectionnez le fichier **`marty-vscode-0.2.0.vsix`**.
+5. Sélectionnez le fichier **`marty-vscode-0.3.0.vsix`**.
 6. VSCode confirme l'installation. C'est terminé.
 
 > L'icône verte Marty apparaît dans la liste de vos extensions.
@@ -74,8 +74,10 @@ Une fois généré, le panneau affiche des **onglets** :
 | **Modèle** | Vue lisible : chaque table avec ses colonnes, clés (PK/FK), données sensibles (🔒), relations, KPI et règles. |
 | **SQL DDL** | Le script de création des tables (`CREATE TABLE…`), prêt à exécuter. |
 | **DBML** | À coller sur [dbdiagram.io](https://dbdiagram.io) pour un schéma visuel interactif. |
-| **dbt** | Le fichier `schema.yml` (modèles + tests `unique`/`not_null`). |
+| **DBT** | Le fichier `schema.yml` (modèles + tests `unique`/`not_null`). |
+| **Semantic Layer** | La **lecture métier** du modèle : à quoi sert chaque objet, comment ils se relient (en français, sans jargon), ce que l'on mesure, les règles à respecter. À partager avec les métiers. |
 | **Dictionnaire** | Le dictionnaire de données complet (tableau). |
+| **Qualité** | Un **score sur 100** et les anomalies détectées : clé primaire manquante, clé étrangère absente, type suspect, donnée personnelle non marquée (RGPD), granularité non définie… avec la correction suggérée. |
 | **Diagramme ERD** | Le **schéma entité-relation dessiné** directement dans VSCode (fonctionne hors ligne). Bouton `</> Voir le code` pour basculer sur la source Mermaid. |
 
 Chaque onglet a un bouton **📋 Copier**.
@@ -88,7 +90,7 @@ Chaque onglet a un bouton **📋 Copier**.
 | **📦 Télécharger le package (.zip)** | Crée une archive `.zip` contenant tous les livrables, à l'emplacement de votre choix (pratique pour l'envoyer à un collègue). |
 | **🌐 Continuer sur martstudio.it.com** | Copie le **DDL SQL** et ouvre l'application web. Créez-y un Data Product en mode **Expert** et collez le DDL pour poursuivre l'atelier complet (KPI, règles, qualité, gouvernance, rapport DAD…). |
 
-Fichiers produits : `schema.sql`, `schema.dbml`, `schema.yml`, `dictionary.md`, `erd.mmd`, `model.json`.
+Fichiers produits : `schema.sql`, `schema.dbml`, `schema.yml`, `dictionary.md`, `semantic-layer.md`, `quality.md`, `erd.mmd`, `model.json`.
 
 ---
 
