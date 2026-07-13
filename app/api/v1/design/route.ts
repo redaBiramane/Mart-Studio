@@ -20,10 +20,15 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { normalizeModel, buildDeliverables, buildQualityReport } from '@/lib/generators';
+import { estimateCostUsd } from '@/lib/llm-labels';
 import { captureServerError } from '@/lib/sentry-server';
 
 export const maxDuration = 120;
 export const runtime = 'nodejs';
+
+// Les tarifs des fournisseurs sont en dollars : taux indicatif pour afficher un
+// ordre de grandeur en euros à l'utilisateur (sensibilisation au coût).
+const USD_TO_EUR = 0.92;
 
 // ---- Limitation de débit (best-effort, par instance chaude) ----
 // Pour un quota distribué robuste, brancher Upstash Ratelimit / KV.
@@ -201,8 +206,15 @@ export async function POST(req: Request): Promise<Response> {
       total: result.usage?.totalTokens ?? ((result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0)),
     };
 
+    // Coût estimé de la génération — affiché au client pour le sensibiliser.
+    const modelName = provider === 'google'
+      ? (body.options?.model || 'gemini-2.0-flash')
+      : (body.options?.model || 'claude-opus-4-8');
+    const usd = estimateCostUsd(modelName, usage.input, usage.output);
+    const cost = { usd: Number(usd.toFixed(4)), eur: Number((usd * USD_TO_EUR).toFixed(4)) };
+
     // --- Audit best-effort (non bloquant) ---
-    void auditLog(auditLabel, userId, dm.entities.length, usage.total, provider);
+    void auditLog(auditLabel, userId, dm.entities.length, usage.total, provider, cost.eur);
 
     return json({
       product: dm.product,
@@ -216,6 +228,7 @@ export async function POST(req: Request): Promise<Response> {
       deliverables,
       quality,
       usage,
+      cost,
       meta: {
         provider,
         model: provider === 'google' ? (body.options?.model || 'gemini-2.0-flash') : (body.options?.model || 'claude-opus-4-8'),
@@ -243,7 +256,7 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 // Journalise l'appel dans activity_logs (clé service = droits d'écriture).
-async function auditLog(label: string, userId: string | null, entities: number, tokens: number, provider: string): Promise<void> {
+async function auditLog(label: string, userId: string | null, entities: number, tokens: number, provider: string, eur: number): Promise<void> {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -253,7 +266,7 @@ async function auditLog(label: string, userId: string | null, entities: number, 
       user_id: userId,
       user_email: label,
       action: 'api_design',
-      detail: `${entities} entités • ${tokens} tokens • ${provider}`,
+      detail: `${entities} entités • ${tokens} tokens • ~${eur.toFixed(2)} € • ${provider}`,
     });
   } catch {
     // Audit best-effort : ne jamais faire échouer la requête pour un échec de log.

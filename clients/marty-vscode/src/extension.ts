@@ -37,6 +37,7 @@ interface DesignResponse {
     findings: Array<{ severity: 'error' | 'warning' | 'info'; category: string; entityName: string; target?: string; message: string; current?: string; suggested?: string }>;
   };
   usage: { input: number; output: number; total: number };
+  cost?: { usd: number; eur: number };
   meta: { provider: string; model: string; entities: number; attributes: number; relations: number };
 }
 
@@ -443,6 +444,7 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     <span class="dot off" id="dot"></span>
     <span class="who" id="who">Non connecté</span>
     <button class="link" id="acct">Se connecter</button>
+    <button class="link" id="out" title="Se déconnecter" style="display:none">⏻</button>
   </div>
 
   <p class="hint">Décris ton idée métier — Marty conçoit le modèle et ses livrables.</p>
@@ -471,11 +473,13 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     $('who').title = signedIn ? m.email : '';
     $('dot').className = 'dot ' + (signedIn ? 'on' : 'off');
     $('acct').textContent = signedIn ? 'Changer' : 'Se connecter';
+    $('out').style.display = signedIn ? '' : 'none';
     if (m.provider) $('p').value = m.provider;
   });
 
   // « Changer » relance la connexion : le nouveau compte remplace l'ancien.
   $('acct').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
+  $('out').addEventListener('click', () => vscode.postMessage({ type: 'signOut' }));
 
   $('go').addEventListener('click', () => {
     const description = $('d').value.trim();
@@ -529,6 +533,8 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   .hidden { display: none !important; }
   .summary { margin: 18px 0 6px; padding: 12px 14px; border-radius: 8px; background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-editorWidget-border, #4443); }
   .summary b { color: var(--ca-green); }
+  .cost { display: inline-block; padding: 1px 7px; border-radius: 10px; font-weight: 600; font-size: 11.5px;
+    background: #e0910022; color: #e09100; border: 1px solid #e0910044; }
   .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 16px 0 10px; border-bottom: 1px solid var(--vscode-editorWidget-border, #4443); }
   .tab { padding: 7px 12px; cursor: pointer; border: none; background: transparent; color: var(--vscode-foreground); border-bottom: 2px solid transparent; }
   .tab.active { border-bottom-color: var(--ca-green); font-weight: 600; }
@@ -591,6 +597,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       </select>
     </label>
     <button class="ghost" id="account">👤 Compte</button>
+    <button class="ghost" id="logout" style="display:none">⏻ Déconnexion</button>
     <span id="who" style="font-size:12px;color:var(--vscode-descriptionForeground)"></span>
   </div>
 
@@ -621,6 +628,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     vscode.postMessage({ type: 'generate', description, provider: $('provider').value });
   });
   $('account').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
+  $('logout').addEventListener('click', () => vscode.postMessage({ type: 'signOut' }));
   $('save').addEventListener('click', () => vscode.postMessage({ type: 'save' }));
   $('zip').addEventListener('click', () => vscode.postMessage({ type: 'zip' }));
   $('web').addEventListener('click', () => vscode.postMessage({ type: 'continueWeb' }));
@@ -637,6 +645,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     if (m.type === 'init') {
       if (m.provider) $('provider').value = m.provider;
       $('who').textContent = m.email ? 'Connecté : ' + m.email : '';
+      $('logout').style.display = m.email ? '' : 'none';
       if (!m.email) setStatus('👤 Non connecté. Clique « Compte » (ou lance une génération) pour te connecter avec ton compte Marty.');
     } else if (m.type === 'prefill') {
       $('desc').value = m.description || '';
@@ -838,13 +847,24 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     return div;
   }
 
+  // Coût lisible : on ne masque pas les petits montants derrière un « 0,00 € ».
+  function fmtEur(eur) {
+    if (typeof eur !== 'number') return '';
+    if (eur < 0.01) return '< 0,01 €';
+    return eur.toFixed(2).replace('.', ',') + ' €';
+  }
+
   function render(data) {
     lastData = data;
     $('results').classList.remove('hidden');
     const meta = data.meta || {};
+    const tokens = data.usage ? data.usage.total : 0;
+    const eur = data.cost ? data.cost.eur : null;
+    const costHtml = eur === null ? ''
+      : ' • <span class="cost" title="Coût IA estimé de cette génération, à la charge de la plateforme.">≈ ' + esc(fmtEur(eur)) + '</span>';
     $('summary').innerHTML = '<b>' + esc(data.product.name) + '</b>' + (data.product.domain ? ' — ' + esc(data.product.domain) : '') +
       '<br>' + (meta.entities || 0) + ' entités • ' + (meta.attributes || 0) + ' attributs • ' + (meta.relations || 0) + ' relations' +
-      ' <span style="opacity:.6">• ' + esc(meta.model) + ' • ' + (data.usage ? data.usage.total : 0) + ' tokens</span>';
+      ' <span style="opacity:.6">• ' + esc(meta.model) + ' • ' + tokens.toLocaleString('fr-FR') + ' tokens</span>' + costHtml;
 
     const dbmlBtn = document.createElement('button');
     dbmlBtn.className = 'ghost'; dbmlBtn.textContent = '🔗 Ouvrir dbdiagram.io';
