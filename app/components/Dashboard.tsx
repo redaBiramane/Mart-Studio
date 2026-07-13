@@ -4,7 +4,25 @@ import { useMemo, useState } from 'react';
 import { useWorkshopStore } from '@/lib/store';
 import { useI18n, localeCode } from '@/lib/i18n';
 import { lintModel, qualityScore } from '@/lib/linter';
+import { VSCODE_EXTENSION } from '@/lib/constants';
 import ModelShowcase from './ModelShowcase';
+
+// Carte « Extension VSCode » posée dans l'espace libre à droite du hero.
+// Sous 900px, elle repasse dans le flux (sous le texte) au lieu de le chevaucher.
+const HERO_CSS = `
+.dash-vsix { position: absolute; top: 28px; right: 28px; width: 236px; z-index: 2;
+  display: block; padding: 16px 18px; border-radius: 16px; color: #fff; text-decoration: none;
+  background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.30);
+  backdrop-filter: blur(6px); transition: transform .18s ease, background .18s ease; }
+.dash-vsix:hover { background: rgba(255,255,255,0.20); transform: translateY(-2px); }
+.dash-vsix-btn { background: #fff; color: #065F46; border-radius: 9px; padding: 8px 12px;
+  font-weight: 800; font-size: 12.5px; text-align: center; }
+.dash-hero-main { max-width: calc(100% - 270px); }
+@media (max-width: 900px) {
+  .dash-vsix { position: static; width: 100%; margin-top: 20px; backdrop-filter: none; }
+  .dash-hero-main { max-width: 100%; }
+}
+`;
 
 function HowIcon({ name }: { name: string }) {
   const p: Record<string, React.ReactNode> = {
@@ -109,11 +127,13 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
 
   return (
     <div className="dashboard">
+      <style dangerouslySetInnerHTML={{ __html: HERO_CSS }} />
       {/* Hero dégradé */}
       <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, padding: '30px 32px', marginBottom: 18, color: '#fff', background: 'linear-gradient(135deg, #065F46 0%, #047857 45%, #0D9488 100%)', boxShadow: '0 16px 44px rgba(4,120,87,0.28)' }}>
         <div style={{ position: 'absolute', top: -70, right: -50, width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'absolute', bottom: -90, left: 160, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ position: 'relative' }}>
+
+        <div style={{ position: 'relative' }} className="dash-hero-main">
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, letterSpacing: 0.3, background: 'rgba(255,255,255,0.16)', padding: '5px 12px', borderRadius: 999, marginBottom: 16 }}>
             <span>📊</span> {`${sessions.length} ${t('dash.badgeSessions')}`}
           </div>
@@ -146,6 +166,33 @@ export default function Dashboard({ onStartWorkshop, onOpenSession, onViewDelive
             )}
           </div>
         </div>
+
+        {/* Extension VSCode — occupe l'espace libre à droite du hero.
+            Placée APRÈS le contenu : en mobile elle passe sous le texte, pas au-dessus. */}
+        <a
+          href={VSCODE_EXTENSION.file}
+          download="marty-vscode.vsix"
+          className="dash-vsix"
+          title={`Marty pour VSCode — version ${VSCODE_EXTENSION.version}`}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 22 }}>🧩</span>
+            <div style={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.2 }}>
+              {en ? 'VSCode Extension' : 'Extension VSCode'}
+            </div>
+          </div>
+          <div style={{ fontSize: 12.5, opacity: 0.88, lineHeight: 1.5, marginBottom: 12 }}>
+            {en
+              ? 'Generate a Data Product straight from your editor.'
+              : 'Générez un Data Product directement depuis votre éditeur.'}
+          </div>
+          <div className="dash-vsix-btn">
+            ⬇️ {en ? 'Download (.vsix)' : 'Télécharger (.vsix)'}
+          </div>
+          <div style={{ fontSize: 11, opacity: 0.72, marginTop: 8 }}>
+            v{VSCODE_EXTENSION.version} · {en ? 'guide in Documentation' : 'guide dans Documentation'}
+          </div>
+        </a>
       </div>
 
       {/* Tuiles KPI (cliquables → filtrent la liste) */}
