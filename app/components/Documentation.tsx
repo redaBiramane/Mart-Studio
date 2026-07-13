@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { VSCODE_EXTENSION } from '@/lib/constants';
 
 interface DocumentationProps {
   onStartWorkshop: () => void;
@@ -18,8 +19,21 @@ const SECTIONS: { id: string; title: string }[] = [
   { id: 'historique', title: 'Historique & aperçu des changements' },
   { id: 'livrables', title: 'Livrables & génération' },
   { id: 'contexte', title: 'Panneau « Données collectées »' },
+  { id: 'vscode', title: 'Extension VSCode' },
   { id: 'reglages', title: 'Langue, thème, idées' },
   { id: 'conseils', title: 'Bonnes pratiques' },
+];
+
+// Les onglets du panneau de l'extension VSCode.
+const VSCODE_TABS = [
+  { t: 'Modèle', d: 'Chaque table avec ses colonnes, clés (PK/FK) et données sensibles (🔒), plus les relations, KPI et règles.' },
+  { t: 'SQL DDL', d: 'Les CREATE TABLE complets (PK, NOT NULL, FK, tables d\'association N:N), prêts à exécuter.' },
+  { t: 'DBML', d: 'À coller sur dbdiagram.io pour un schéma interactif.' },
+  { t: 'DBT', d: 'Le schema.yml (modèles + tests unique / not_null).' },
+  { t: 'Semantic Layer', d: 'La lecture métier du modèle, en français sans jargon — à partager avec les métiers.' },
+  { t: 'Dictionnaire', d: 'Le dictionnaire de données complet.' },
+  { t: 'Qualité', d: 'Un score /100 et les anomalies détectées, avec la correction suggérée.' },
+  { t: 'Diagramme ERD', d: 'Le schéma entité-relation dessiné directement dans VSCode (fonctionne hors ligne).' },
 ];
 
 const STEPS = [
@@ -248,6 +262,117 @@ export default function Documentation({ onStartWorkshop }: DocumentationProps) {
             <p>À droite de l&apos;atelier, ce panneau montre l&apos;état du modèle en temps réel : contexte, entités, relations, attributs, KPIs, règles, sources. Chaque section est <strong>cliquable</strong> pour ouvrir un mode <strong>Modifier</strong>.</p>
             <h3>Recherche dans les modals</h3>
             <p>Dans les fenêtres <strong>Modifier</strong> (Entités, Attributs, Relations), une <strong>barre de recherche</strong> filtre en direct : tapez un nom de table pour voir toutes ses colonnes, ou un nom de colonne pour ne garder que les tables concernées. Le compteur <code>(3 / 42)</code> indique les colonnes affichées sur le total — indispensable au-delà de quelques dizaines de tables.</p>
+          </section>
+
+          <section id="vscode" className="md-sec">
+            <h2>Extension VSCode</h2>
+            <p>
+              Vous préférez travailler dans votre éditeur ? L&apos;extension <strong>Marty pour VSCode</strong> transforme
+              une simple <strong>description métier</strong> en un modèle de données complet et ses livrables,
+              sans quitter votre projet. Les générations sont <strong>enregistrées dans votre espace</strong> :
+              vous les retrouvez ici, dans <strong>Data Products</strong>, pour poursuivre l&apos;atelier.
+            </p>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', margin: '16px 0' }}>
+              <a
+                className="cta-btn"
+                href={VSCODE_EXTENSION.file}
+                download="marty-vscode.vsix"
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+              >
+                ⬇️ Télécharger l&apos;extension (.vsix)
+              </a>
+              <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                Version {VSCODE_EXTENSION.version} · VSCode 1.85+ · ~1 Mo
+              </span>
+            </div>
+
+            <div className="md-callout">
+              🔑 <strong>Aucune clé API à saisir</strong> (ni Claude, ni OpenAI). Vous vous connectez dans VSCode
+              avec <strong>ce même compte</strong> — c&apos;est tout. L&apos;IA est appelée par le serveur Marty.
+            </div>
+
+            <h3>Installer (2 minutes)</h3>
+            <ol>
+              <li>Téléchargez le fichier <code>.vsix</code> ci-dessus.</li>
+              <li>Dans VSCode : <span className="md-kbd">⌘/Ctrl + Maj + X</span> pour ouvrir <strong>Extensions</strong>.</li>
+              <li>Menu <code>…</code> en haut du panneau → <strong>Install from VSIX…</strong> → choisissez le fichier.</li>
+              <li>Une <strong>icône Marty</strong> apparaît dans la barre d&apos;activité, à gauche.</li>
+            </ol>
+
+            <h3>Se connecter (une seule fois)</h3>
+            <p>
+              Cliquez l&apos;icône Marty → <strong>Se connecter</strong>, puis saisissez l&apos;<strong>email et le mot de passe
+              de ce site</strong>. Votre session est stockée chiffrée dans le coffre de VSCode et se renouvelle
+              toute seule : vous n&apos;y reviendrez plus.
+            </p>
+
+            <h3>Générer</h3>
+            <p>
+              Décrivez votre idée métier dans le panneau latéral, choisissez le modèle IA
+              (<strong>Claude Opus</strong> pour la précision, <strong>Gemini Flash</strong> pour la rapidité) et lancez.
+              Le <strong>coût estimé en euros</strong> de chaque génération est affiché — Opus est nettement plus
+              coûteux que Gemini : choisissez en conséquence.
+            </p>
+
+            <h3>Les 8 onglets de livrables</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr><th style={thStyle}>Onglet</th><th style={thStyle}>Contenu</th></tr></thead>
+                <tbody>
+                  {VSCODE_TABS.map((r) => (
+                    <tr key={r.t}>
+                      <td style={{ ...tdStyle, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.t}</td>
+                      <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{r.d}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h3>Récupérer les livrables</h3>
+            <ul>
+              <li><strong>💾 Enregistrer dans le projet</strong> — écrit les fichiers dans <code>marty-out/&lt;nom&gt;/</code> de votre dossier ouvert.</li>
+              <li><strong>📦 Télécharger le package (.zip)</strong> — une archive de tous les livrables.</li>
+              <li><strong>🌐 Continuer sur le site</strong> — le Data Product y est <strong>déjà enregistré</strong> : ouvrez-le dans <strong>Data Products</strong> pour poursuivre l&apos;atelier (KPI, gouvernance, rapport DAD).</li>
+            </ul>
+
+            <h3>Vos générations sont conservées</h3>
+            <p>
+              La section <strong>« Mes générations »</strong> (barre latérale de VSCode) liste vos Data Products.
+              Un clic les <strong>rouvre instantanément</strong> : les livrables sont reconstruits sans rappeler l&apos;IA,
+              donc <strong>sans coût ni attente</strong>.
+            </p>
+
+            <h3>En cas de problème</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr><th style={thStyle}>Symptôme</th><th style={thStyle}>Solution</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>Pas d&apos;icône Marty</td>
+                    <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>Rechargez VSCode : <span className="md-kbd">⌘/Ctrl + Maj + P</span> → <em>Reload Window</em>.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>« Non connecté »</td>
+                    <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>Cliquez « Se connecter » et saisissez vos identifiants de ce site.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>Email ou mot de passe incorrect</td>
+                    <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>Ce sont exactement les identifiants de martstudio.it.com.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>Trop de requêtes (429)</td>
+                    <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>Limite de 12 générations/minute par compte : patientez une minute.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md-callout" style={{ marginTop: 14 }}>
+              ⚠️ <strong>Confidentialité</strong> — décrivez la <strong>structure</strong> et le <strong>besoin</strong>,
+              jamais de données réelles (vrais noms, IBAN, montants clients).
+            </div>
           </section>
 
           <section id="reglages" className="md-sec">

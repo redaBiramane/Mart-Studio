@@ -4,6 +4,15 @@
 
 import { StepDefinition, WorkshopSession } from './types';
 
+// ---- Extension VSCode ----
+// Source unique de vérité : le numéro affiché dans la doc ET le fichier servi.
+// Le .vsix est publié sous un nom FIXE (public/downloads/marty-vscode.vsix), écrasé
+// à chaque release — le lien de téléchargement ne change donc jamais.
+export const VSCODE_EXTENSION = {
+  version: '0.6.0',
+  file: '/downloads/marty-vscode.vsix',
+};
+
 // Une étape est-elle « remplie » ? Basé sur la sémantique (key), pas sur la
 // position — indispensable pour que les étapes restent réordonnables/supprimables.
 export function stepHasData(step: StepDefinition | undefined, session: WorkshopSession): boolean {
