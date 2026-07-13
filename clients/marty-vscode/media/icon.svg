@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#04382d"/>
+      <stop offset="0.55" stop-color="#075a44"/>
+      <stop offset="1" stop-color="#0e8266"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Relations (liens ERD) -->
+  <g stroke="#ffffff" stroke-opacity="0.5" stroke-width="7" fill="none" stroke-linecap="round">
+    <path d="M186 190 L322 236"/>
+    <path d="M322 268 L250 330"/>
+  </g>
+
+  <!-- Tables du modèle -->
+  <g filter="url(#sh)">
+    <!-- Table 1 -->
+    <g>
+      <rect x="96" y="150" width="150" height="104" rx="16" fill="#ffffff"/>
+      <rect x="96" y="150" width="150" height="30" rx="16" fill="#0e8266"/>
+      <rect x="96" y="164" width="150" height="16" fill="#0e8266"/>
+      <rect x="116" y="200" width="80" height="9" rx="4.5" fill="#9fb8b0"/>
+      <rect x="116" y="222" width="110" height="9" rx="4.5" fill="#c9d8d3"/>
+    </g>
+    <!-- Table 2 -->
+    <g>
+      <rect x="300" y="196" width="150" height="104" rx="16" fill="#ffffff"/>
+      <rect x="300" y="196" width="150" height="30" rx="16" fill="#0e8266"/>
+      <rect x="300" y="210" width="150" height="16" fill="#0e8266"/>
+      <rect x="320" y="246" width="90" height="9" rx="4.5" fill="#9fb8b0"/>
+      <rect x="320" y="268" width="110" height="9" rx="4.5" fill="#c9d8d3"/>
+    </g>
+    <!-- Table 3 -->
+    <g>
+      <rect x="176" y="300" width="150" height="104" rx="16" fill="#ffffff"/>
+      <rect x="176" y="300" width="150" height="30" rx="16" fill="#0e8266"/>
+      <rect x="176" y="314" width="150" height="16" fill="#0e8266"/>
+      <rect x="196" y="350" width="80" height="9" rx="4.5" fill="#9fb8b0"/>
+      <rect x="196" y="372" width="110" height="9" rx="4.5" fill="#c9d8d3"/>
+    </g>
+  </g>
+
+  <!-- Étincelle IA -->
+  <path d="M392 120 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10 z" fill="#ffffff" fill-opacity="0.92"/>
+</svg>
