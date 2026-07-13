@@ -27,12 +27,39 @@ interface DesignResponse {
 
 let panel: vscode.WebviewPanel | undefined;
 let lastResult: DesignResponse | undefined;
+// Description saisie depuis la barre latérale, à lancer dès que le panneau est prêt.
+let pendingDescription: string | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('marty.setApiKey', () => setApiKey(context)),
     vscode.commands.registerCommand('marty.open', () => openPanel(context)),
+    vscode.window.registerWebviewViewProvider('marty.launcher', new LauncherProvider(context)),
   );
+}
+
+// ---- Vue de la barre latérale (icône Marty dans la barre d'activité) ----
+
+class LauncherProvider implements vscode.WebviewViewProvider {
+  constructor(private readonly context: vscode.ExtensionContext) {}
+
+  resolveWebviewView(view: vscode.WebviewView): void {
+    view.webview.options = { enableScripts: true };
+    view.webview.html = getLauncherHtml(view.webview);
+    view.webview.onDidReceiveMessage(async (msg) => {
+      switch (msg?.type) {
+        case 'generate':
+          openPanel(this.context, String(msg.description || ''));
+          break;
+        case 'open':
+          openPanel(this.context);
+          break;
+        case 'setKey':
+          await setApiKey(this.context);
+          break;
+      }
+    });
+  }
 }
 
 export function deactivate() {
@@ -59,11 +86,20 @@ async function setApiKey(context: vscode.ExtensionContext): Promise<string | und
 
 // ---- Panneau ----
 
-function openPanel(context: vscode.ExtensionContext) {
+function openPanel(context: vscode.ExtensionContext, description?: string) {
+  const desc = description?.trim();
   if (panel) {
     panel.reveal(vscode.ViewColumn.Active);
+    // Panneau déjà chargé : on peut lancer tout de suite.
+    if (desc) {
+      const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
+      panel.webview.postMessage({ type: 'prefill', description: desc });
+      void generate(context, desc, provider);
+    }
     return;
   }
+  // Panneau pas encore créé : on attend son message « ready » pour lancer.
+  pendingDescription = desc || undefined;
   panel = vscode.window.createWebviewPanel('marty', 'Marty', vscode.ViewColumn.Active, {
     enableScripts: true,
     retainContextWhenHidden: true,
@@ -76,6 +112,13 @@ function openPanel(context: vscode.ExtensionContext) {
         const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
         const hasKey = !!(await context.secrets.get(SECRET_KEY));
         panel?.webview.postMessage({ type: 'init', provider, hasKey });
+        // Génération demandée depuis la barre latérale : le webview est prêt, on lance.
+        if (pendingDescription) {
+          const d = pendingDescription;
+          pendingDescription = undefined;
+          panel?.webview.postMessage({ type: 'prefill', description: d });
+          await generate(context, d, provider);
+        }
         break;
       }
       case 'generate':
@@ -179,6 +222,53 @@ async function saveToProject() {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(dir, 'schema.sql'));
     vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
   }
+}
+
+// ---- HTML de la barre latérale ----
+
+function getLauncherHtml(webview: vscode.Webview): string {
+  const n = nonce();
+  const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${n}';`;
+  return /* html */ `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="${csp}" />
+<style>
+  :root { --ca-green:#0e8266; --ca-dark:#04382d; }
+  * { box-sizing: border-box; }
+  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); font-size: 12px; padding: 12px 10px; }
+  .brand { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .logo { width:26px; height:26px; border-radius:7px; background:linear-gradient(155deg,var(--ca-dark),var(--ca-green));
+          color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; }
+  .brand b { font-size: 13px; }
+  p.hint { color: var(--vscode-descriptionForeground); margin: 0 0 10px; line-height: 1.45; }
+  textarea { width:100%; min-height:96px; padding:8px; border-radius:6px; resize:vertical; font-family:inherit; font-size:12px;
+    background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, transparent); }
+  button.primary { width:100%; margin-top:8px; background: var(--ca-green); color:#fff; border:none;
+    border-radius:6px; padding:8px 10px; cursor:pointer; font-weight:600; font-size:12px; }
+  button.primary:hover { background:#0aa07d; }
+  button.link { background:none; border:none; color: var(--vscode-textLink-foreground); cursor:pointer;
+    padding:6px 0 0; font-size:11.5px; text-align:left; }
+</style>
+</head>
+<body>
+  <div class="brand"><span class="logo">CA</span><b>Marty</b></div>
+  <p class="hint">Décris ton idée métier — Marty conçoit le modèle et ses livrables.</p>
+  <textarea id="d" placeholder="Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances, garanties…"></textarea>
+  <button class="primary" id="go">Générer un Data Product</button>
+  <button class="link" id="key">🔑 Définir la clé API</button>
+<script nonce="${n}">
+  const vscode = acquireVsCodeApi();
+  document.getElementById('go').addEventListener('click', () => {
+    const description = document.getElementById('d').value.trim();
+    vscode.postMessage(description ? { type: 'generate', description } : { type: 'open' });
+  });
+  document.getElementById('key').addEventListener('click', () => vscode.postMessage({ type: 'setKey' }));
+</script>
+</body>
+</html>`;
 }
 
 // ---- HTML du webview ----
@@ -296,6 +386,8 @@ function getHtml(webview: vscode.Webview): string {
     if (m.type === 'init') {
       if (m.provider) $('provider').value = m.provider;
       if (m.hasKey === false) setStatus('⚠️ Aucune clé API configurée. Clique « Changer la clé API » ou lance une génération pour la saisir.');
+    } else if (m.type === 'prefill') {
+      $('desc').value = m.description || '';
     } else if (m.type === 'progress') {
       $('go').disabled = true;
       setStatus('<span class="spinner"></span> Génération en cours… (~50 s avec Claude Opus)');
