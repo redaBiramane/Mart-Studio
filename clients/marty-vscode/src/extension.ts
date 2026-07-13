@@ -55,6 +55,10 @@ interface DesignResponse {
 let panel: vscode.WebviewPanel | undefined;
 let launcherView: vscode.WebviewView | undefined;
 let lastResult: DesignResponse | undefined;
+// Dernière saisie : permet de restaurer le panneau à l'identique s'il est rechargé
+// (« Move to New Window », déplacement de groupe… → VSCode recrée le webview).
+let lastDescription = '';
+let lastProvider = 'anthropic';
 // Saisie faite depuis la barre latérale, à lancer dès que le panneau est prêt.
 let pendingDescription: string | undefined;
 let pendingProvider: string | undefined;
@@ -249,6 +253,7 @@ async function openProduct(context: vscode.ExtensionContext, id: string): Promis
       return;
     }
     lastResult = (await res.json()) as DesignResponse;
+    lastDescription = ''; // produit rouvert : pas de saisie à restaurer
     if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
     panel?.webview.postMessage({ type: 'result', data: lastResult });
   } catch (e) {
@@ -287,6 +292,7 @@ function openPanel(context: vscode.ExtensionContext, description?: string, provi
         const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
         const email = (await context.secrets.get(SECRET_EMAIL)) || '';
         panel?.webview.postMessage({ type: 'init', provider, email });
+
         // Génération demandée depuis la barre latérale : le webview est prêt, on lance.
         if (pendingDescription) {
           const d = pendingDescription;
@@ -295,6 +301,15 @@ function openPanel(context: vscode.ExtensionContext, description?: string, provi
           pendingProvider = undefined;
           panel?.webview.postMessage({ type: 'prefill', description: d, provider: p });
           await generate(context, d, p);
+          break;
+        }
+
+        // Webview reconstruit (« Move to New Window », changement de groupe…) :
+        // VSCode repart du HTML vide. On lui réinjecte le dernier résultat, sinon
+        // l'utilisateur retrouve un panneau vide et croit avoir tout perdu.
+        if (lastResult) {
+          panel?.webview.postMessage({ type: 'prefill', description: lastDescription, provider: lastProvider });
+          panel?.webview.postMessage({ type: 'result', data: lastResult });
         }
         break;
       }
@@ -356,6 +371,8 @@ async function generate(context: vscode.ExtensionContext, description: string, p
     body: JSON.stringify({ description, options: { provider } }),
   });
 
+  lastDescription = description;
+  lastProvider = provider;
   panel?.webview.postMessage({ type: 'progress' });
   try {
     let res = await call(token);
