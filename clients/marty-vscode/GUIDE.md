@@ -11,7 +11,7 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 ## 1. Ce dont vous avez besoin
 
 - **VSCode** (version 1.85 ou plus récente).
-- Le fichier **`marty-vscode-0.7.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
+- Le fichier **`marty-vscode-0.8.0.vsix`** (fourni par l'administrateur / par mail ou partage réseau).
 - Votre **compte Marty** — celui que vous avez déjà sur
   [martstudio.it.com](https://www.martstudio.it.com). Pas encore de compte ? Créez-le sur le site.
 
@@ -26,7 +26,7 @@ et ses **livrables** (SQL, DBML, dbt, dictionnaire, diagramme ERD), directement 
 2. Ouvrez le panneau **Extensions** : `Cmd+Shift+X` (Mac) ou `Ctrl+Shift+X` (Windows/Linux).
 3. En haut du panneau, cliquez le menu **`…`** (« Vues et plus d'actions »).
 4. Choisissez **« Installer à partir d'un VSIX… »** (*Install from VSIX…*).
-5. Sélectionnez le fichier **`marty-vscode-0.7.0.vsix`**.
+5. Sélectionnez le fichier **`marty-vscode-0.8.0.vsix`**.
 6. VSCode confirme l'installation. C'est terminé.
 
 > L'icône verte Marty apparaît dans la liste de vos extensions.

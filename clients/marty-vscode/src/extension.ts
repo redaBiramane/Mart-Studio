@@ -59,6 +59,30 @@ let lastResult: DesignResponse | undefined;
 // (« Move to New Window », déplacement de groupe… → VSCode recrée le webview).
 let lastDescription = '';
 let lastProvider = 'anthropic';
+
+// Fichier joint en attente : il est ATTACHÉ (et affiché), pas exécuté. C'est le
+// bouton « Générer » qui le déclenche — l'utilisateur peut d'abord le vérifier et
+// ajouter du contexte.
+let attachedFile: { filename: string; content: string; isDdl: boolean } | undefined;
+
+// Un DDL est parsé sans IA côté serveur : on le signale dès l'attachement.
+function looksLikeDDL(content: string): boolean {
+  return /create\s+(or\s+replace\s+)?(table|view)\s/i.test(content);
+}
+
+// Informe les deux vues (barre latérale + panneau) de la pièce jointe courante.
+function broadcastAttachment(): void {
+  const msg = attachedFile
+    ? {
+        type: 'attachment',
+        filename: attachedFile.filename,
+        size: attachedFile.content.length,
+        isDdl: attachedFile.isDdl,
+      }
+    : { type: 'attachment' };
+  launcherView?.webview.postMessage(msg);
+  panel?.webview.postMessage(msg);
+}
 // Saisie faite depuis la barre latérale, à lancer dès que le panneau est prêt.
 let pendingDescription: string | undefined;
 let pendingProvider: string | undefined;
@@ -68,6 +92,7 @@ async function refreshLauncher(context: vscode.ExtensionContext): Promise<void> 
   const email = (await context.secrets.get(SECRET_EMAIL)) || '';
   const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
   launcherView?.webview.postMessage({ type: 'init', email, provider });
+  broadcastAttachment(); // une vue recréée doit retrouver sa pièce jointe
   if (email) void loadHistory(context);
   else launcherView?.webview.postMessage({ type: 'history', products: [] });
 }
@@ -116,8 +141,11 @@ class LauncherProvider implements vscode.WebviewViewProvider {
         case 'refresh':
           await refreshLauncher(this.context);
           break;
-        case 'importFile':
-          await importFile(this.context, String(msg.provider || 'anthropic'));
+        case 'attach':
+          await attachFile();
+          break;
+        case 'detach':
+          detachFile();
           break;
         case 'signIn':
           await signIn(this.context);
@@ -269,12 +297,13 @@ async function openProduct(context: vscode.ExtensionContext, id: string): Promis
 
 // ---- Import d'un fichier existant (SQL, SAS, CSV…) ----
 
-// Un DDL SQL est parsé côté serveur SANS IA : gratuit, instantané, sans limite
-// de taille. Les autres formats passent par le modèle.
-async function importFile(context: vscode.ExtensionContext, provider: string): Promise<void> {
+// Attache un fichier — SANS l'exécuter. Il s'affiche comme pièce jointe ; c'est
+// « Générer » qui lance l'analyse, après que l'utilisateur l'a vérifié et a
+// éventuellement ajouté du contexte.
+async function attachFile(): Promise<void> {
   const picked = await vscode.window.showOpenDialog({
     canSelectMany: false,
-    openLabel: 'Importer',
+    openLabel: 'Joindre',
     filters: {
       'Modèles et scripts': ['sql', 'ddl', 'sas', 'csv', 'txt', 'json', 'md', 'yml', 'yaml'],
       'Tous les fichiers': ['*'],
@@ -285,10 +314,10 @@ async function importFile(context: vscode.ExtensionContext, provider: string): P
   const uri = picked[0];
   const filename = uri.path.split('/').pop() || 'fichier';
 
-  // Excel est un format binaire : on ne peut pas le lire tel quel.
+  // Excel est un format binaire : illisible tel quel.
   if (/\.(xlsx|xls)$/i.test(filename)) {
     vscode.window.showWarningMessage(
-      `Marty : les fichiers Excel (.xlsx) sont binaires et ne peuvent pas être lus directement. Enregistrez la feuille en CSV, puis réimportez-la.`,
+      'Marty : les fichiers Excel (.xlsx) sont binaires et ne peuvent pas être lus directement. Enregistrez la feuille en CSV, puis rejoignez-la.',
     );
     return;
   }
@@ -306,34 +335,13 @@ async function importFile(context: vscode.ExtensionContext, provider: string): P
     return;
   }
 
-  openPanel(context);
-  panel?.webview.postMessage({ type: 'progress', message: `Import de « ${filename} »…` });
+  attachedFile = { filename, content, isDdl: looksLikeDDL(content) };
+  broadcastAttachment();
+}
 
-  try {
-    const res = await authFetch(context, '/api/v1/import', {
-      method: 'POST',
-      body: JSON.stringify({ filename, content, options: { provider } }),
-    });
-    if (!res || !res.ok) {
-      let detail = 'import impossible';
-      try { detail = ((await res!.json()) as { error?: string }).error || detail; } catch { /* non-JSON */ }
-      panel?.webview.postMessage({ type: 'error', message: detail });
-      return;
-    }
-    lastResult = (await res.json()) as DesignResponse;
-    lastDescription = '';
-    if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
-    panel?.webview.postMessage({ type: 'result', data: lastResult });
-    void loadHistory(context);
-
-    if (lastResult.meta?.source === 'ddl') {
-      vscode.window.showInformationMessage(
-        `Marty : « ${filename} » importé — ${lastResult.meta.entities} tables analysées sans appel à l'IA (aucun coût).`,
-      );
-    }
-  } catch (e) {
-    panel?.webview.postMessage({ type: 'error', message: `Import échoué : ${(e as Error).message}` });
-  }
+function detachFile(): void {
+  attachedFile = undefined;
+  broadcastAttachment();
 }
 
 // ---- Panneau ----
@@ -367,6 +375,7 @@ function openPanel(context: vscode.ExtensionContext, description?: string, provi
         const provider = vscode.workspace.getConfiguration('marty').get<string>('provider', 'anthropic');
         const email = (await context.secrets.get(SECRET_EMAIL)) || '';
         panel?.webview.postMessage({ type: 'init', provider, email });
+        broadcastAttachment(); // le panneau recréé retrouve sa pièce jointe
 
         // Génération demandée depuis la barre latérale : le webview est prêt, on lance.
         if (pendingDescription) {
@@ -393,6 +402,16 @@ function openPanel(context: vscode.ExtensionContext, description?: string, provi
         break;
       case 'save':
         await saveToProject();
+        break;
+      case 'attach':
+        await attachFile();
+        break;
+      case 'detach':
+        detachFile();
+        break;
+      // Plein écran : on agrandit le groupe d'éditeurs qui contient le panneau.
+      case 'maximize':
+        await vscode.commands.executeCommand('workbench.action.toggleMaximizeEditorGroup');
         break;
       case 'zip':
         await downloadZip();
@@ -427,42 +446,38 @@ function openPanel(context: vscode.ExtensionContext, description?: string, provi
 // ---- Appel API ----
 
 async function generate(context: vscode.ExtensionContext, description: string, provider: string) {
-  if (description.trim().length < 10) {
-    panel?.webview.postMessage({ type: 'error', message: 'Décris ton idée métier (au moins 10 caractères).' });
+  const file = attachedFile;
+
+  // Sans fichier joint, une description est indispensable. Avec un fichier, elle
+  // est facultative (elle sert de contexte métier).
+  if (!file && description.trim().length < 10) {
+    panel?.webview.postMessage({ type: 'error', message: 'Décris ton idée métier (au moins 10 caractères), ou joins un fichier.' });
     return;
   }
-  let token = await context.secrets.get(SECRET_ACCESS);
-  if (!token) {
-    token = await signIn(context);
-    if (!token) {
-      panel?.webview.postMessage({ type: 'error', message: 'Connecte-toi à ton compte Marty pour générer.' });
-      return;
-    }
-  }
 
-  const call = (t: string) => fetch(`${apiUrl()}/api/v1/design`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
-    body: JSON.stringify({ description, options: { provider } }),
-  });
+  // Le fichier est envoyé à /import : un DDL y est parsé sans IA (gratuit).
+  const path = file ? '/api/v1/import' : '/api/v1/design';
+  const payload = file
+    ? { filename: file.filename, content: file.content, description, options: { provider } }
+    : { description, options: { provider } };
 
   lastDescription = description;
   lastProvider = provider;
-  panel?.webview.postMessage({ type: 'progress' });
+  panel?.webview.postMessage({
+    type: 'progress',
+    message: file
+      ? (file.isDdl
+          ? `Analyse de « ${file.filename} » (DDL — sans IA, instantané)…`
+          : `Analyse de « ${file.filename} » par l'IA…`)
+      : undefined,
+  });
+
   try {
-    let res = await call(token);
-
-    // Jeton expiré (les sessions durent ~1 h) : on le renouvelle en silence et on
-    // rejoue la requête, pour que l'utilisateur n'ait pas à se reconnecter.
-    if (res.status === 401) {
-      const fresh = (await refreshToken(context)) || (await signIn(context));
-      if (!fresh) {
-        panel?.webview.postMessage({ type: 'error', message: 'Session expirée. Reconnecte-toi.' });
-        return;
-      }
-      res = await call(fresh);
+    const res = await authFetch(context, path, { method: 'POST', body: JSON.stringify(payload) });
+    if (!res) {
+      panel?.webview.postMessage({ type: 'error', message: 'Connecte-toi à ton compte Marty pour générer.' });
+      return;
     }
-
     if (!res.ok) {
       let detail = res.statusText;
       try { detail = ((await res.json()) as { error?: string }).error || detail; } catch { /* corps non-JSON */ }
@@ -473,6 +488,17 @@ async function generate(context: vscode.ExtensionContext, description: string, p
     // L'onglet porte le nom du Data Product généré.
     if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
     panel?.webview.postMessage({ type: 'result', data: lastResult });
+
+    // La pièce jointe est consommée : on la détache pour éviter de la rejouer
+    // par inadvertance à la génération suivante.
+    if (file) {
+      detachFile();
+      if (lastResult.meta?.source === 'ddl') {
+        vscode.window.showInformationMessage(
+          `Marty : « ${file.filename} » analysé — ${lastResult.meta.entities} tables, sans appel à l'IA (aucun coût).`,
+        );
+      }
+    }
     void loadHistory(context); // la nouvelle génération apparaît dans l'historique
   } catch (e) {
     panel?.webview.postMessage({ type: 'error', message: `Requête échouée : ${(e as Error).message}` });
@@ -616,6 +642,16 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     border:1px solid var(--vscode-input-border, #4445); border-radius:6px; padding:7px 10px;
     cursor:pointer; font-size:11.5px; }
   button.ghost2:hover { background: var(--vscode-list-hoverBackground); }
+  /* Pièce jointe : visible AVANT de lancer, pour vérification */
+  .chip { display:flex; align-items:center; gap:6px; margin-top:10px; padding:7px 9px; border-radius:6px;
+    background: var(--vscode-editorWidget-background); border:1px solid var(--ca-green); font-size:11.5px; }
+  .chip-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .chip-tag { font-size:10px; padding:1px 6px; border-radius:8px; white-space:nowrap;
+    background:#0e826622; color:#1aa06d; border:1px solid #0e826644; }
+  .chip-tag.ia { background:#e0910022; color:#e09100; border-color:#e0910044; }
+  .chip-x { background:none; border:none; color: var(--vscode-descriptionForeground); cursor:pointer;
+    font-size:12px; padding:0 2px; line-height:1; }
+  .chip-x:hover { color: var(--vscode-errorForeground); }
   .sect { margin-top:18px; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px;
     color: var(--vscode-descriptionForeground); border-top:1px solid var(--vscode-editorWidget-border,#4443);
     padding-top:12px; margin-bottom:6px; }
@@ -651,8 +687,14 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     <option value="google">Gemini Flash — rapide</option>
   </select>
 
+  <div id="chip" class="chip" style="display:none">
+    <span class="chip-name" id="chipName"></span>
+    <span class="chip-tag" id="chipTag"></span>
+    <button class="chip-x" id="chipX" title="Retirer le fichier">✕</button>
+  </div>
+
   <button class="primary" id="go">Générer un Data Product</button>
-  <button class="ghost2" id="imp">📎 Importer un fichier (SQL, SAS, CSV…)</button>
+  <button class="ghost2" id="imp">📎 Joindre un fichier (SQL, SAS, CSV…)</button>
 
   <div class="sect sect-row">
     <span>Mes générations</span>
@@ -687,9 +729,34 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     });
   }
 
+  let hasFile = false;
+
+  // La pièce jointe s'affiche AVANT la génération : l'utilisateur la vérifie,
+  // ajoute éventuellement du contexte, puis lance lui-même.
+  function renderChip(m) {
+    hasFile = !!m.filename;
+    const chip = $('chip');
+    if (!hasFile) {
+      chip.style.display = 'none';
+      $('go').textContent = 'Générer un Data Product';
+      $('d').placeholder = 'Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances, garanties…';
+      return;
+    }
+    chip.style.display = 'flex';
+    const ko = Math.max(1, Math.round((m.size || 0) / 1024));
+    $('chipName').textContent = '📄 ' + m.filename + ' · ' + ko + ' Ko';
+    $('chipName').title = m.filename;
+    const tag = $('chipTag');
+    tag.textContent = m.isDdl ? 'DDL · sans IA (gratuit)' : 'analysé par IA';
+    tag.className = 'chip-tag' + (m.isDdl ? '' : ' ia');
+    $('go').textContent = 'Analyser le fichier';
+    $('d').placeholder = 'Contexte métier (facultatif) — précise l\\'objectif, les KPI attendus…';
+  }
+
   window.addEventListener('message', (e) => {
     const m = e.data;
     if (m.type === 'history') { $('ref').classList.remove('spin'); renderHistory(m.products); return; }
+    if (m.type === 'attachment') { renderChip(m); return; }
     if (m.type !== 'init') return;
     signedIn = !!m.email;
     $('who').textContent = signedIn ? m.email : 'Non connecté';
@@ -707,10 +774,13 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
   $('go').addEventListener('click', () => {
     const description = $('d').value.trim();
     const provider = $('p').value;
-    vscode.postMessage(description ? { type: 'generate', description, provider } : { type: 'open' });
+    // Avec un fichier joint, la description est facultative.
+    if (!description && !hasFile) { vscode.postMessage({ type: 'open' }); return; }
+    vscode.postMessage({ type: 'generate', description, provider });
   });
 
-  $('imp').addEventListener('click', () => vscode.postMessage({ type: 'importFile', provider: $('p').value }));
+  $('imp').addEventListener('click', () => vscode.postMessage({ type: 'attach' }));
+  $('chipX').addEventListener('click', () => vscode.postMessage({ type: 'detach' }));
 
   $('ref').addEventListener('click', () => {
     $('ref').classList.add('spin');
@@ -765,6 +835,15 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   .summary b { color: var(--ca-green); }
   .cost { display: inline-block; padding: 1px 7px; border-radius: 10px; font-weight: 600; font-size: 11.5px;
     background: #e0910022; color: #e09100; border: 1px solid #e0910044; }
+  /* Pièce jointe (panneau) */
+  .pchip { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 12px; border-radius: 8px;
+    background: var(--vscode-editorWidget-background); border: 1px solid var(--ca-green); font-size: 12.5px; }
+  .chip-tag { font-size: 10.5px; padding: 1px 7px; border-radius: 9px; white-space: nowrap;
+    background: #0e826622; color: #1aa06d; border: 1px solid #0e826644; }
+  .chip-tag.ia { background: #e0910022; color: #e09100; border-color: #e0910044; }
+  .chip-x { background: none; border: none; color: var(--vscode-descriptionForeground); cursor: pointer;
+    font-size: 13px; padding: 0 2px; line-height: 1; }
+  .chip-x:hover { color: var(--vscode-errorForeground); }
   .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 16px 0 10px; border-bottom: 1px solid var(--vscode-editorWidget-border, #4443); }
   .tab { padding: 7px 12px; cursor: pointer; border: none; background: transparent; color: var(--vscode-foreground); border-bottom: 2px solid transparent; }
   .tab.active { border-bottom-color: var(--ca-green); font-weight: 600; }
@@ -818,8 +897,16 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   <p class="sub">Décris ton idée métier, reçois le modèle et ses livrables.</p>
 
   <textarea id="desc" placeholder="Ex. : Suivi des crédits immobiliers : clients, comptes, prêts, échéances de remboursement, garanties, et analyse du risque…"></textarea>
+
+  <div id="pchip" class="pchip" style="display:none">
+    <span id="pchipName" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600"></span>
+    <span id="pchipTag" class="chip-tag"></span>
+    <button class="chip-x" id="pchipX" title="Retirer le fichier">✕</button>
+  </div>
+
   <div class="row">
     <button class="primary" id="go">Générer</button>
+    <button class="ghost" id="attach">📎 Joindre un fichier</button>
     <label>Modèle&nbsp;
       <select id="provider">
         <option value="anthropic">Claude Opus (précis)</option>
@@ -828,6 +915,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     </label>
     <button class="ghost" id="account">👤 Compte</button>
     <button class="ghost" id="logout" style="display:none">⏻ Déconnexion</button>
+    <button class="ghost" id="maxi" title="Afficher en pleine page (agrandit le groupe d'éditeurs)">⛶ Plein écran</button>
     <span id="who" style="font-size:12px;color:var(--vscode-descriptionForeground)"></span>
   </div>
 
@@ -859,6 +947,23 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   });
   $('account').addEventListener('click', () => vscode.postMessage({ type: 'signIn' }));
   $('logout').addEventListener('click', () => vscode.postMessage({ type: 'signOut' }));
+  $('maxi').addEventListener('click', () => vscode.postMessage({ type: 'maximize' }));
+  $('attach').addEventListener('click', () => vscode.postMessage({ type: 'attach' }));
+  $('pchipX').addEventListener('click', () => vscode.postMessage({ type: 'detach' }));
+
+  let hasFile = false;
+  function renderChip(m) {
+    hasFile = !!m.filename;
+    const chip = $('pchip');
+    if (!hasFile) { chip.style.display = 'none'; $('go').textContent = 'Générer'; return; }
+    chip.style.display = 'flex';
+    const ko = Math.max(1, Math.round((m.size || 0) / 1024));
+    $('pchipName').textContent = '📄 ' + m.filename + ' · ' + ko + ' Ko';
+    const tag = $('pchipTag');
+    tag.textContent = m.isDdl ? 'DDL · analysé sans IA (gratuit)' : 'analysé par l\\'IA';
+    tag.className = 'chip-tag' + (m.isDdl ? '' : ' ia');
+    $('go').textContent = 'Analyser le fichier';
+  }
   $('save').addEventListener('click', () => vscode.postMessage({ type: 'save' }));
   $('zip').addEventListener('click', () => vscode.postMessage({ type: 'zip' }));
   $('web').addEventListener('click', () => vscode.postMessage({ type: 'continueWeb' }));
@@ -872,7 +977,9 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 
   window.addEventListener('message', (e) => {
     const m = e.data;
-    if (m.type === 'init') {
+    if (m.type === 'attachment') {
+      renderChip(m);
+    } else if (m.type === 'init') {
       if (m.provider) $('provider').value = m.provider;
       $('who').textContent = m.email ? 'Connecté : ' + m.email : '';
       $('logout').style.display = m.email ? '' : 'none';
