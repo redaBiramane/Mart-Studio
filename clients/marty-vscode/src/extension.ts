@@ -49,7 +49,7 @@ interface DesignResponse {
   };
   usage: { input: number; output: number; total: number };
   cost?: { usd: number; eur: number };
-  meta: { provider: string; model: string; entities: number; attributes: number; relations: number };
+  meta: { provider: string; model: string; entities: number; attributes: number; relations: number; source?: 'ddl' | 'ia'; filename?: string };
 }
 
 let panel: vscode.WebviewPanel | undefined;
@@ -112,6 +112,12 @@ class LauncherProvider implements vscode.WebviewViewProvider {
           break;
         case 'openProduct':
           await openProduct(this.context, String(msg.id || ''));
+          break;
+        case 'refresh':
+          await refreshLauncher(this.context);
+          break;
+        case 'importFile':
+          await importFile(this.context, String(msg.provider || 'anthropic'));
           break;
         case 'signIn':
           await signIn(this.context);
@@ -258,6 +264,75 @@ async function openProduct(context: vscode.ExtensionContext, id: string): Promis
     panel?.webview.postMessage({ type: 'result', data: lastResult });
   } catch (e) {
     panel?.webview.postMessage({ type: 'error', message: `Chargement impossible : ${(e as Error).message}` });
+  }
+}
+
+// ---- Import d'un fichier existant (SQL, SAS, CSV…) ----
+
+// Un DDL SQL est parsé côté serveur SANS IA : gratuit, instantané, sans limite
+// de taille. Les autres formats passent par le modèle.
+async function importFile(context: vscode.ExtensionContext, provider: string): Promise<void> {
+  const picked = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    openLabel: 'Importer',
+    filters: {
+      'Modèles et scripts': ['sql', 'ddl', 'sas', 'csv', 'txt', 'json', 'md', 'yml', 'yaml'],
+      'Tous les fichiers': ['*'],
+    },
+  });
+  if (!picked || !picked.length) return;
+
+  const uri = picked[0];
+  const filename = uri.path.split('/').pop() || 'fichier';
+
+  // Excel est un format binaire : on ne peut pas le lire tel quel.
+  if (/\.(xlsx|xls)$/i.test(filename)) {
+    vscode.window.showWarningMessage(
+      `Marty : les fichiers Excel (.xlsx) sont binaires et ne peuvent pas être lus directement. Enregistrez la feuille en CSV, puis réimportez-la.`,
+    );
+    return;
+  }
+
+  let content: string;
+  try {
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    content = new TextDecoder('utf-8').decode(bytes);
+  } catch (e) {
+    vscode.window.showErrorMessage(`Marty : lecture impossible (${(e as Error).message}).`);
+    return;
+  }
+  if (!content.trim()) {
+    vscode.window.showWarningMessage('Marty : ce fichier est vide.');
+    return;
+  }
+
+  openPanel(context);
+  panel?.webview.postMessage({ type: 'progress', message: `Import de « ${filename} »…` });
+
+  try {
+    const res = await authFetch(context, '/api/v1/import', {
+      method: 'POST',
+      body: JSON.stringify({ filename, content, options: { provider } }),
+    });
+    if (!res || !res.ok) {
+      let detail = 'import impossible';
+      try { detail = ((await res!.json()) as { error?: string }).error || detail; } catch { /* non-JSON */ }
+      panel?.webview.postMessage({ type: 'error', message: detail });
+      return;
+    }
+    lastResult = (await res.json()) as DesignResponse;
+    lastDescription = '';
+    if (panel && lastResult.product?.name) panel.title = `Marty — ${lastResult.product.name}`;
+    panel?.webview.postMessage({ type: 'result', data: lastResult });
+    void loadHistory(context);
+
+    if (lastResult.meta?.source === 'ddl') {
+      vscode.window.showInformationMessage(
+        `Marty : « ${filename} » importé — ${lastResult.meta.entities} tables analysées sans appel à l'IA (aucun coût).`,
+      );
+    }
+  } catch (e) {
+    panel?.webview.postMessage({ type: 'error', message: `Import échoué : ${(e as Error).message}` });
   }
 }
 
@@ -537,9 +612,19 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
   .acct .on { background:#1aa06d; }
   .acct .off { background:#e09100; }
   .acct .who { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  button.ghost2 { width:100%; margin-top:6px; background:transparent; color: var(--vscode-foreground);
+    border:1px solid var(--vscode-input-border, #4445); border-radius:6px; padding:7px 10px;
+    cursor:pointer; font-size:11.5px; }
+  button.ghost2:hover { background: var(--vscode-list-hoverBackground); }
   .sect { margin-top:18px; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px;
     color: var(--vscode-descriptionForeground); border-top:1px solid var(--vscode-editorWidget-border,#4443);
     padding-top:12px; margin-bottom:6px; }
+  .sect-row { display:flex; align-items:center; justify-content:space-between; }
+  button.icon { background:none; border:none; color: var(--vscode-descriptionForeground); cursor:pointer;
+    font-size:14px; padding:0 2px; line-height:1; }
+  button.icon:hover { color: var(--vscode-foreground); }
+  button.icon.spin { animation: mspin .8s linear infinite; }
+  @keyframes mspin { to { transform: rotate(360deg); } }
   .item { padding:7px 9px; border-radius:6px; cursor:pointer; margin-bottom:3px; }
   .item:hover { background: var(--vscode-list-hoverBackground); }
   .item .t { font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -567,8 +652,12 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
   </select>
 
   <button class="primary" id="go">Générer un Data Product</button>
+  <button class="ghost2" id="imp">📎 Importer un fichier (SQL, SAS, CSV…)</button>
 
-  <div class="sect">Mes générations</div>
+  <div class="sect sect-row">
+    <span>Mes générations</span>
+    <button class="icon" id="ref" title="Rafraîchir la liste">⟳</button>
+  </div>
   <div id="hist"><div class="empty">Aucune génération pour l'instant.</div></div>
 
 <script nonce="${n}">
@@ -600,7 +689,7 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
 
   window.addEventListener('message', (e) => {
     const m = e.data;
-    if (m.type === 'history') { renderHistory(m.products); return; }
+    if (m.type === 'history') { $('ref').classList.remove('spin'); renderHistory(m.products); return; }
     if (m.type !== 'init') return;
     signedIn = !!m.email;
     $('who').textContent = signedIn ? m.email : 'Non connecté';
@@ -619,6 +708,13 @@ function getLauncherHtml(webview: vscode.Webview, extensionUri: vscode.Uri): str
     const description = $('d').value.trim();
     const provider = $('p').value;
     vscode.postMessage(description ? { type: 'generate', description, provider } : { type: 'open' });
+  });
+
+  $('imp').addEventListener('click', () => vscode.postMessage({ type: 'importFile', provider: $('p').value }));
+
+  $('ref').addEventListener('click', () => {
+    $('ref').classList.add('spin');
+    vscode.postMessage({ type: 'refresh' });
   });
 </script>
 </body>
@@ -915,14 +1011,45 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   function erdPane(code) {
     const div = document.createElement('div');
     const tb = document.createElement('div'); tb.className = 'toolbar';
+
+    // Zoom du diagramme (le SVG rendu peut être large : on le met à l'échelle).
+    let scale = 1;
+    const graph = document.createElement('div'); graph.className = 'graph';
+    const applyZoom = () => {
+      const svg = graph.querySelector('svg');
+      if (!svg) return;
+      svg.style.transformOrigin = 'top left';
+      svg.style.transform = 'scale(' + scale + ')';
+      // Sans ça, le conteneur garde la taille d'origine et le zoom rogne le schéma.
+      graph.style.height = svg.getBoundingClientRect().height + 'px';
+      zoomLabel.textContent = Math.round(scale * 100) + '%';
+    };
+    const zoomBtn = (label, title, fn) => {
+      const b = document.createElement('button');
+      b.className = 'ghost'; b.textContent = label; b.title = title;
+      b.addEventListener('click', () => { fn(); applyZoom(); });
+      return b;
+    };
+    const zoomLabel = document.createElement('span');
+    zoomLabel.style.cssText = 'font-size:12px;opacity:.7;min-width:38px;text-align:center';
+    zoomLabel.textContent = '100%';
+
+    tb.appendChild(zoomBtn('−', 'Dézoomer', () => { scale = Math.max(0.3, scale - 0.15); }));
+    tb.appendChild(zoomLabel);
+    tb.appendChild(zoomBtn('+', 'Zoomer', () => { scale = Math.min(3, scale + 0.15); }));
+    tb.appendChild(zoomBtn('⤢ Ajuster', 'Ajuster à la largeur', () => {
+      const svg = graph.querySelector('svg');
+      if (!svg) { scale = 1; return; }
+      const w = svg.getBBox ? svg.getBBox().width : svg.clientWidth;
+      scale = w > 0 ? Math.min(3, Math.max(0.3, (graph.clientWidth - 8) / w)) : 1;
+    }));
     tb.appendChild(copyBtn(code));
 
     const live = document.createElement('button');
-    live.className = 'ghost'; live.textContent = '🔗 Ouvrir mermaid.live';
+    live.className = 'ghost'; live.textContent = '🔗 mermaid.live';
     live.addEventListener('click', () => vscode.postMessage({ type: 'openExternal', url: 'https://mermaid.live/edit' }));
     tb.appendChild(live);
 
-    const graph = document.createElement('div'); graph.className = 'graph';
     const pre = document.createElement('pre'); pre.textContent = code || '(vide)'; pre.style.display = 'none';
 
     const toggle = document.createElement('button');
@@ -936,7 +1063,8 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     tb.appendChild(toggle);
 
     div.appendChild(tb); div.appendChild(graph); div.appendChild(pre);
-    renderMermaid(code, graph);
+    // Le rendu est asynchrone : on ajuste la hauteur du conteneur une fois le SVG posé.
+    renderMermaid(code, graph).then(applyZoom);
     return div;
   }
 

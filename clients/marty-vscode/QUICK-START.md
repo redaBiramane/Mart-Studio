@@ -7,7 +7,7 @@ Tu as besoin de **2 choses** :
 
 | | |
 | --- | --- |
-| 📦 `marty-vscode-0.6.1.vsix` | L'extension à installer |
+| 📦 `marty-vscode-0.7.0.vsix` | L'extension à installer |
 | 👤 Ton compte Marty | **Celui que tu as déjà** sur [martstudio.it.com](https://www.martstudio.it.com) |
 
 > ℹ️ **Aucune clé API à saisir.** Ni Claude, ni OpenAI, ni quoi que ce soit.
@@ -20,7 +20,7 @@ Tu as besoin de **2 choses** :
 
 1. Dans VSCode : `Cmd+Shift+X` (Mac) / `Ctrl+Shift+X` (Windows) → panneau **Extensions**.
 2. Clique le menu **`…`** en haut du panneau → **« Install from VSIX… »**.
-3. Sélectionne le fichier **`marty-vscode-0.6.1.vsix`**.
+3. Sélectionne le fichier **`marty-vscode-0.7.0.vsix`**.
 
 ✅ Une **icône Marty** (verte) apparaît dans la barre d'activité, à gauche.
 

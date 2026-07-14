@@ -9,7 +9,7 @@ import { StepDefinition, WorkshopSession } from './types';
 // Le .vsix est publié sous un nom FIXE (public/downloads/marty-vscode.vsix), écrasé
 // à chaque release — le lien de téléchargement ne change donc jamais.
 export const VSCODE_EXTENSION = {
-  version: '0.6.1',
+  version: '0.7.0',
   file: '/downloads/marty-vscode.vsix',
 };
 
